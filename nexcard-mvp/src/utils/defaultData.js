@@ -1,0 +1,33 @@
+export const initialMockData = {
+  full_name: 'Carlos Alvarez',
+  profession: 'Head of Operations | Mas Medios Chile',
+  bio: 'Especialista en AdOps, Yield Management y optimización de procesos digitales para +120 medios de comunicación.',
+  avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=256&h=256',
+  theme_color: '#10B981',
+  is_dark_mode: true,
+  whatsapp: '56912345678',
+  instagram: 'carlos_alvarez_cl',
+  linkedin: 'carlos-alvarez-ops',
+  website: 'https://nexcard.cl',
+  calendar_url: 'https://calendly.com/carlos-alvarez',
+  vcard_enabled: true,
+  bank_enabled: true,
+  bank_name: 'Banco de Chile',
+  bank_type: 'Cuenta FAN',
+  bank_number: '123456789',
+  bank_rut: '12.345.678-9',
+  bank_email: 'carlos@grupoalvarez.cl',
+  slug: 'carlos-alvarez',
+};
+
+export const defaultLandingContent = {
+  heroBadge: 'Lanzamiento 2026 - Chile',
+  heroTitle: 'Tu tarjeta de presentación, en un solo toque.',
+  heroAccent: 'en un solo toque.',
+  heroDescription: 'Comparte contacto, agenda, links y branding en segundos. NexCard conecta identidad física y digital sin depender de apps.',
+  primaryCta: 'Personalizar mi Tarjeta',
+  secondaryCta: 'Ver planes',
+  socialProof: '+120 profesionales ya usan NexCard',
+  finalCtaTitle: '¿Listo para jubilar tu tarjeta de papel?',
+  finalCtaButton: 'Ordena tu NexCard Ahora',
+};
