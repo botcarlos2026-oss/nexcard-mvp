@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
     "autoprefixer": "^10.4.16",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "lucide-react": "^0.284.0",
+    "pg": "^8.11.5",
     "postcss": "^8.4.31",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",
@@ -18,10 +20,14 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "server": "node server/index.js",
-    "dev": "concurrently \"npm run server\" \"npm start\""
+    "dev": "concurrently \"npm run server\" \"npm start\"",
+    "cypress:open": "cypress open",
+    "test:e2e": "cypress run"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "@testing-library/cypress": "^10.0.3",
+    "cypress": "^13.8.0"
   },
   "browserslist": {
     "production": [

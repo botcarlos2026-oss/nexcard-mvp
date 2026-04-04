@@ -10,8 +10,6 @@ import {
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
 
-const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
-
 const AdminDashboard = ({ dashboard }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -20,7 +18,7 @@ const AdminDashboard = ({ dashboard }) => {
   const recentOrders = dashboard?.recentOrders || [];
 
   const stats = useMemo(() => ([
-    { label: 'Ingresos cobrados', value: currency.format(statsSource.totalRevenue || 0), icon: DollarSign, color: 'text-emerald-500' },
+    { label: 'Ingresos cobrados', value: statsSource.totalRevenue || 0, icon: DollarSign, color: 'text-emerald-500' },
     { label: 'Perfiles activos', value: `${statsSource.totalProfiles || 0}`, icon: Users, color: 'text-blue-500' },
     { label: 'Pedidos abiertos', value: `${statsSource.pendingOrders || 0}`, icon: Package, color: 'text-amber-500' },
   ]), [statsSource]);
@@ -132,7 +130,7 @@ const AdminDashboard = ({ dashboard }) => {
                       <p className="font-black text-sm">{order.customer_name}</p>
                       <p className="text-xs text-zinc-500 font-medium">{order.payment_method} · {order.payment_status}</p>
                     </div>
-                    <span className="text-sm font-black text-zinc-950">{currency.format(order.amount)}</span>
+                    <span className="text-sm font-black text-zinc-950">{order.amount_cents ? Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(order.amount_cents / 100) : '-'}</span>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-zinc-400">
                     <span>{order.id}</span>
@@ -146,7 +144,7 @@ const AdminDashboard = ({ dashboard }) => {
           <div className="bg-zinc-950 text-white rounded-[32px] p-6 shadow-sm">
             <p className="text-xs uppercase tracking-widest font-black text-zinc-500 mb-3">Diagnóstico</p>
             <p className="text-sm font-medium leading-relaxed text-zinc-300">
-              La base ya separa conversión comercial de operación interna. Próximo cuello de botella real: checkout, roles persistentes y órdenes conectadas a producción.
+              Base lista para migrar admin e integraciones de pago. Siguiente cuello de botella: auth/roles efectivos, CMS admin y órdenes conectadas a producción.
             </p>
             <div className="mt-5 grid grid-cols-2 gap-4 text-sm font-bold">
               <div className="bg-white/5 rounded-2xl p-4">

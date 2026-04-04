@@ -1,0 +1,62 @@
+import asyncio
+import os
+import traceback
+from dotenv import load_dotenv
+from openclaw_sdk import OpenClawClient, Agent, ClientConfig
+from openclaw_sdk.gateway.local import LocalGateway 
+
+load_dotenv()
+
+def leer_archivo(ruta):
+    try:
+        with open(ruta, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error al leer {ruta}: {str(e)}"
+
+async def main():
+    gw = LocalGateway()
+    try:
+        print("🔌 Sincronizando infraestructura...")
+        await gw.connect()
+        print("✅ Gateway conectado.")
+
+        client_conf = ClientConfig(timeout=120) # 2 minutos es suficiente ahora
+        client = OpenClawClient(config=client_conf, gateway=gw)
+        agent = Agent(client, "SocioEstrategico")
+
+        # 📂 LECTURA PREVIA (Bypass de herramientas)
+        path = os.getenv("NEXCARD_PATH")
+        print(f"📖 Cargando archivos desde: {path}")
+        
+        contenido_bitacora = leer_archivo(os.path.join(path, "BITACORA_ETAPA_8.md"))
+        contenido_sql = leer_archivo(os.path.join(path, "DATABASE_SETUP.sql"))
+
+        # 🧠 PROMPT QUIRÚRGICO
+        query = (
+            "Actúa como Auditor Senior. He cargado el contenido de dos archivos críticos para Nexcard.\n\n"
+            f"--- CONTENIDO BITÁCORA ETAPA 8 ---\n{contenido_bitacora}\n\n"
+            f"--- CONTENIDO DATABASE_SETUP.sql ---\n{contenido_sql}\n\n"
+            "Misión: ¿El esquema SQL actual permite almacenar los precios de los chips NTAG215 mencionados? "
+            "Responde de forma concisa con un 'Sí/No' y la justificación técnica."
+        )
+        
+        print("🚀 Procesando auditoría (Modo Directo)...")
+        response = await agent.execute(query)
+
+        print("\n📊 INFORME FINAL:")
+        print("-" * 45)
+        print(response.content)
+        print("-" * 45)
+
+    except Exception:
+        print("\n❌ FALLO OPERATIVO:")
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+
+
+

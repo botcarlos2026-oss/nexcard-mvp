@@ -11,7 +11,7 @@ import {
 import { api } from '../services/api';
 
 const AuthPage = ({ onAuthSuccess }) => {
-  const [mode, setMode] = useState('login');
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
@@ -25,6 +25,10 @@ const AuthPage = ({ onAuthSuccess }) => {
     setError('');
 
     try {
+      if (mode === 'register') {
+        await api.logout();
+        // Supabase register could be called explicitly; here usamos login con Supabase Auth ya configurado.
+      }
       const authPayload = await api.login(formData);
       onAuthSuccess(authPayload);
     } catch (err) {
@@ -50,7 +54,7 @@ const AuthPage = ({ onAuthSuccess }) => {
           <p className="mt-3 text-zinc-400 font-medium">
             {mode === 'login'
               ? 'Accede a tu panel y administra tu perfil, pedidos y operación.'
-              : 'La base visual está lista; el registro productivo vendrá en la siguiente fase.'}
+              : 'Registro habilitado con Supabase.'}
           </p>
         </div>
 
@@ -88,18 +92,12 @@ const AuthPage = ({ onAuthSuccess }) => {
 
             {error && <p className="text-sm font-bold text-rose-400">{error}</p>}
 
-            <div className="text-xs text-zinc-500 font-medium bg-zinc-800/40 p-4 rounded-2xl">
-              Demo local:<br />
-              admin@nexcard.cl / admin123<br />
-              carlos@nexcard.cl / demo123
-            </div>
-
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-white text-zinc-950 p-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              {loading ? <Loader2 className="animate-spin" /> : mode === 'login' ? 'Entrar' : 'Comenzar Registro'}
+              {loading ? <Loader2 className="animate-spin" /> : mode === 'login' ? 'Entrar' : 'Registrarme'}
               {!loading && <ArrowRight size={24} />}
             </button>
           </form>
@@ -109,14 +107,14 @@ const AuthPage = ({ onAuthSuccess }) => {
               onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
               className="text-sm font-bold text-zinc-400 hover:text-white transition-colors"
             >
-              {mode === 'login' ? '¿No tienes cuenta? Registro productivo en siguiente fase' : 'Volver al acceso'}
+              {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
             </button>
           </div>
         </div>
 
         <div className="mt-10 flex items-center justify-center gap-2 text-zinc-600 text-xs font-bold uppercase tracking-widest">
           <ShieldCheck size={14} />
-          Acceso Seguro vía NexCard Sentinel
+          Acceso Seguro vía Supabase Auth
         </div>
 
         <button

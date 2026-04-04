@@ -12,12 +12,12 @@ const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: '
 
 const InventoryDashboard = ({ items = [] }) => {
   const stock = items;
-  const totalValue = stock.reduce((sum, item) => sum + (item.stock * item.cost), 0);
-  const criticalItems = stock.filter(item => item.stock <= item.min).length;
+  const totalValue = stock.reduce((sum, item) => sum + ((item.stock || 0) * (item.cost_cents ? item.cost_cents / 100 : 0)), 0);
+  const criticalItems = stock.filter(item => (item.stock || 0) <= (item.min_stock || 0)).length;
 
   const kpis = [
     { label: 'Valorización Stock', value: currency.format(totalValue), icon: BarChart3, color: 'text-blue-500' },
-    { label: 'Capacidad de Impresión', value: `${stock.filter(item => item.category === 'Tarjetas').reduce((sum, item) => sum + item.stock, 0)} u`, icon: Printer, color: 'text-emerald-500' },
+    { label: 'Capacidad de Impresión', value: `${stock.filter(item => item.category === 'Tarjetas').reduce((sum, item) => sum + (item.stock || 0), 0)} u`, icon: Printer, color: 'text-emerald-500' },
     { label: 'Ítems críticos', value: `${criticalItems}`, icon: ShoppingCart, color: 'text-amber-500' },
   ];
 
@@ -78,9 +78,9 @@ const InventoryDashboard = ({ items = [] }) => {
                       <span className="text-xs font-bold text-zinc-400">{item.unit}</span>
                     </div>
                   </td>
-                  <td className="px-8 py-5 font-bold text-zinc-700">{currency.format(item.cost)}</td>
+                  <td className="px-8 py-5 font-bold text-zinc-700">{currency.format(item.cost_cents ? item.cost_cents / 100 : 0)}</td>
                   <td className="px-8 py-5">
-                    {item.stock <= item.min ? (
+                    {(item.stock || 0) <= (item.min_stock || 0) ? (
                       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-rose-50 text-rose-600 text-[10px] font-black uppercase">
                         <AlertTriangle size={12} /> Stock Crítico
                       </div>

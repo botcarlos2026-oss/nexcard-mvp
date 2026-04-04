@@ -8,6 +8,7 @@ import SetupWizard from './components/SetupWizard';
 import AuthPage from './components/AuthPage';
 import { api, getStoredAuth, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
+import { supabase, hasSupabase } from './services/supabaseClient';
 
 function App() {
   const [data, setData] = useState(initialMockData);
@@ -18,6 +19,21 @@ function App() {
   const [adminData, setAdminData] = useState(null);
   const [inventoryData, setInventoryData] = useState([]);
   const [error, setError] = useState('');
+
+  // Escucha cambios de sesión supabase
+  useEffect(() => {
+    if (!hasSupabase || !supabase) return;
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        setStoredAuth({ user: session.user });
+      } else {
+        setUser(null);
+        setStoredAuth(null);
+      }
+    });
+    return () => listener?.subscription?.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const handleLocationChange = () => setPath(window.location.pathname);
@@ -100,7 +116,8 @@ function App() {
     navigate('/edit');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await api.logout();
     setUser(null);
     setStoredAuth(null);
     navigate('/login');
