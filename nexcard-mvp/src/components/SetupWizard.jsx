@@ -27,7 +27,16 @@ const SetupWizard = ({ onComplete }) => {
   const prevStep = () => setStep(s => s - 1);
 
   const handleFinish = () => {
-    onComplete(formData);
+    const generateSlug = (name) => name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-');
+
+    const slug = generateSlug(formData.full_name || '');
+    onComplete({ ...formData, slug });
   };
 
   return (

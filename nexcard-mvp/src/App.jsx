@@ -20,6 +20,11 @@ function App() {
   const [inventoryData, setInventoryData] = useState([]);
   const [error, setError] = useState('');
 
+  const navigate = (newPath) => {
+    window.history.pushState({}, '', newPath);
+    setPath(newPath);
+  };
+
   // Escucha cambios de sesión supabase
   useEffect(() => {
     if (!hasSupabase || !supabase) return;
@@ -55,6 +60,11 @@ function App() {
         }
 
         if (path === '/admin') {
+          if (!user) {
+            navigate('/login');
+            setLoading(false);
+            return;
+          }
           const dashboard = await api.getAdminDashboard();
           setAdminData(dashboard);
           setLoading(false);
@@ -62,6 +72,11 @@ function App() {
         }
 
         if (path === '/admin/inventory') {
+          if (!user) {
+            navigate('/login');
+            setLoading(false);
+            return;
+          }
           const inventory = await api.getInventory();
           setInventoryData(inventory.items || []);
           setLoading(false);
@@ -99,11 +114,6 @@ function App() {
 
     bootstrap();
   }, [path, user]);
-
-  const navigate = (newPath) => {
-    window.history.pushState({}, '', newPath);
-    setPath(newPath);
-  };
 
   const handleSave = async (newData) => {
     const saved = await api.updateMyProfile(newData).catch(() => newData);

@@ -117,6 +117,17 @@ async function supabaseDashboard() {
     .select('*');
   if (profilesErr) throw profilesErr;
 
+  const { data: events, error: eventsErr } = await supabase
+    .from('events')
+    .select('profile_slug, event_type');
+  if (eventsErr) throw eventsErr;
+
+  const eventCounts = {};
+  events.forEach((e) => {
+    const key = `${e.profile_slug}|${e.event_type}`;
+    eventCounts[key] = (eventCounts[key] || 0) + 1;
+  });
+
   const { data: orders, error: ordersErr } = await supabase
     .from('orders')
     .select('*');
@@ -132,8 +143,8 @@ async function supabaseDashboard() {
     slug: profile.slug,
     status: profile.status,
     taps: profile.view_count || 0,
-    wa_clicks: Math.round((profile.view_count || 0) * 0.35),
-    vcard_clicks: Math.round((profile.view_count || 0) * 0.24),
+    wa_clicks: eventCounts[`${profile.slug}|whatsapp`] || 0,
+    vcard_clicks: eventCounts[`${profile.slug}|vcard`] || 0,
     color: profile.theme_color || '#10B981',
     account_type: profile.account_type,
   }));
@@ -185,6 +196,15 @@ export const api = {
   health: () => request('/health'),
 
   // Auth: Supabase first, fallback mock
+  register: async (payload) => {
+    if (hasSupabase) {
+      const data = await supaRegister(payload);
+      const user = data.user;
+      setStoredAuth({ user });
+      return { user };
+    }
+    return request('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
+  },
   login: async (payload) => {
     if (hasSupabase) {
       const data = await supaLogin(payload);
@@ -310,5 +330,19 @@ export const api = {
 
   // Upload / track (mock)
   uploadAvatar: (imageUrl) => request('/upload/avatar', { method: 'POST', body: JSON.stringify({ imageUrl }) }),
-  trackClick: (payload) => request('/track', { method: 'POST', body: JSON.stringify(payload) }),
+  trackClick: async ({ slug, buttonType }) => {
+    if (hasSupabase) {
+      try {
+        await supabase.from('events').insert({
+          profile_slug: slug,
+          event_type: buttonType,
+          metadata: { source: 'nfc', device: navigator.userAgent },
+        });
+        return;
+      } catch (e) {
+        console.warn('Supabase track error, fallback local', e.message);
+      }
+    }
+    return request('/track', { method: 'POST', body: JSON.stringify({ slug, buttonType }) });
+  },
 };

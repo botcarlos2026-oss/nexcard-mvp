@@ -11,12 +11,4 @@ export const trackClick = async (slug, buttonType) => {
   } catch (error) {
     console.error('[SENTINEL ANALYTICS] Error enviando evento:', error);
   }
-
-  const statsKey = `nexcard_stats_${slug}`;
-  const currentStats = JSON.parse(localStorage.getItem(statsKey) || '{"whatsapp":0, "vcard":0, "instagram":0, "calendar":0}');
-
-  if (currentStats[buttonType] !== undefined) {
-    currentStats[buttonType] += 1;
-    localStorage.setItem(statsKey, JSON.stringify(currentStats));
-  }
 };

@@ -25,14 +25,12 @@ const AuthPage = ({ onAuthSuccess }) => {
     setError('');
 
     try {
-      if (mode === 'register') {
-        await api.logout();
-        // Supabase register could be called explicitly; here usamos login con Supabase Auth ya configurado.
-      }
-      const authPayload = await api.login(formData);
+      const authPayload = mode === 'register'
+        ? await api.register(formData)
+        : await api.login(formData);
       onAuthSuccess(authPayload);
     } catch (err) {
-      setError(err.message || 'No fue posible iniciar sesión');
+      setError(err.message || 'No fue posible iniciar sesión/registro');
     } finally {
       setLoading(false);
     }
