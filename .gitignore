@@ -1,0 +1,11 @@
+# Root ignore
+.DS_Store
+*.env*
+.env
+.env.local
+memory/
+venv_bots/
+run_agent.py
+test_bots.py
+test_final.py
+cypress/downloads/
