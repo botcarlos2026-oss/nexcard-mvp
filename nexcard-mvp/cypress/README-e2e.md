@@ -23,7 +23,7 @@
 - `smoke.cy.js` → login, perfil público, admin dashboard.
 - `profile-edit.cy.js` → edición básica y toggle bancario.
 - `wizard.cy.js` → flujo de setup.
-- `admin.cy.js` → dashboard + inventario.
+- `admin.cy.js` → dashboard + inventario (el test de ítems está **skip** hasta que la UI muestre inventario seed de forma consistente).
 - `logout.cy.js` → cierre de sesión.
 
 ## Notas

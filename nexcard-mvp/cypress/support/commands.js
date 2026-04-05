@@ -6,9 +6,9 @@ Cypress.Commands.add('loginUI', () => {
   }
 
   cy.visit('/login');
-  cy.findByPlaceholderText(/correo@ejemplo.com/i).type(email);
-  cy.findByPlaceholderText(/••••••••/i).type(password);
-  cy.findByRole('button', { name: /entrar/i }).click();
+  cy.get('[data-cy=auth-email]').type(email, { delay: 5 });
+  cy.get('[data-cy=auth-password]').type(password, { log: false });
+  cy.get('[data-cy=auth-submit]').click();
   cy.location('pathname', { timeout: 8000 }).should('match', /\/edit|\/admin/);
 });
 

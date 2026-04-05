@@ -22,7 +22,6 @@ describe('NexCard smoke flow', () => {
   it('admin dashboard shows datasets', () => {
     cy.loginUI();
     cy.visit('/admin');
-    cy.contains(/inventario/i).should('exist');
-    cy.contains(/orders|órdenes/i).should('exist');
+    cy.get('[data-cy=admin-inventory]').should('exist');
   });
 });

@@ -7,17 +7,18 @@ describe('Editor de Perfil', () => {
     cy.viewport(1280, 720);
     cy.loginUI();
     cy.visit('/edit');
+    cy.contains(/Básico/i).click();
   });
 
   it('edits basic fields and saves', () => {
-    cy.findByLabelText(/nombre/i).clear().type('Carlos Alvarez QA');
-    cy.contains(/guardar/i).click();
+    cy.get('[data-cy=profile-name]').clear().type('Carlos Alvarez QA');
+    cy.get('[data-cy=save-profile]').click();
     cy.contains(/cambios guardados/i, { matchCase: false }).should('exist');
   });
 
   it('toggles bank section', () => {
     cy.contains(/Pago/i).click();
-    cy.get('input[type="checkbox"],button[role="switch"],label:contains("banc")').first().click({ force: true });
+    cy.get('[data-cy=bank-toggle]').click({ force: true });
     cy.contains(/Datos bancarios|Banco/i).should('exist');
   });
 });

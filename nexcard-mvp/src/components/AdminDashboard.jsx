@@ -49,7 +49,7 @@ const AdminDashboard = ({ dashboard }) => {
       </div>
 
       <div className="grid lg:grid-cols-[1.6fr,1fr] gap-6">
-        <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm overflow-hidden" data-cy="admin-inventory">
           <div className="p-6 border-b border-zinc-100 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="font-black text-xl">Perfiles y rendimiento</h2>
@@ -62,7 +62,7 @@ const AdminDashboard = ({ dashboard }) => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" data-cy="admin-users-table">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] uppercase tracking-widest font-black">

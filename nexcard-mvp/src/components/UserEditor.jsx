@@ -69,12 +69,13 @@ const UserEditor = ({ data, onSave, onLogout }) => {
             </div>
             <span className="font-black text-lg tracking-tight">Editor NexCard</span>
           </div>
-          <div className="flex gap-3">
-            <button onClick={onLogout} className="p-2 text-zinc-400 hover:text-zinc-950 transition-colors">
+           <div className="flex gap-3">
+            <button data-cy="logout" onClick={onLogout} className="p-2 text-zinc-400 hover:text-zinc-950 transition-colors">
               <LogOut size={20} />
             </button>
             <button
               onClick={handleSave}
+              data-cy="save-profile"
               className="px-6 py-2 bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-100 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
             >
               {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
@@ -153,9 +154,9 @@ const UserEditor = ({ data, onSave, onLogout }) => {
               </div>
 
               <div className="space-y-4">
-                <label className="block">
+                <label className="block" data-cy="profile-name-label">
                   <span className="text-xs font-black uppercase tracking-widest text-zinc-400 ml-1">Nombre Completo</span>
-                  <input type="text" value={profile.full_name || ''} onChange={(e) => handleChange('full_name', e.target.value)} className="mt-2 w-full px-5 py-4 bg-zinc-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/10 transition-all" />
+                  <input id="profile-name" data-cy="profile-name" type="text" value={profile.full_name || ''} onChange={(e) => handleChange('full_name', e.target.value)} className="mt-2 w-full px-5 py-4 bg-zinc-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/10 transition-all" />
                 </label>
                 <label className="block">
                   <span className="text-xs font-black uppercase tracking-widest text-zinc-400 ml-1">Cargo / Profesión</span>
@@ -217,7 +218,7 @@ const UserEditor = ({ data, onSave, onLogout }) => {
                   <p className="font-bold text-sm text-emerald-950">Mostrar Datos Bancarios</p>
                   <p className="text-xs text-emerald-600/80 font-medium">Habilita el acordeón de transferencia</p>
                 </div>
-                <button onClick={() => handleChange('bank_enabled', !profile.bank_enabled)} className={`w-12 h-6 rounded-full transition-colors relative ${profile.bank_enabled ? 'bg-emerald-500' : 'bg-zinc-300'}`}>
+                <button data-cy="bank-toggle" onClick={() => handleChange('bank_enabled', !profile.bank_enabled)} className={`w-12 h-6 rounded-full transition-colors relative ${profile.bank_enabled ? 'bg-emerald-500' : 'bg-zinc-300'}`}>
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${profile.bank_enabled ? 'left-7' : 'left-1'}`}></div>
                 </button>
               </div>

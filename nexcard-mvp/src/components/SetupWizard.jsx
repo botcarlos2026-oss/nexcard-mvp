@@ -91,6 +91,7 @@ const SetupWizard = ({ onComplete }) => {
             
             <div className="mt-10 space-y-4">
               <input 
+                data-cy="wizard-name"
                 type="text" 
                 placeholder={formData.account_type === 'personal' ? "Tu Nombre Completo" : "Nombre de la Empresa"}
                 value={formData.full_name}
@@ -98,6 +99,7 @@ const SetupWizard = ({ onComplete }) => {
                 className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl px-6 py-5 text-lg font-bold focus:border-emerald-500 outline-none transition-all"
               />
               <input 
+                data-cy="wizard-profession"
                 type="text" 
                 placeholder={formData.account_type === 'personal' ? "Tu Profesión / Cargo" : "Rubro / Especialidad"}
                 value={formData.profession}
@@ -174,6 +176,7 @@ const SetupWizard = ({ onComplete }) => {
             
             <div className="mt-10">
               <input 
+                data-cy="wizard-whatsapp"
                 type="text" 
                 placeholder="WhatsApp (ej: 56912345678)"
                 value={formData.whatsapp}

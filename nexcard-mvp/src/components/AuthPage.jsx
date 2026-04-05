@@ -61,10 +61,12 @@ const AuthPage = ({ onAuthSuccess }) => {
         <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-[32px] shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Correo Electrónico</label>
+              <label htmlFor="auth-email" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Correo Electrónico</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                 <input
+                  id="auth-email"
+                  data-cy="auth-email"
                   type="email"
                   required
                   placeholder="ejemplo@correo.com"
@@ -76,10 +78,12 @@ const AuthPage = ({ onAuthSuccess }) => {
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Contraseña</label>
+              <label htmlFor="auth-password" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Contraseña</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                 <input
+                  id="auth-password"
+                  data-cy="auth-password"
                   type="password"
                   required
                   placeholder="••••••••"
@@ -94,6 +98,7 @@ const AuthPage = ({ onAuthSuccess }) => {
 
             <button
               type="submit"
+              data-cy="auth-submit"
               disabled={loading}
               className="w-full bg-white text-zinc-950 p-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
             >
