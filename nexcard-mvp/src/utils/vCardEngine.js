@@ -25,7 +25,11 @@ export const generateVCard = async (data) => {
     `X-SOCIALMSGR;TYPE=linkedin:${data.linkedin || ''}`,
     'REV:' + new Date().toISOString(),
     'END:VCARD'
-  ].filter(line => line !== ''); // Eliminar líneas vacías si no hay foto
+  ].filter(line => {
+    if (!line) return false;
+    const val = line.split(':').slice(1).join(':').trim();
+    return val && val !== 'null' && val !== 'undefined';
+  });
 
   const vCardString = vCardLines.join('\n');
   const blob = new Blob([vCardString], { type: 'text/vcard;charset=utf-8' });
@@ -37,4 +41,5 @@ export const generateVCard = async (data) => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 };

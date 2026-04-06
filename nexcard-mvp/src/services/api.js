@@ -332,16 +332,13 @@ export const api = {
   uploadAvatar: (imageUrl) => request('/upload/avatar', { method: 'POST', body: JSON.stringify({ imageUrl }) }),
   trackClick: async ({ slug, buttonType }) => {
     if (hasSupabase) {
-      try {
-        await supabase.from('events').insert({
-          profile_slug: slug,
-          event_type: buttonType,
-          metadata: { source: 'nfc', device: navigator.userAgent },
-        });
-        return;
-      } catch (e) {
-        console.warn('Supabase track error, fallback local', e.message);
-      }
+      const { error } = await supabase.from('events').insert({
+        profile_slug: slug,
+        event_type: buttonType,
+        metadata: { source: 'web', device: navigator.userAgent },
+      });
+      if (!error) return;
+      console.warn('Supabase track error, fallback local', error.message);
     }
     return request('/track', { method: 'POST', body: JSON.stringify({ slug, buttonType }) });
   },

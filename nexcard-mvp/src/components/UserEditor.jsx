@@ -15,6 +15,7 @@ import {
   LayoutTemplate
 } from 'lucide-react';
 import { uploadAvatar } from '../utils/imageEngine';
+import { supabase } from '../services/supabaseClient';
 
 const UserEditor = ({ data, onSave, onLogout }) => {
   const [profile, setProfile] = useState(data);
@@ -29,7 +30,10 @@ const UserEditor = ({ data, onSave, onLogout }) => {
 
     setUploading(true);
     try {
-      const newUrl = await uploadAvatar('user_123', file);
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('No hay sesión activa');
+      const newUrl = await uploadAvatar(userId, file);
       handleChange('avatar_url', newUrl);
     } catch (error) {
       console.error('Error subiendo imagen:', error);

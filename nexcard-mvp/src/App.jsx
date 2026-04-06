@@ -59,26 +59,31 @@ function App() {
           return;
         }
 
-        if (path === '/admin') {
+        if (path === '/admin' || path === '/admin/inventory') {
           if (!user) {
             navigate('/login');
             setLoading(false);
             return;
           }
-          const dashboard = await api.getAdminDashboard();
-          setAdminData(dashboard);
-          setLoading(false);
-          return;
-        }
-
-        if (path === '/admin/inventory') {
-          if (!user) {
-            navigate('/login');
+          const { data: membership, error: memErr } = await supabase
+            .from('memberships')
+            .select('role')
+            .eq('user_id', user.id)
+            .in('role', ['admin', 'company_owner'])
+            .maybeSingle();
+          if (memErr) throw memErr;
+          if (!membership) {
+            navigate('/');
             setLoading(false);
             return;
           }
-          const inventory = await api.getInventory();
-          setInventoryData(inventory.items || []);
+          if (path === '/admin') {
+            const dashboard = await api.getAdminDashboard();
+            setAdminData(dashboard);
+          } else {
+            const inventory = await api.getInventory();
+            setInventoryData(inventory.items || []);
+          }
           setLoading(false);
           return;
         }

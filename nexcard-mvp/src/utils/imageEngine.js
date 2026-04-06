@@ -1,4 +1,4 @@
-import { api } from '../services/api';
+import { supabase } from '../services/supabaseClient';
 
 /**
  * NexCard Sentinel - Image Processing Utility
@@ -7,15 +7,15 @@ import { api } from '../services/api';
 
 export const uploadAvatar = async (userId, file) => {
   console.log(`[SENTINEL STORAGE] Subiendo imagen para usuario: ${userId}`);
-  const localPreview = URL.createObjectURL(file);
+  const ext = file.name.split('.').pop();
+  const path = `${userId}/${Date.now()}.${ext}`;
 
-  try {
-    const response = await api.uploadAvatar(localPreview);
-    return response.url || localPreview;
-  } catch (error) {
-    console.error('Error subiendo avatar al API local:', error);
-    return localPreview;
-  }
+  const { data, error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(data.path);
+  return urlData.publicUrl;
 };
 
 export const imageUrlToBase64 = async (url) => {

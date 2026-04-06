@@ -26,7 +26,7 @@ const SetupWizard = ({ onComplete }) => {
   const nextStep = () => setStep(s => s + 1);
   const prevStep = () => setStep(s => s - 1);
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     const generateSlug = (name) => name
       .toLowerCase()
       .normalize('NFD')
@@ -35,7 +35,20 @@ const SetupWizard = ({ onComplete }) => {
       .trim()
       .replace(/\s+/g, '-');
 
-    const slug = generateSlug(formData.full_name || '');
+    let slug = generateSlug(formData.full_name || '');
+    try {
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('slug', slug)
+        .maybeSingle();
+      if (existing) {
+        slug = `${slug}-${Date.now()}`;
+      }
+    } catch (e) {
+      console.warn('Slug uniqueness check skipped:', e.message);
+    }
+
     onComplete({ ...formData, slug });
   };
 
