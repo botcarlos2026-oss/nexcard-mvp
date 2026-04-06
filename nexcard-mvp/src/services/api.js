@@ -77,6 +77,8 @@ async function supabasePublicProfile(slug) {
     .eq('status', 'active')
     .single();
   if (error) throw error;
+  // Incrementar view_count de forma atómica (RPC en DB). No hacemos await para no bloquear la carga.
+  supabase.rpc('increment_view_count', { profile_slug: slug }).catch(() => {});
   return data;
 }
 
