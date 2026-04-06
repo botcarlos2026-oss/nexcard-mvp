@@ -1,6 +1,7 @@
 node_modules/
 build/
 server/data/db.json
+server/data/seed.json
 .DS_Store
 *.env*
 .env

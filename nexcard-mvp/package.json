@@ -8,7 +8,6 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "lucide-react": "^0.284.0",
-    "pg": "^8.11.5",
     "postcss": "^8.4.31",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",
@@ -25,8 +24,8 @@
     "test:e2e": "cypress run"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
     "@testing-library/cypress": "^10.0.3",
+    "concurrently": "^9.1.2",
     "cypress": "^13.8.0"
   },
   "browserslist": {
