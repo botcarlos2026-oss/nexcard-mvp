@@ -122,7 +122,7 @@ const NexCardProfile = ({ data }) => {
         
         {/* Social Grid */}
         <div className="grid grid-cols-4 gap-3">
-          {data.whatsapp && (
+          {(data.whatsapp_enabled !== false && data.whatsapp) && (
             <a 
               href={`https://wa.me/${data.whatsapp}`}
               onClick={() => handleLinkClick('whatsapp')}
@@ -133,7 +133,7 @@ const NexCardProfile = ({ data }) => {
               <Phone size={24} className="text-green-500" />
             </a>
           )}
-          {data.linkedin && (
+          {(data.linkedin_enabled !== false && data.linkedin) && (
             <a 
               href={data.linkedin.startsWith('http') ? data.linkedin : `https://linkedin.com/in/${data.linkedin}`}
               onClick={() => handleLinkClick('linkedin')}
@@ -144,7 +144,7 @@ const NexCardProfile = ({ data }) => {
               <Linkedin size={24} className="text-blue-600" />
             </a>
           )}
-          {data.instagram && (
+          {(data.instagram_enabled !== false && data.instagram) && (
             <a 
               href={`https://instagram.com/${data.instagram}`}
               onClick={() => handleLinkClick('instagram')}
@@ -155,7 +155,7 @@ const NexCardProfile = ({ data }) => {
               <Instagram size={24} className="text-pink-500" />
             </a>
           )}
-          {data.facebook && (
+          {(data.facebook_enabled !== false && data.facebook) && (
             <a 
               href={data.facebook.startsWith('http') ? data.facebook : `https://facebook.com/${data.facebook}`}
               onClick={() => handleLinkClick('facebook')}
@@ -170,7 +170,7 @@ const NexCardProfile = ({ data }) => {
 
         {/* Contact Info Blocks */}
         <div className="space-y-3">
-          {data.contact_phone && (
+          {(data.contact_phone_enabled !== false && data.contact_phone) && (
             <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
               <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
                 <Phone size={18} />
@@ -182,7 +182,7 @@ const NexCardProfile = ({ data }) => {
             </div>
           )}
           
-          {data.contact_email && (
+          {(data.contact_email_enabled !== false && data.contact_email) && (
             <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
               <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
                 <Mail size={18} />
@@ -194,7 +194,7 @@ const NexCardProfile = ({ data }) => {
             </div>
           )}
 
-          {data.website_url && (
+          {(data.website_enabled !== false && data.website_url) && (
             <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
               <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
                 <Globe size={18} />
@@ -250,7 +250,7 @@ const NexCardProfile = ({ data }) => {
         <div className="pt-4">
           <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-4 px-2">Enlaces Útiles</h3>
           <div className="space-y-3">
-            {data.calendar_url && (
+            {(data.calendar_url_enabled !== false && data.calendar_url) && (
               <a 
                 href={data.calendar_url}
                 onClick={() => handleLinkClick('calendar')}
@@ -268,7 +268,7 @@ const NexCardProfile = ({ data }) => {
               </a>
             )}
             
-            {data.portfolio_url && (
+            {(data.portfolio_enabled !== false && data.portfolio_url) && (
               <a 
                 href={data.portfolio_url}
                 onClick={() => handleLinkClick('portfolio')}
