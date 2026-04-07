@@ -10,7 +10,12 @@ import {
   Copy, 
   Check, 
   Share2,
-  ExternalLink 
+  ExternalLink,
+  MapPin,
+  Mail,
+  Facebook,
+  CreditCard,
+  FileText
 } from 'lucide-react';
 import { generateVCard } from '../utils/vCardEngine';
 import { trackClick } from '../utils/analyticsEngine';
@@ -49,152 +54,239 @@ const NexCardProfile = ({ data }) => {
     }
   };
 
+  const handleCopyAllBankData = () => {
+    const textToCopy = `Datos de Transferencia:\nBanco: ${data.bank_name || ''}\nTipo: ${data.bank_type || ''}\nCuenta: ${data.bank_number || ''}\nRUT: ${data.bank_rut || ''}\nNombre: ${data.full_name || ''}\nEmail: ${data.contact_email || ''}`;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedField('all_bank');
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   return (
     <div className={`min-h-screen font-sans ${isDark ? 'bg-zinc-950 text-white' : 'bg-gray-50 text-zinc-900'}`}>
       
-      {/* Header / Avatar Section */}
-      <div className="max-w-md mx-auto px-6 pt-12 pb-8 text-center">
+      {/* Header Banner */}
+      <div className="relative h-32 w-full bg-gradient-to-r from-pink-500 via-purple-300 to-blue-400">
+        <button 
+          onClick={handleShare}
+          className="absolute top-4 right-4 p-2 rounded-full bg-black/20 text-white hover:bg-black/30 transition-colors backdrop-blur-md"
+        >
+          <Share2 size={20} />
+        </button>
+      </div>
+
+      {/* Profile Info Section */}
+      <div className="max-w-md mx-auto px-6 pb-8 text-center -mt-16 relative z-10">
         <div className="relative inline-block group">
-          <div 
-            className="absolute inset-0 rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity"
-            style={{ backgroundColor: themeColor }}
-          ></div>
           <img 
             src={data.avatar_url || 'https://via.placeholder.com/150'} 
             alt={data.full_name}
-            className="w-32 h-32 rounded-full border-4 object-cover relative z-10"
-            style={{ borderColor: themeColor }}
+            className="w-32 h-32 rounded-full border-4 object-cover relative z-10 shadow-lg"
+            style={{ borderColor: isDark ? '#09090b' : '#f9fafb' }}
           />
         </div>
         
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">{data.full_name}</h1>
-        <p className="mt-1 text-lg opacity-60 font-medium">{data.profession}</p>
-        <p className="mt-4 text-sm opacity-80 leading-relaxed px-4">{data.bio}</p>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight">{data.full_name}</h1>
+        <p className="mt-1 text-lg opacity-80 font-medium">{data.profession}</p>
+        
+        {data.company && (
+          <p className="mt-1 text-sm font-bold text-blue-500">
+            {data.company}
+          </p>
+        )}
+        
+        {data.location && (
+          <p className="mt-2 text-sm opacity-60 flex items-center justify-center gap-1">
+            <MapPin size={14} />
+            {data.location}
+          </p>
+        )}
+
+        <p className="mt-4 text-sm opacity-80 leading-relaxed px-2 text-left">{data.bio}</p>
 
         {/* Action Buttons (Primary) */}
-        <div className="mt-8 flex gap-3 justify-center">
-          {data.vcard_enabled && (
+        <div className="mt-6">
+          {data.vcard_enabled !== false && (
             <button 
               onClick={handleSaveContact}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-black/20"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-black/10"
               style={{ backgroundColor: themeColor, color: '#fff' }}
             >
               <UserPlus size={20} />
               Guardar Contacto
             </button>
           )}
-          <button 
-            onClick={handleShare}
-            className="p-4 rounded-2xl bg-zinc-800/50 hover:bg-zinc-800 transition-colors border border-zinc-700/50"
-          >
-            <Share2 size={20} />
-          </button>
         </div>
       </div>
 
-      {/* Social & Contact Links */}
-      <div className="max-w-md mx-auto px-6 space-y-3 pb-12">
+      <div className="max-w-md mx-auto px-6 space-y-6 pb-12">
         
-        {data.whatsapp && (
-          <a 
-            href={`https://wa.me/${data.whatsapp}`}
-            onClick={() => handleLinkClick('whatsapp')}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-4 p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700 transition-all"
-          >
-            <div className="p-2 rounded-xl bg-green-500/10 text-green-500">
-              <Phone size={22} />
-            </div>
-            <span className="flex-1 font-semibold">WhatsApp</span>
-            <ExternalLink size={16} className="opacity-30" />
-          </a>
-        )}
+        {/* Social Grid */}
+        <div className="grid grid-cols-4 gap-3">
+          {data.whatsapp && (
+            <a 
+              href={`https://wa.me/${data.whatsapp}`}
+              onClick={() => handleLinkClick('whatsapp')}
+              target="_blank"
+              rel="noreferrer"
+              className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
+            >
+              <Phone size={24} className="text-green-500" />
+            </a>
+          )}
+          {data.linkedin && (
+            <a 
+              href={data.linkedin.startsWith('http') ? data.linkedin : `https://linkedin.com/in/${data.linkedin}`}
+              onClick={() => handleLinkClick('linkedin')}
+              target="_blank"
+              rel="noreferrer"
+              className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
+            >
+              <Linkedin size={24} className="text-blue-600" />
+            </a>
+          )}
+          {data.instagram && (
+            <a 
+              href={`https://instagram.com/${data.instagram}`}
+              onClick={() => handleLinkClick('instagram')}
+              target="_blank"
+              rel="noreferrer"
+              className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
+            >
+              <Instagram size={24} className="text-pink-500" />
+            </a>
+          )}
+          {data.facebook && (
+            <a 
+              href={data.facebook.startsWith('http') ? data.facebook : `https://facebook.com/${data.facebook}`}
+              onClick={() => handleLinkClick('facebook')}
+              target="_blank"
+              rel="noreferrer"
+              className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
+            >
+              <Facebook size={24} className="text-blue-500" />
+            </a>
+          )}
+        </div>
 
-        {data.calendar_url && (
-          <a 
-            href={data.calendar_url}
-            onClick={() => handleLinkClick('calendar')}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-4 p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700 transition-all"
-          >
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
-              <Calendar size={22} />
+        {/* Contact Info Blocks */}
+        <div className="space-y-3">
+          {data.contact_phone && (
+            <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
+                <Phone size={18} />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-400 font-medium">Teléfono Múltiple</p>
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.contact_phone}</p>
+              </div>
             </div>
-            <span className="flex-1 font-semibold">Agendar Cita</span>
-            <ExternalLink size={16} className="opacity-30" />
-          </a>
-        )}
+          )}
+          
+          {data.contact_email && (
+            <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
+                <Mail size={18} />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-400 font-medium">Correo Electrónico</p>
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.contact_email}</p>
+              </div>
+            </div>
+          )}
 
-        {data.instagram && (
-          <a 
-            href={`https://instagram.com/${data.instagram}`}
-            onClick={() => handleLinkClick('instagram')}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-4 p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800/50 hover:border-zinc-700 transition-all"
-          >
-            <div className="p-2 rounded-xl bg-pink-500/10 text-pink-500">
-              <Instagram size={22} />
+          {data.website_url && (
+            <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
+                <Globe size={18} />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-400 font-medium">Sitio Web</p>
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.website_url.replace(/^https?:\/\//, '')}</p>
+              </div>
             </div>
-            <span className="flex-1 font-semibold">Instagram</span>
-            <ExternalLink size={16} className="opacity-30" />
-          </a>
-        )}
+          )}
+        </div>
 
         {/* Bank Details Accordion */}
-        {data.bank_enabled && (
-          <div className="mt-6">
+        {data.bank_enabled !== false && (
+          <div>
             <button 
               onClick={() => setIsBankOpen(!isBankOpen)}
-              className="w-full flex items-center justify-between p-4 rounded-2xl bg-zinc-800/30 border border-zinc-700/30 hover:bg-zinc-800/50 transition-all"
+              className={`w-full flex items-center justify-between p-4 rounded-2xl shadow-sm border transition-all ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
             >
-              <span className="font-bold flex items-center gap-2 text-zinc-400">
-                <Globe size={18} />
-                Datos para transferencia
+              <span className={`font-bold flex items-center gap-3 ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                <CreditCard size={20} />
+                Datos de Transferencia
               </span>
               <ChevronDown 
                 size={20} 
-                className={`transition-transform duration-300 ${isBankOpen ? 'rotate-180' : ''}`} 
+                className={`text-zinc-400 transition-transform duration-300 ${isBankOpen ? 'rotate-180' : ''}`} 
               />
             </button>
             
             {isBankOpen && (
-              <div className="mt-2 p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800/50 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                <div className="flex justify-between items-center group">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest opacity-40 font-bold">Banco</p>
-                    <p className="font-medium">{data.bank_name}</p>
-                  </div>
-                  <button onClick={() => handleCopy(data.bank_name, 'bank')} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-zinc-800 rounded-lg transition-all">
-                    {copiedField === 'bank' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-                  </button>
+              <div className={`mt-2 p-5 rounded-2xl shadow-sm border space-y-4 animate-in slide-in-from-top-2 duration-300 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                <div className={`text-sm ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
+                  <p><strong>Banco:</strong> {data.bank_name}</p>
+                  <p><strong>Tipo:</strong> {data.bank_type}</p>
+                  <p><strong>Cuenta:</strong> {data.bank_number}</p>
+                  <p><strong>RUT:</strong> {data.bank_rut}</p>
+                  <p><strong>Nombre:</strong> {data.full_name}</p>
+                  <p><strong>Email:</strong> {data.contact_email}</p>
                 </div>
-                
-                <div className="flex justify-between items-center group border-t border-zinc-800 pt-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest opacity-40 font-bold">Cuenta</p>
-                    <p className="font-medium">{data.bank_type} - {data.bank_number}</p>
-                  </div>
-                  <button onClick={() => handleCopy(data.bank_number, 'account')} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-zinc-800 rounded-lg transition-all">
-                    {copiedField === 'account' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-                  </button>
-                </div>
-
-                <div className="flex justify-between items-center group border-t border-zinc-800 pt-3">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-widest opacity-40 font-bold">RUT / Identificador</p>
-                    <p className="font-medium">{data.bank_rut}</p>
-                  </div>
-                  <button onClick={() => handleCopy(data.bank_rut, 'rut')} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-zinc-800 rounded-lg transition-all">
-                    {copiedField === 'rut' ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-                  </button>
-                </div>
+                <button 
+                  onClick={handleCopyAllBankData}
+                  className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
+                >
+                  {copiedField === 'all_bank' ? <Check size={18} /> : <Copy size={18} />}
+                  {copiedField === 'all_bank' ? '¡Copiado!' : 'Copiar Todos los Datos'}
+                </button>
               </div>
             )}
           </div>
         )}
+
+        {/* Useful Links */}
+        <div className="pt-4">
+          <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-4 px-2">Enlaces Útiles</h3>
+          <div className="space-y-3">
+            {data.calendar_url && (
+              <a 
+                href={data.calendar_url}
+                onClick={() => handleLinkClick('calendar')}
+                target="_blank"
+                rel="noreferrer"
+                className={`flex items-center justify-between p-4 rounded-2xl shadow-sm border transition-all group ${isDark ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-700' : 'bg-white border-zinc-100 hover:border-zinc-300'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
+                    <Calendar size={16} />
+                  </div>
+                  <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-zinc-900'}`}>Agendar Reunión (Calendly)</span>
+                </div>
+                <ExternalLink size={16} className="text-zinc-400 group-hover:text-blue-500" />
+              </a>
+            )}
+            
+            {data.portfolio_url && (
+              <a 
+                href={data.portfolio_url}
+                onClick={() => handleLinkClick('portfolio')}
+                target="_blank"
+                rel="noreferrer"
+                className={`flex items-center justify-between p-4 rounded-2xl shadow-sm border transition-all group ${isDark ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-700' : 'bg-white border-zinc-100 hover:border-zinc-300'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
+                    <FileText size={16} />
+                  </div>
+                  <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-zinc-900'}`}>Descargar Portafolio</span>
+                </div>
+                <ExternalLink size={16} className="text-zinc-400 group-hover:text-blue-500" />
+              </a>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Footer / Branding */}

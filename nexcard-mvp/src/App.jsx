@@ -105,7 +105,7 @@ function App() {
           return;
         }
 
-        const slug = path.replace(/^\//, '');
+        const slug = path.replace(/^\/|\/$/g, '');
         if (slug) {
           const profile = await api.getPublicProfile(slug);
           setData(profile);

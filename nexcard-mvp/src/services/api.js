@@ -78,7 +78,7 @@ async function supabasePublicProfile(slug) {
     .single();
   if (error) throw error;
   // Incrementar view_count de forma atómica (RPC en DB). No hacemos await para no bloquear la carga.
-  supabase.rpc('increment_view_count', { profile_slug: slug }).catch(() => {});
+  supabase.rpc('increment_view_count', { profile_slug: slug }).then(() => {}).catch(() => {});
   return data;
 }
 
@@ -237,12 +237,9 @@ export const api = {
   // Public profile by slug
   getPublicProfile: async (slug) => {
     if (hasSupabase) {
-      try {
-        const profile = await supabasePublicProfile(slug);
-        if (profile) return profile;
-      } catch (e) {
-        console.warn('Supabase public profile error, fallback local', e.message);
-      }
+      const profile = await supabasePublicProfile(slug);
+      if (profile) return profile;
+      throw new Error('Perfil no encontrado en Supabase');
     }
     return request(`/public/profiles/${slug}`);
   },
