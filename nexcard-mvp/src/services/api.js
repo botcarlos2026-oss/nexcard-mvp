@@ -244,87 +244,59 @@ export const api = {
     return request(`/public/profiles/${slug}`);
   },
 
-  // Owner profile (Supabase first)
+  // Owner profile: no insecure fallback to local API
   getMyProfile: async () => {
-    if (hasSupabase) {
-      try {
-        return await supabaseMyProfile();
-      } catch (e) {
-        console.warn('Supabase my profile error, fallback local', e.message);
-      }
+    if (!hasSupabase) {
+      throw new Error('Perfil privado deshabilitado: Supabase Auth es obligatorio');
     }
-    return request('/me/profile');
+    return supabaseMyProfile();
   },
   updateMyProfile: async (payload) => {
-    if (hasSupabase) {
-      try {
-        return await supabaseUpdateMyProfile(payload);
-      } catch (e) {
-        console.warn('Supabase update profile error, fallback local', e.message);
-      }
+    if (!hasSupabase) {
+      throw new Error('Edición de perfil deshabilitada: Supabase Auth es obligatorio');
     }
-    return request('/me/profile', { method: 'PUT', body: JSON.stringify(payload) });
+    return supabaseUpdateMyProfile(payload);
   },
 
-  // Admin dashboard
+  // Admin dashboard: no insecure fallback to local API
   getAdminDashboard: async () => {
-    if (hasSupabase) {
-      try {
-        return await supabaseDashboard();
-      } catch (e) {
-        console.warn('Supabase dashboard error, fallback local', e.message);
-      }
+    if (!hasSupabase) {
+      throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
     }
-    return request('/admin/dashboard');
+    return supabaseDashboard();
   },
 
-  // Inventory
+  // Inventory: no insecure fallback to local API
   getInventory: async () => {
-    if (hasSupabase) {
-      try {
-        const items = await supabaseInventory();
-        return { items };
-      } catch (e) {
-        console.warn('Supabase inventory error, fallback local', e.message);
-      }
+    if (!hasSupabase) {
+      throw new Error('Inventario deshabilitado: Supabase Auth es obligatorio');
     }
-    return request('/admin/inventory');
+    const items = await supabaseInventory();
+    return { items };
   },
 
-  // Orders
+  // Orders: no insecure fallback to local API
   getOrders: async () => {
-    if (hasSupabase) {
-      try {
-        const orders = await supabaseOrders();
-        return { orders, products: [] };
-      } catch (e) {
-        console.warn('Supabase orders error, fallback local', e.message);
-      }
+    if (!hasSupabase) {
+      throw new Error('Órdenes deshabilitadas: Supabase Auth es obligatorio');
     }
-    return request('/admin/orders');
+    const orders = await supabaseOrders();
+    return { orders, products: [] };
   },
 
-  // CMS admin
+  // CMS admin: no insecure fallback to local API
   getLandingAdminContent: async () => {
-    if (hasSupabase) {
-      try {
-        const content = await supabaseLandingContent();
-        if (content) return content;
-      } catch (e) {
-        console.warn('Supabase CMS read error, fallback local', e.message);
-      }
+    if (!hasSupabase) {
+      throw new Error('CMS admin deshabilitado: Supabase Auth es obligatorio');
     }
-    return request('/admin/content/landing');
+    const content = await supabaseLandingContent();
+    return content || null;
   },
   updateLandingAdminContent: async (payload) => {
-    if (hasSupabase) {
-      try {
-        return await supabaseUpdateLandingAdmin(payload);
-      } catch (e) {
-        console.warn('Supabase CMS write error, fallback local', e.message);
-      }
+    if (!hasSupabase) {
+      throw new Error('CMS admin deshabilitado: Supabase Auth es obligatorio');
     }
-    return request('/admin/content/landing', { method: 'PUT', body: JSON.stringify(payload) });
+    return supabaseUpdateLandingAdmin(payload);
   },
 
   // Upload / track (mock)

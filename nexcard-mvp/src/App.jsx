@@ -10,6 +10,8 @@ import { api, getStoredAuth, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { supabase, hasSupabase } from './services/supabaseClient';
 
+const ADMIN_EMAILS = ['admin@nexcard.cl'];
+
 function App() {
   const [data, setData] = useState(initialMockData);
   const [user, setUser] = useState(() => getStoredAuth()?.user || null);
@@ -60,23 +62,37 @@ function App() {
         }
 
         if (path === '/admin' || path === '/admin/inventory') {
+          if (!hasSupabase || !supabase) {
+            throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
+          }
           if (!user) {
             navigate('/login');
             setLoading(false);
             return;
           }
+
+          const isAdminByEmail = ADMIN_EMAILS.includes(user.email);
+          let isAdminByMembership = false;
+
           const { data: membership, error: memErr } = await supabase
             .from('memberships')
             .select('role')
             .eq('user_id', user.id)
-            .in('role', ['admin', 'company_owner'])
+            .in('role', ['admin'])
             .maybeSingle();
-          if (memErr) throw memErr;
-          if (!membership) {
+
+          if (memErr && !isAdminByEmail) {
+            throw new Error('No fue posible validar permisos de administrador');
+          }
+
+          isAdminByMembership = !!membership;
+
+          if (!isAdminByEmail && !isAdminByMembership) {
             navigate('/');
             setLoading(false);
             return;
           }
+
           if (path === '/admin') {
             const dashboard = await api.getAdminDashboard();
             setAdminData(dashboard);
@@ -121,7 +137,7 @@ function App() {
   }, [path, user]);
 
   const handleSave = async (newData) => {
-    const saved = await api.updateMyProfile(newData).catch(() => newData);
+    const saved = await api.updateMyProfile(newData);
     setData(saved);
   };
 
