@@ -65,7 +65,16 @@ const NexCardProfile = ({ data }) => {
     <div className={`min-h-screen font-sans ${isDark ? 'bg-zinc-950 text-white' : 'bg-gray-50 text-zinc-900'}`}>
       
       {/* Header Banner */}
-      <div className="relative h-32 w-full bg-gradient-to-r from-pink-500 via-purple-300 to-blue-400">
+      <div 
+        className="relative h-32 w-full bg-cover bg-center"
+        style={{ 
+          backgroundImage: data.cover_image_url ? `url(${data.cover_image_url})` : 'none',
+          backgroundColor: data.cover_image_url ? 'transparent' : themeColor
+        }}
+      >
+        {!data.cover_image_url && (
+           <div className="absolute inset-0 opacity-20 bg-gradient-to-r from-black/0 via-black/10 to-black/30"></div>
+        )}
         <button 
           onClick={handleShare}
           className="absolute top-4 right-4 p-2 rounded-full bg-black/20 text-white hover:bg-black/30 transition-colors backdrop-blur-md"

@@ -5,6 +5,19 @@ import { supabase } from '../services/supabaseClient';
  * MVP local/API bridge. En producción usará storage real.
  */
 
+export const uploadCover = async (userId, file) => {
+  console.log(`[SENTINEL STORAGE] Subiendo portada para usuario: ${userId}`);
+  const ext = file.name.split('.').pop();
+  const path = `${userId}/cover-${Date.now()}.${ext}`;
+
+  const { data, error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(data.path);
+  return urlData.publicUrl;
+};
+
 export const uploadAvatar = async (userId, file) => {
   console.log(`[SENTINEL STORAGE] Subiendo imagen para usuario: ${userId}`);
   const ext = file.name.split('.').pop();
