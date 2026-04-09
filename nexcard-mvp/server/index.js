@@ -12,6 +12,7 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 const SEED_FILE = path.join(DATA_DIR, 'seed.json');
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const PUBLIC_APP_URL = process.env.PUBLIC_APP_URL || process.env.REACT_APP_PUBLIC_APP_URL || 'http://localhost:3000';
 const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
@@ -39,6 +40,11 @@ function sanitizeUser(user) {
   if (!user) return null;
   const { password, ...safeUser } = user;
   return safeUser;
+}
+
+function getPublicProfileUrl(slug) {
+  if (!slug) return PUBLIC_APP_URL;
+  return `${PUBLIC_APP_URL.replace(/\/$/, '')}/${slug}`;
 }
 
 app.get('/api/health', (_req, res) => {
@@ -110,7 +116,7 @@ app.get('/c/:publicToken', async (req, res) => {
         console.warn('[NFC] card_scans insert failed:', scanError.message);
       }
 
-      return res.redirect(`/${resolved.slug}`);
+      return res.redirect(getPublicProfileUrl(resolved.slug));
     } catch (error) {
       console.warn('[NFC] Supabase resolution failed, falling back to local mock:', error.message);
     }
@@ -151,7 +157,7 @@ app.get('/c/:publicToken', async (req, res) => {
   db.card_scans = cardScans;
   writeDb(db);
 
-  return res.redirect(`/${profile.slug}`);
+  return res.redirect(getPublicProfileUrl(profile.slug));
 });
 
 app.get('/api/content/landing', (_req, res) => {
