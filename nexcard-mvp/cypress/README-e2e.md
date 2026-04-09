@@ -20,6 +20,7 @@
 - Runner local completo: `npm run test:e2e:local`
 - Solo guardrails NFC inválidos: `npm run test:e2e:nfc-invalid`
 - Solo admin cards: `npm run test:e2e:admin-cards`
+- Alias explícito guardrails admin/cards: `npm run test:e2e:admin-cards-guardrails`
 - Pack mínimo lifecycle cards: `npm run test:e2e:cards-lifecycle`
 
 ## Suites incluidas
@@ -28,7 +29,7 @@
 - `profile-edit.cy.js` → edición básica y toggle bancario.
 - `wizard.cy.js` → flujo de setup.
 - `admin.cy.js` → dashboard + inventario (el test de ítems está **skip** hasta que la UI muestre inventario seed de forma consistente).
-- `admin-cards.cy.js` → visibilidad mínima del lifecycle en `/admin/cards` y correlación con guardrails revoke/archive.
+- `admin-cards.cy.js` → visibilidad mínima del lifecycle en `/admin/cards`, guardrails de acciones revoke/archive y correlación con el bloqueo del bridge público.
 - `nfc-invalid-card-states.cy.js` → bridge HTTP para tarjetas `revoked` y `archived`.
 - `logout.cy.js` → cierre de sesión.
 

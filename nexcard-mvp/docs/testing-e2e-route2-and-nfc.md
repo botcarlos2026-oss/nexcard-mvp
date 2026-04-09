@@ -7,6 +7,7 @@ The project now has reproducible Cypress coverage for the minimum cards lifecycl
 - `/admin/cards` renders the lifecycle visibility dataset.
 - A seeded `revoked` card is visible in admin with its expected lifecycle state.
 - A seeded `archived` card is visible in admin with its expected lifecycle state.
+- Admin action buttons remain aligned with lifecycle guardrails (`revoked` cannot be re-revoked, `archived` stays fully non-actionable).
 - Both seeded tokens stay blocked by the public NFC bridge (`/c/:publicToken`).
 
 This keeps the suite focused on the regression surface that matters most right now:
@@ -21,6 +22,11 @@ This keeps the suite focused on the regression surface that matters most right n
 ## Recommended runner
 ```bash
 npm run test:e2e:cards-lifecycle
+```
+
+If you only want the admin-side lifecycle assertions (table + action guardrails), run:
+```bash
+npm run test:e2e:admin-cards-guardrails
 ```
 
 ## Required env for reproducibility
