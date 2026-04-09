@@ -3,6 +3,7 @@ import LandingPage from './components/LandingPage';
 import NexCardProfile from './components/NexCardProfile';
 import AdminDashboard from './components/AdminDashboard';
 import InventoryDashboard from './components/InventoryDashboard';
+import AdminCardsDashboard from './components/AdminCardsDashboard';
 import UserEditor from './components/UserEditor';
 import SetupWizard from './components/SetupWizard';
 import AuthPage from './components/AuthPage';
@@ -18,6 +19,7 @@ function App() {
   const [landingContent, setLandingContent] = useState(defaultLandingContent);
   const [adminData, setAdminData] = useState(null);
   const [inventoryData, setInventoryData] = useState([]);
+  const [cardsData, setCardsData] = useState([]);
   const [error, setError] = useState('');
 
   const navigate = (newPath) => {
@@ -59,7 +61,7 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory') {
+        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards') {
           if (!hasSupabase || !supabase) {
             throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
@@ -89,9 +91,12 @@ function App() {
           if (path === '/admin') {
             const dashboard = await api.getAdminDashboard();
             setAdminData(dashboard);
-          } else {
+          } else if (path === '/admin/inventory') {
             const inventory = await api.getInventory();
             setInventoryData(inventory.items || []);
+          } else {
+            const cards = await api.getAdminCards();
+            setCardsData(cards.cards || []);
           }
           setLoading(false);
           return;
@@ -155,6 +160,7 @@ function App() {
 
   if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
   if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData} />;
+  if (path === '/admin/cards') return <AdminCardsDashboard cards={cardsData} />;
 
   if (path === '/edit') {
     if (!user) return null;

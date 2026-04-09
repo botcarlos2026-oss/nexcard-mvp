@@ -203,6 +203,17 @@ async function supabaseInventory() {
   return data;
 }
 
+async function supabaseAdminCards() {
+  const { data, error } = await supabase
+    .from('cards')
+    .select('id, card_code, public_token, status, activation_status, profile_id, deleted_at')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return data;
+}
+
 async function supabaseOrders() {
   const { data, error } = await supabase
     .from('orders')
@@ -310,6 +321,15 @@ export const api = {
     }
     const orders = await supabaseOrders();
     return { orders, products: [] };
+  },
+
+  // Cards admin view
+  getAdminCards: async () => {
+    if (!hasSupabase) {
+      throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const cards = await supabaseAdminCards();
+    return { cards };
   },
 
   // CMS admin: no insecure fallback to local API
