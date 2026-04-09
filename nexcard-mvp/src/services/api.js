@@ -244,33 +244,50 @@ async function supabaseAdminProfiles() {
 
   const { data: versions, error: versionsError } = await supabase
     .from('profile_versions')
-    .select('profile_id, version');
+    .select('profile_id, version, created_at')
+    .order('created_at', { ascending: false });
 
   if (versionsError) throw versionsError;
 
   const { data: auditEvents, error: auditError } = await supabase
     .from('audit_log')
-    .select('entity_id, action, created_at')
+    .select('entity_id, action, created_at, context')
     .eq('entity_type', 'profile')
     .order('created_at', { ascending: false });
 
   if (auditError) throw auditError;
 
-  const versionCountByProfile = versions.reduce((acc, item) => {
-    acc[item.profile_id] = (acc[item.profile_id] || 0) + 1;
+  const versionsByProfile = versions.reduce((acc, item) => {
+    if (!acc[item.profile_id]) acc[item.profile_id] = [];
+    acc[item.profile_id].push(item);
     return acc;
   }, {});
 
-  const latestEventByProfile = auditEvents.reduce((acc, item) => {
-    if (!acc[item.entity_id]) acc[item.entity_id] = item;
+  const eventsByProfile = auditEvents.reduce((acc, item) => {
+    if (!acc[item.entity_id]) acc[item.entity_id] = [];
+    acc[item.entity_id].push(item);
     return acc;
   }, {});
 
-  return profiles.map((profile) => ({
-    ...profile,
-    version_count: versionCountByProfile[profile.id] || 0,
-    last_event: latestEventByProfile[profile.id] || null,
-  }));
+  return profiles.map((profile) => {
+    const profileVersions = versionsByProfile[profile.id] || [];
+    const profileEvents = eventsByProfile[profile.id] || [];
+    const latestVersion = profileVersions[0] || null;
+    const latestEvent = profileEvents[0] || null;
+    const restoreEvent = profileEvents.find((event) => event.action === 'profile_restore');
+    const restoredVersion = restoreEvent?.context?.restored_version ?? null;
+
+    return {
+      ...profile,
+      version_count: profileVersions.length,
+      latest_version: latestVersion?.version || null,
+      latest_snapshot_at: latestVersion?.created_at || null,
+      versions: profileVersions.slice(0, 5),
+      last_event: latestEvent,
+      last_restore_version: restoredVersion,
+      can_restore: profileVersions.length > 0,
+    };
+  });
 }
 
 async function supabaseGetActorId() {
@@ -300,6 +317,27 @@ async function supabaseArchiveCard(cardId) {
   });
   if (error) throw error;
   return supabaseAdminCards();
+}
+
+async function supabaseArchiveProfile(profileId) {
+  const actorId = await supabaseGetActorId();
+  const { error } = await supabase.rpc('soft_delete_profile', {
+    target_profile_id: profileId,
+    actor_id: actorId,
+  });
+  if (error) throw error;
+  return supabaseAdminProfiles();
+}
+
+async function supabaseRestoreProfile(profileId, version) {
+  const actorId = await supabaseGetActorId();
+  const { error } = await supabase.rpc('restore_profile_version', {
+    target_profile_id: profileId,
+    target_version: version,
+    actor_id: actorId,
+  });
+  if (error) throw error;
+  return supabaseAdminProfiles();
 }
 
 async function supabaseOrders() {
@@ -440,6 +478,20 @@ export const api = {
     }
     const cards = await supabaseArchiveCard(cardId);
     return { cards };
+  },
+  archiveProfile: async (profileId) => {
+    if (!hasSupabase) {
+      throw new Error('Profiles admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const profiles = await supabaseArchiveProfile(profileId);
+    return { profiles };
+  },
+  restoreProfileVersion: async (profileId, version) => {
+    if (!hasSupabase) {
+      throw new Error('Profiles admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const profiles = await supabaseRestoreProfile(profileId, version);
+    return { profiles };
   },
 
   // CMS admin: no insecure fallback to local API
