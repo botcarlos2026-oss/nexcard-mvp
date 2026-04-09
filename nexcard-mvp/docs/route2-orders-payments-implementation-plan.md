@@ -12,6 +12,7 @@ Aplicar el patrón mínimo validado en perfiles/cards a la capa comercial.
 - `soft_delete_order()`
 - `mark_order_payment_status()`
 - `mark_order_fulfillment_status()`
+- `reconcile_order_payment_status()`
 
 ## Payments
 - `snapshot_payment()`
@@ -37,9 +38,44 @@ Aplicar el patrón mínimo validado en perfiles/cards a la capa comercial.
 # Qué se deja para después
 - restore de órdenes/pagos
 - version tables dedicadas
-- sincronización automática order ↔ payment
+- sincronización automática order ↔ payment en cada callback del gateway
 - UI/admin específico
-- reglas estrictas de transición entre estados
+- workflows complejos multi-step por proveedor
+
+---
+
+# Refinamiento aplicado en esta iteración
+
+## Guardrails de transición
+La fase mínima ya no depende solo de enums “sueltos”.
+
+Se endurece con validaciones explícitas para evitar drift operativo:
+
+- `orders.payment_status`
+  - bloquea redundancias
+  - bloquea regresiones inválidas desde `paid` hacia `pending/authorized`
+  - bloquea transiciones desde `refunded`
+- `orders.fulfillment_status`
+  - fuerza secuencia `new -> printing -> shipping -> delivered`
+  - permite `canceled` solo desde etapas no terminales
+  - bloquea cambios desde `delivered` o `canceled`
+- `payments.status`
+  - mismas protecciones base para estados financieros
+
+## Reconciliación mínima rentable
+Se agrega `reconcile_order_payment_status()` como helper manual/operativo.
+
+Objetivo:
+- recalcular `orders.payment_status` desde los `payments` activos de la orden
+- registrar `audit_log`
+- dejar una vía explícita para correcciones post-gateway/manuales sin meter todavía automatización compleja
+
+Precedencia aplicada:
+1. `refunded`
+2. `paid`
+3. `authorized`
+4. `pending`
+5. `failed`
 
 ---
 

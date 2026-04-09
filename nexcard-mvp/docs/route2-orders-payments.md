@@ -87,6 +87,7 @@ En órdenes/pagos, el costo de versionar todo desde el día 1 puede ser mayor qu
 - `mark_order_paid(...)`
 - `mark_order_fulfilled(...)`
 - `mark_payment_status(...)`
+- `reconcile_order_payment_status(...)`
 
 ---
 
@@ -97,6 +98,7 @@ En órdenes/pagos, el costo de versionar todo desde el día 1 puede ser mayor qu
 - `order_soft_delete`
 - luego `order_payment_status_change`
 - luego `order_fulfillment_status_change`
+- luego `order_payment_status_reconciled`
 
 ## Payments
 - `payment_snapshot`
@@ -136,3 +138,22 @@ Eso ya da mucho control sin inflar complejidad.
 # 10. Conclusión
 Perfiles y cards ya demostraron el patrón.
 Orders/payments son la extensión natural para que NexCard gane resiliencia también en la parte comercial.
+
+---
+
+# 11. Refinamiento táctico recomendado
+
+Si esta fase se quiere acercar a validación real sin inflar backend/UI, el mejor ROI no está en restore complejo.
+
+Está en dos cosas:
+
+1. **transiciones explícitas**
+   - evitar `paid -> pending`
+   - evitar `new -> delivered`
+   - evitar cambios sobre registros archivados
+
+2. **reconciliación manual auditable**
+   - cuando `orders.payment_status` difiere del estado observable en `payments`
+   - resolverlo con un helper dedicado y `audit_log`
+
+Eso baja costo de soporte y deja el bloque más listo para un gateway real sin tocar todavía la app/UI.

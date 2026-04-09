@@ -98,6 +98,17 @@ select public.mark_payment_status(
 );
 ```
 
+## 3.5.b Reconciliar order.payment_status desde payments
+Úsalo cuando exista drift entre la orden y sus pagos activos.
+
+```sql
+select public.reconcile_order_payment_status(
+  '<order_id>'::uuid,
+  null::uuid,
+  'manual reconciliation after payment validation'
+);
+```
+
 ## 3.6 Soft delete de pago
 ```sql
 select public.soft_delete_payment(
@@ -161,6 +172,9 @@ Los helpers deben rechazar:
 - cambio de estado sobre orden archivada
 - cambio al mismo estado actual
 - estados fuera del enum esperado
+- transiciones inválidas de `payment_status` (ej. `paid -> pending`)
+- transiciones inválidas de `fulfillment_status` (ej. `new -> delivered`)
+- reconciliación sin pagos activos
 
 ## Payments
 Los helpers deben rechazar:
@@ -204,6 +218,37 @@ La meta es más austera y rentable:
 Si esta validación sale bien, el siguiente paso con mejor ROI es:
 
 1. definir transición válida por estado (no solo enum)
-2. decidir si `mark_payment_status('paid')` debe actualizar `orders.payment_status`
+2. decidir si `mark_payment_status('paid')` debe disparar reconciliación automática de `orders.payment_status`
 3. crear vistas admin para activos vs archivados
 4. formalizar migraciones versionadas en `supabase/migrations/`
+
+---
+
+# 9. Consulta rápida para detectar drift order ↔ payment
+
+```sql
+select
+  o.id as order_id,
+  o.payment_status as order_payment_status,
+  array_remove(array_agg(distinct p.status), null) as payment_statuses,
+  count(p.*) filter (where p.deleted_at is null) as active_payments
+from public.orders o
+left join public.payments p
+  on p.order_id = o.id
+ and p.deleted_at is null
+where o.deleted_at is null
+group by o.id, o.payment_status
+having (
+  o.payment_status = 'paid'
+  and not bool_or(p.status = 'paid')
+) or (
+  o.payment_status = 'refunded'
+  and not bool_or(p.status = 'refunded')
+) or (
+  o.payment_status = 'pending'
+  and bool_or(p.status in ('paid', 'refunded'))
+)
+order by o.created_at desc;
+```
+
+Si aparecen filas acá, ejecutar primero revisión manual y luego `reconcile_order_payment_status(...)` en staging antes de pensar en prod.
