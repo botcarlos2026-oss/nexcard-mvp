@@ -34,6 +34,7 @@ const AdminDashboard = ({ dashboard }) => {
         </div>
         <div className="flex gap-3">
           <a href="/admin/cards" className="px-4 py-3 bg-zinc-950 text-white rounded-2xl font-bold text-sm">Ver Cards</a>
+          <a href="/admin/profiles" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Profiles</a>
           <a href="/admin/inventory" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Inventario</a>
         </div>
       </div>

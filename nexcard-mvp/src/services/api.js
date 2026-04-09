@@ -234,6 +234,45 @@ async function supabaseAdminCards() {
   }));
 }
 
+async function supabaseAdminProfiles() {
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('id, slug, full_name, status, deleted_at, updated_at')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+
+  const { data: versions, error: versionsError } = await supabase
+    .from('profile_versions')
+    .select('profile_id, version');
+
+  if (versionsError) throw versionsError;
+
+  const { data: auditEvents, error: auditError } = await supabase
+    .from('audit_log')
+    .select('entity_id, action, created_at')
+    .eq('entity_type', 'profile')
+    .order('created_at', { ascending: false });
+
+  if (auditError) throw auditError;
+
+  const versionCountByProfile = versions.reduce((acc, item) => {
+    acc[item.profile_id] = (acc[item.profile_id] || 0) + 1;
+    return acc;
+  }, {});
+
+  const latestEventByProfile = auditEvents.reduce((acc, item) => {
+    if (!acc[item.entity_id]) acc[item.entity_id] = item;
+    return acc;
+  }, {});
+
+  return profiles.map((profile) => ({
+    ...profile,
+    version_count: versionCountByProfile[profile.id] || 0,
+    last_event: latestEventByProfile[profile.id] || null,
+  }));
+}
+
 async function supabaseGetActorId() {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
@@ -379,6 +418,14 @@ export const api = {
     }
     const cards = await supabaseAdminCards();
     return { cards };
+  },
+
+  getAdminProfiles: async () => {
+    if (!hasSupabase) {
+      throw new Error('Profiles admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const profiles = await supabaseAdminProfiles();
+    return { profiles };
   },
   revokeCard: async (cardId, reason = null) => {
     if (!hasSupabase) {

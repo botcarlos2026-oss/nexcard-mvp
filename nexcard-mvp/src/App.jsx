@@ -4,6 +4,7 @@ import NexCardProfile from './components/NexCardProfile';
 import AdminDashboard from './components/AdminDashboard';
 import InventoryDashboard from './components/InventoryDashboard';
 import AdminCardsDashboard from './components/AdminCardsDashboard';
+import AdminProfilesDashboard from './components/AdminProfilesDashboard';
 import UserEditor from './components/UserEditor';
 import SetupWizard from './components/SetupWizard';
 import AuthPage from './components/AuthPage';
@@ -20,6 +21,7 @@ function App() {
   const [adminData, setAdminData] = useState(null);
   const [inventoryData, setInventoryData] = useState([]);
   const [cardsData, setCardsData] = useState([]);
+  const [profilesAdminData, setProfilesAdminData] = useState([]);
   const [error, setError] = useState('');
 
   const navigate = (newPath) => {
@@ -61,7 +63,7 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards') {
+        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles') {
           if (!hasSupabase || !supabase) {
             throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
@@ -94,9 +96,12 @@ function App() {
           } else if (path === '/admin/inventory') {
             const inventory = await api.getInventory();
             setInventoryData(inventory.items || []);
-          } else {
+          } else if (path === '/admin/cards') {
             const cards = await api.getAdminCards();
             setCardsData(cards.cards || []);
+          } else {
+            const profiles = await api.getAdminProfiles();
+            setProfilesAdminData(profiles.profiles || []);
           }
           setLoading(false);
           return;
@@ -161,6 +166,7 @@ function App() {
   if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
   if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData} />;
   if (path === '/admin/cards') return <AdminCardsDashboard cards={cardsData} />;
+  if (path === '/admin/profiles') return <AdminProfilesDashboard profiles={profilesAdminData} />;
 
   if (path === '/edit') {
     if (!user) return null;
