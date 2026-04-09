@@ -18,12 +18,18 @@ alter table public.cards
   add column if not exists metadata jsonb not null default '{}'::jsonb,
   add column if not exists deleted_at timestamptz;
 
--- Backfill lifecycle basics from current data.
+-- Backfill lifecycle basics from current real data.
+-- Current observed activation_status values:
+--   activated -> active
+--   assigned -> assigned
+--   unassigned -> printed
+-- Future-compatible fallback kept for revoked/lost.
 update public.cards
 set status = case
-  when activation_status in ('revoked', 'lost') then 'revoked'
+  when activation_status in ('revoked', 'lost') then activation_status
   when activation_status = 'activated' then 'active'
-  when activation_status = 'pending' then 'assigned'
+  when activation_status = 'assigned' then 'assigned'
+  when activation_status in ('unassigned', 'pending') then 'printed'
   else coalesce(status, 'printed')
 end
 where status is null;
