@@ -204,14 +204,34 @@ async function supabaseInventory() {
 }
 
 async function supabaseAdminCards() {
-  const { data, error } = await supabase
+  const { data: cards, error } = await supabase
     .from('cards')
     .select('id, card_code, public_token, status, activation_status, profile_id, deleted_at, revoked_at, archived_at, updated_at')
     .order('created_at', { ascending: false });
 
   if (error) throw error;
 
-  return data;
+  const { data: events, error: eventsError } = await supabase
+    .from('card_events')
+    .select('card_id, event_type, created_at')
+    .order('created_at', { ascending: false });
+
+  if (eventsError) {
+    console.warn('No fue posible cargar card_events para admin cards', eventsError.message);
+    return cards;
+  }
+
+  const latestEventByCardId = events.reduce((acc, event) => {
+    if (!acc[event.card_id]) {
+      acc[event.card_id] = event;
+    }
+    return acc;
+  }, {});
+
+  return cards.map((card) => ({
+    ...card,
+    last_event: latestEventByCardId[card.id] || null,
+  }));
 }
 
 async function supabaseGetActorId() {
