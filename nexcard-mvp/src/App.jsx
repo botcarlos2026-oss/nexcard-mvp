@@ -10,8 +10,6 @@ import { api, getStoredAuth, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { supabase, hasSupabase } from './services/supabaseClient';
 
-const ADMIN_EMAILS = ['admin@nexcard.cl'];
-
 function App() {
   const [data, setData] = useState(initialMockData);
   const [user, setUser] = useState(() => getStoredAuth()?.user || null);
@@ -71,9 +69,6 @@ function App() {
             return;
           }
 
-          const isAdminByEmail = ADMIN_EMAILS.includes(user.email);
-          let isAdminByMembership = false;
-
           const { data: membership, error: memErr } = await supabase
             .from('memberships')
             .select('role')
@@ -81,13 +76,11 @@ function App() {
             .in('role', ['admin'])
             .maybeSingle();
 
-          if (memErr && !isAdminByEmail) {
+          if (memErr) {
             throw new Error('No fue posible validar permisos de administrador');
           }
 
-          isAdminByMembership = !!membership;
-
-          if (!isAdminByEmail && !isAdminByMembership) {
+          if (!membership) {
             navigate('/');
             setLoading(false);
             return;

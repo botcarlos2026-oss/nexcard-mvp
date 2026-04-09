@@ -103,12 +103,37 @@ async function supabaseUpdateMyProfile(payload) {
   const userId = sessionData?.session?.user?.id;
   if (!userId) throw new Error('No hay sesión');
 
+  const { data: existing, error: existingError } = await supabase
+    .from('profiles')
+    .select('id, user_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ ...payload })
+      .eq('user_id', userId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  const insertPayload = {
+    ...payload,
+    user_id: userId,
+    status: payload.status || 'active',
+  };
+
   const { data, error } = await supabase
     .from('profiles')
-    .update({ ...payload })
-    .eq('user_id', userId)
+    .insert(insertPayload)
     .select()
     .single();
+
   if (error) throw error;
   return data;
 }
