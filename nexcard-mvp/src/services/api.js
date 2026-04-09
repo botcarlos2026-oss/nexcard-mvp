@@ -206,12 +206,41 @@ async function supabaseInventory() {
 async function supabaseAdminCards() {
   const { data, error } = await supabase
     .from('cards')
-    .select('id, card_code, public_token, status, activation_status, profile_id, deleted_at')
+    .select('id, card_code, public_token, status, activation_status, profile_id, deleted_at, revoked_at, archived_at, updated_at')
     .order('created_at', { ascending: false });
 
   if (error) throw error;
 
   return data;
+}
+
+async function supabaseGetActorId() {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const actorId = sessionData?.session?.user?.id;
+  if (!actorId) throw new Error('No hay sesión');
+  return actorId;
+}
+
+async function supabaseRevokeCard(cardId, reason = null) {
+  const actorId = await supabaseGetActorId();
+  const { error } = await supabase.rpc('revoke_card', {
+    target_card_id: cardId,
+    actor_id: actorId,
+    reason,
+  });
+  if (error) throw error;
+  return supabaseAdminCards();
+}
+
+async function supabaseArchiveCard(cardId) {
+  const actorId = await supabaseGetActorId();
+  const { error } = await supabase.rpc('soft_delete_card', {
+    target_card_id: cardId,
+    actor_id: actorId,
+  });
+  if (error) throw error;
+  return supabaseAdminCards();
 }
 
 async function supabaseOrders() {
@@ -329,6 +358,20 @@ export const api = {
       throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
     }
     const cards = await supabaseAdminCards();
+    return { cards };
+  },
+  revokeCard: async (cardId, reason = null) => {
+    if (!hasSupabase) {
+      throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const cards = await supabaseRevokeCard(cardId, reason);
+    return { cards };
+  },
+  archiveCard: async (cardId) => {
+    if (!hasSupabase) {
+      throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const cards = await supabaseArchiveCard(cardId);
     return { cards };
   },
 
