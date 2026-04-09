@@ -24,6 +24,8 @@
 - Pack mínimo lifecycle cards: `npm run test:e2e:cards-lifecycle`
 - Solo admin profiles: `npm run test:e2e:admin-profiles`
 - Alias explícito guardrails admin/profiles: `npm run test:e2e:admin-profiles-guardrails`
+- Coherencia punta a punta public/admin para profiles: `npm run test:e2e:profiles-e2e`
+- Pack recomendado para cerrar profiles: `npm run test:e2e:profiles-full`
 
 ## Suites incluidas
 - `auth.cy.js` → login y registro (registro puede requerir confirmar email en Supabase).
@@ -33,6 +35,7 @@
 - `admin.cy.js` → dashboard + inventario (el test de ítems está **skip** hasta que la UI muestre inventario seed de forma consistente).
 - `admin-cards.cy.js` → visibilidad mínima del lifecycle en `/admin/cards`, guardrails de acciones revoke/archive y correlación con el bloqueo del bridge público.
 - `admin-profiles.cy.js` → guardrails reproducibles en `/admin/profiles` para dataset visible de lifecycle/history, búsqueda y filtro `archived`.
+- `admin-profiles-e2e.cy.js` → coherencia mínima punta a punta entre resolución pública por `/:slug` y trazabilidad admin en `/admin/profiles`.
 - `nfc-invalid-card-states.cy.js` → bridge HTTP para tarjetas `revoked` y `archived`.
 - `logout.cy.js` → cierre de sesión.
 
@@ -101,7 +104,8 @@ npm run test:e2e:admin-profiles-guardrails
 ```
 
 ## Notas
-- La suite de profiles no intenta restaurar ni mutar perfiles desde UI. Su foco es validar los guardrails más caros de romper: visibilidad admin coherente del lifecycle/history y filtros mínimos reproducibles.
+- La suite de profiles no intenta restaurar ni mutar perfiles desde UI. Su foco es validar los guardrails más caros de romper: visibilidad admin coherente del lifecycle/history, coherencia public/admin y filtros mínimos reproducibles.
+- Checklist operativo y criterio de salida recomendados para `/admin/profiles`: `docs/admin-profiles-validation-checklist.md`
 - La suite de lifecycle cards no intenta ejecutar acciones de revoke/archive desde UI. Su foco es validar los guardrails más caros de romper: visibilidad admin coherente + bloqueo del bridge público.
 - Si cambian los seeds, actualiza las variables de entorno en vez de reescribir los tests.
 - Selectores: donde existen `data-cy`, se priorizan para estabilidad.

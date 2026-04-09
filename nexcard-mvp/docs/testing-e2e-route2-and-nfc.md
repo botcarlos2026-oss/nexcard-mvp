@@ -14,6 +14,7 @@ The project now has reproducible Cypress coverage for the minimum cards lifecycl
 - A seeded `archived` profile is visible with expected deleted flag, version count and last event.
 - Search and `archived` filtering keep the profile lifecycle/history rows reproducible and visible.
 - History/archive icons remain visible after filter changes, so the admin screen still exposes the right guardrails.
+- Public resolution for a seeded `active` profile stays alive while a seeded `archived` profile stays blocked, and both remain traceable from `/admin/profiles`.
 
 This keeps the suite focused on the regression surface that matters most right now:
 - no revoked card should resolve as active
@@ -24,12 +25,14 @@ This keeps the suite focused on the regression surface that matters most right n
 ## Specs involved
 - `cypress/e2e/admin-cards.cy.js`
 - `cypress/e2e/admin-profiles.cy.js`
+- `cypress/e2e/admin-profiles-e2e.cy.js`
 - `cypress/e2e/nfc-invalid-card-states.cy.js`
 
 ## Recommended runners
 ```bash
 npm run test:e2e:cards-lifecycle
 npm run test:e2e:admin-profiles-guardrails
+npm run test:e2e:profiles-e2e
 ```
 
 If you only want the admin-side cards lifecycle assertions (table + action guardrails), run:
@@ -102,3 +105,4 @@ This coverage instead validates the business-critical outcomes with lower mainte
 2. public resolution stays blocked for invalid cards
 3. Route 2 profile history/archive state stays visible to admin
 4. admin filters do not hide or distort the minimum lifecycle/history signal
+5. public profile resolution stays aligned with what `/admin/profiles` reports

@@ -30,7 +30,9 @@
     "test:e2e:admin-cards-guardrails": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-cards.cy.js",
     "test:e2e:cards-lifecycle": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-cards.cy.js --spec cypress/e2e/nfc-invalid-card-states.cy.js",
     "test:e2e:admin-profiles": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-profiles.cy.js",
-    "test:e2e:admin-profiles-guardrails": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-profiles.cy.js"
+    "test:e2e:admin-profiles-guardrails": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-profiles.cy.js",
+    "test:e2e:profiles-e2e": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-profiles-e2e.cy.js",
+    "test:e2e:profiles-full": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-profiles.cy.js --spec cypress/e2e/admin-profiles-e2e.cy.js --spec cypress/e2e/profile-soft-delete-guard.cy.js"
   },
   "devDependencies": {
     "@testing-library/cypress": "^10.0.3",
