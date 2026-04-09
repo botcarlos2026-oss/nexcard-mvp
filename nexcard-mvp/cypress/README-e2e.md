@@ -22,6 +22,8 @@
 - Solo admin cards: `npm run test:e2e:admin-cards`
 - Alias explícito guardrails admin/cards: `npm run test:e2e:admin-cards-guardrails`
 - Pack mínimo lifecycle cards: `npm run test:e2e:cards-lifecycle`
+- Solo admin profiles: `npm run test:e2e:admin-profiles`
+- Alias explícito guardrails admin/profiles: `npm run test:e2e:admin-profiles-guardrails`
 
 ## Suites incluidas
 - `auth.cy.js` → login y registro (registro puede requerir confirmar email en Supabase).
@@ -30,6 +32,7 @@
 - `wizard.cy.js` → flujo de setup.
 - `admin.cy.js` → dashboard + inventario (el test de ítems está **skip** hasta que la UI muestre inventario seed de forma consistente).
 - `admin-cards.cy.js` → visibilidad mínima del lifecycle en `/admin/cards`, guardrails de acciones revoke/archive y correlación con el bloqueo del bridge público.
+- `admin-profiles.cy.js` → guardrails reproducibles en `/admin/profiles` para dataset visible de lifecycle/history, búsqueda y filtro `archived`.
 - `nfc-invalid-card-states.cy.js` → bridge HTTP para tarjetas `revoked` y `archived`.
 - `logout.cy.js` → cierre de sesión.
 
@@ -63,7 +66,42 @@ CYPRESS_archived_card_code="NXC-ARC-001" \
 npm run test:e2e:cards-lifecycle
 ```
 
+## Variables de entorno para admin profiles
+Estas suites quedan reproducibles si apuntas a dos perfiles seed/controlados: uno `active` y otro `archived`, ambos con historial visible.
+
+### Requeridas
+- `CYPRESS_active_profile_slug`
+- `CYPRESS_active_profile_status`
+- `CYPRESS_active_profile_versions`
+- `CYPRESS_active_profile_last_event`
+- `CYPRESS_archived_profile_slug`
+- `CYPRESS_archived_profile_status`
+- `CYPRESS_archived_profile_versions`
+- `CYPRESS_archived_profile_last_event`
+
+### Opcionales
+- `CYPRESS_active_profile_full_name`
+- `CYPRESS_archived_profile_full_name`
+- `CYPRESS_active_profile_deleted` (default: `No`)
+- `CYPRESS_archived_profile_deleted` (default: `Sí`)
+
+### Ejemplo
+```bash
+CYPRESS_login_email="admin@nexcard.cl" \
+CYPRESS_login_password="admin123" \
+CYPRESS_active_profile_slug="carlos-alvarez" \
+CYPRESS_active_profile_status="active" \
+CYPRESS_active_profile_versions="2" \
+CYPRESS_active_profile_last_event="snapshot" \
+CYPRESS_archived_profile_slug="bot-carlos" \
+CYPRESS_archived_profile_status="archived" \
+CYPRESS_archived_profile_versions="3" \
+CYPRESS_archived_profile_last_event="soft_delete" \
+npm run test:e2e:admin-profiles-guardrails
+```
+
 ## Notas
-- La suite de lifecycle no intenta ejecutar acciones de revoke/archive desde UI. Su foco es validar los guardrails más caros de romper: visibilidad admin coherente + bloqueo del bridge público.
+- La suite de profiles no intenta restaurar ni mutar perfiles desde UI. Su foco es validar los guardrails más caros de romper: visibilidad admin coherente del lifecycle/history y filtros mínimos reproducibles.
+- La suite de lifecycle cards no intenta ejecutar acciones de revoke/archive desde UI. Su foco es validar los guardrails más caros de romper: visibilidad admin coherente + bloqueo del bridge público.
 - Si cambian los seeds, actualiza las variables de entorno en vez de reescribir los tests.
 - Selectores: donde existen `data-cy`, se priorizan para estabilidad.
