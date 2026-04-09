@@ -3,12 +3,18 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const SEED_FILE = path.join(DATA_DIR, 'seed.json');
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
@@ -63,22 +69,68 @@ app.get('/api/public/profiles/:slug', (req, res) => {
   return res.json(profile);
 });
 
-app.get('/c/:publicToken', (req, res) => {
+app.get('/c/:publicToken', async (req, res) => {
+  const unavailableMessage = 'Esta tarjeta fue desactivada. Si necesitas ayuda, contacta soporte.';
+  const pendingMessage = 'Esta tarjeta aún no está lista para usarse.';
+  const missingMessage = 'Esta tarjeta no existe o ya no está disponible.';
+
+  if (supabase) {
+    try {
+      const { data: resolvedRows, error: resolveError } = await supabase
+        .rpc('resolve_card_by_token', { input_token: req.params.publicToken });
+
+      if (resolveError) throw resolveError;
+
+      const resolved = Array.isArray(resolvedRows) ? resolvedRows[0] : resolvedRows;
+
+      if (!resolved) {
+        return res.status(404).send(missingMessage);
+      }
+
+      if (['revoked', 'lost', 'archived', 'replaced', 'suspended'].includes(resolved.status)) {
+        return res.status(410).send(unavailableMessage);
+      }
+
+      if (!resolved.profile_id || !resolved.slug) {
+        return res.status(409).send(pendingMessage);
+      }
+
+      const { error: scanError } = await supabase
+        .from('card_scans')
+        .insert({
+          card_id: resolved.card_id,
+          profile_id: resolved.profile_id,
+          organization_id: resolved.organization_id,
+          scan_source: 'nfc',
+          user_agent: req.header('user-agent') || 'unknown',
+          referrer: req.header('referer') || null,
+        });
+
+      if (scanError) {
+        console.warn('[NFC] card_scans insert failed:', scanError.message);
+      }
+
+      return res.redirect(`/${resolved.slug}`);
+    } catch (error) {
+      console.warn('[NFC] Supabase resolution failed, falling back to local mock:', error.message);
+    }
+  }
+
   const db = readDb();
   const cards = db.cards || [];
   const cardScans = db.card_scans || [];
   const card = cards.find(c => c.public_token === req.params.publicToken);
 
   if (!card) {
-    return res.status(404).send('Esta tarjeta no existe o ya no está disponible.');
+    return res.status(404).send(missingMessage);
   }
 
   if (['revoked', 'lost', 'archived', 'replaced', 'suspended'].includes(card.status)) {
-    return res.status(410).send('Esta tarjeta fue desactivada. Si necesitas ayuda, contacta soporte.');
+    return res.status(410).send(unavailableMessage);
   }
 
   if (!card.profile_id) {
-    return res.status(409).send('Esta tarjeta aún no está lista para usarse.');
+    return res.status(409).send(pendingMessage);
   }
 
   const profile = db.profiles.find(p => p.id === card.profile_id && p.status === 'active');
