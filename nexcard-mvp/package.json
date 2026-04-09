@@ -26,7 +26,8 @@
     "test:e2e:nfc": "./scripts/run-e2e-local.sh --spec cypress/e2e/nfc-bridge.cy.js",
     "test:e2e:soft-delete": "./scripts/run-e2e-local.sh --spec cypress/e2e/profile-soft-delete-guard.cy.js",
     "test:e2e:nfc-invalid": "./scripts/run-e2e-local.sh --spec cypress/e2e/nfc-invalid-card-states.cy.js",
-    "test:e2e:admin-cards": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-cards.cy.js"
+    "test:e2e:admin-cards": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-cards.cy.js",
+    "test:e2e:cards-lifecycle": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-cards.cy.js --spec cypress/e2e/nfc-invalid-card-states.cy.js"
   },
   "devDependencies": {
     "@testing-library/cypress": "^10.0.3",

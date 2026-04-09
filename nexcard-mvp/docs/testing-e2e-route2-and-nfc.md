@@ -1,34 +1,64 @@
-# NexCard — E2E tests for NFC and Route 2 guardrails
+# Testing E2E — Route 2 y NFC guardrails
 
 ## Added Cypress coverage
+The project now has reproducible Cypress coverage for the minimum cards lifecycle guardrails without depending on app-side lifecycle mutations.
 
-### `cypress/e2e/nfc-bridge.cy.js`
-Validates that a configured NFC token returns a redirect to the expected slug.
+### Covered now
+- `/admin/cards` renders the lifecycle visibility dataset.
+- A seeded `revoked` card is visible in admin with its expected lifecycle state.
+- A seeded `archived` card is visible in admin with its expected lifecycle state.
+- Both seeded tokens stay blocked by the public NFC bridge (`/c/:publicToken`).
 
-Required env vars:
-- `CYPRESS_nfc_token`
-- `CYPRESS_nfc_expected_slug`
+This keeps the suite focused on the regression surface that matters most right now:
+- no revoked card should resolve as active
+- no archived card should resolve as active
+- admin/cards must expose enough state to detect lifecycle drift
 
-### `cypress/e2e/profile-soft-delete-guard.cy.js`
-Validates that a soft-deleted profile slug no longer resolves as a live active public profile.
+## Specs involved
+- `cypress/e2e/admin-cards.cy.js`
+- `cypress/e2e/nfc-invalid-card-states.cy.js`
 
-Required env var:
-- `CYPRESS_deleted_profile_slug`
-
----
-
-## Suggested usage
-
+## Recommended runner
 ```bash
-cd nexcard-mvp
-CYPRESS_nfc_token="your-public-token" \
-CYPRESS_nfc_expected_slug="carlos-alvarez" \
-CYPRESS_deleted_profile_slug="bot-carlos" \
-npx cypress run --spec "cypress/e2e/nfc-bridge.cy.js,cypress/e2e/profile-soft-delete-guard.cy.js"
+npm run test:e2e:cards-lifecycle
 ```
 
----
+## Required env for reproducibility
+```bash
+CYPRESS_login_email
+CYPRESS_login_password
+CYPRESS_revoked_nfc_token
+CYPRESS_revoked_expected_status
+CYPRESS_archived_nfc_token
+CYPRESS_archived_expected_status
+```
 
-## Notes
-These tests are intentionally lightweight.
-They validate critical guardrails without trying to own the full Supabase lifecycle from Cypress.
+## Optional env
+```bash
+CYPRESS_revoked_card_code
+CYPRESS_archived_card_code
+CYPRESS_revoked_expected_deleted
+CYPRESS_archived_expected_deleted
+CYPRESS_revoked_http_status
+CYPRESS_archived_http_status
+```
+
+## Example
+```bash
+CYPRESS_login_email="admin@nexcard.cl" \
+CYPRESS_login_password="admin123" \
+CYPRESS_revoked_nfc_token="nxc-revoked-token" \
+CYPRESS_revoked_expected_status="revoked" \
+CYPRESS_archived_nfc_token="nxc-archived-token" \
+CYPRESS_archived_expected_status="archived" \
+npm run test:e2e:cards-lifecycle
+```
+
+## Why this shape
+Trying to own the full revoke/archive mutation lifecycle from Cypress would couple the suite to unstable UI work and seeded action flows.
+
+This coverage instead validates the two business-critical outcomes:
+1. lifecycle state is visible to admin
+2. public resolution stays blocked for invalid cards
+
+That gives lower maintenance cost and higher regression signal.
