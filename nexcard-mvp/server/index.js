@@ -63,6 +63,45 @@ app.get('/api/public/profiles/:slug', (req, res) => {
   return res.json(profile);
 });
 
+app.get('/c/:publicToken', (req, res) => {
+  const db = readDb();
+  const cards = db.cards || [];
+  const cardScans = db.card_scans || [];
+  const card = cards.find(c => c.public_token === req.params.publicToken);
+
+  if (!card) {
+    return res.status(404).send('Esta tarjeta no existe o ya no está disponible.');
+  }
+
+  if (['revoked', 'lost', 'archived', 'replaced', 'suspended'].includes(card.status)) {
+    return res.status(410).send('Esta tarjeta fue desactivada. Si necesitas ayuda, contacta soporte.');
+  }
+
+  if (!card.profile_id) {
+    return res.status(409).send('Esta tarjeta aún no está lista para usarse.');
+  }
+
+  const profile = db.profiles.find(p => p.id === card.profile_id && p.status === 'active');
+
+  if (!profile) {
+    return res.status(404).send('El perfil asociado a esta tarjeta no está disponible.');
+  }
+
+  cardScans.push({
+    id: randomUUID(),
+    card_id: card.id,
+    profile_id: profile.id,
+    created_at: new Date().toISOString(),
+    user_agent: req.header('user-agent') || 'unknown',
+    scan_source: 'nfc',
+  });
+
+  db.card_scans = cardScans;
+  writeDb(db);
+
+  return res.redirect(`/${profile.slug}`);
+});
+
 app.get('/api/content/landing', (_req, res) => {
   const db = readDb();
   res.json(db.content.landing);
