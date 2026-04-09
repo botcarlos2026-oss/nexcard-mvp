@@ -22,12 +22,22 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Kill stale local dev processes that commonly block the runner.
+pkill -f "react-scripts start" >/dev/null 2>&1 || true
+pkill -f "node server/index.js" >/dev/null 2>&1 || true
+
+rm -f "$FRONTEND_LOG" "$BACKEND_LOG"
+
+echo "[e2e] Starting frontend on http://localhost:3000"
 npm start >"$FRONTEND_LOG" 2>&1 &
 FRONTEND_PID=$!
 
+echo "[e2e] Starting backend on http://localhost:4000"
 node server/index.js >"$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
+echo "[e2e] Waiting for frontend/backend readiness..."
 npx wait-on http://localhost:3000 http://localhost:4000
 
+echo "[e2e] Running Cypress"
 npx cypress run "$@"
