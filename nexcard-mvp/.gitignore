@@ -5,3 +5,8 @@ server/data/seed.json
 .DS_Store
 *.env*
 .env
+.e2e-frontend.log
+.e2e-backend.log
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/

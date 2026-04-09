@@ -3,9 +3,23 @@
 ## Requisitos
 - Node 18+
 - `npm install` (instala Cypress y @testing-library/cypress)
-- Servidores corriendo: `npm run dev` (frontend 3000 + mock API 4000) o usar los runners locales incluidos.
 - Seeds ya cargados en Supabase.
 - Usuario admin existente; pasa sus credenciales vía vars de entorno para evitar hardcode.
+- Recomendado: copiar `.env.e2e.example` a `.env.e2e.local` para aislar credenciales/seeds E2E del `.env.local` diario.
+
+## Flujo recomendado
+1. `cp .env.e2e.example .env.e2e.local`
+2. Completar credenciales reales + slugs/tokens seed
+3. `npm run test:e2e:env-check`
+4. Ejecutar la suite necesaria (`npm run test:e2e:smoke`, `npm run test:e2e:nfc`, etc.)
+
+El runner local levanta frontend/backend automáticamente. Solo usa `npm run dev` manual si quieres depurar interactivamente fuera de Cypress.
+
+## Precedencia de entorno
+- `scripts/run-e2e-local.sh` intenta cargar primero `.env.e2e.local`
+- si no existe, cae a `.env.local`
+
+Esto baja el riesgo de mezclar credenciales de trabajo diario con seeds de testing.
 
 ## Config
 - `cypress.config.js` usa baseUrl `http://localhost:3000`.
@@ -16,7 +30,9 @@
 
 ## Scripts
 - Abrir runner: `npm run cypress:open`
-- Headless: `npm run test:e2e`
+- Headless puro Cypress: `npm run test:e2e`
+- Preflight env mínimo: `npm run test:e2e:env-check`
+- Smoke rápido reproducible: `npm run test:e2e:smoke`
 - Runner local completo: `npm run test:e2e:local`
 - Solo guardrails NFC inválidos: `npm run test:e2e:nfc-invalid`
 - Solo admin cards: `npm run test:e2e:admin-cards`
@@ -108,4 +124,6 @@ npm run test:e2e:admin-profiles-guardrails
 - Checklist operativo y criterio de salida recomendados para `/admin/profiles`: `docs/admin-profiles-validation-checklist.md`
 - La suite de lifecycle cards no intenta ejecutar acciones de revoke/archive desde UI. Su foco es validar los guardrails más caros de romper: visibilidad admin coherente + bloqueo del bridge público.
 - Si cambian los seeds, actualiza las variables de entorno en vez de reescribir los tests.
+- El runner ahora imprime el tail de `.e2e-frontend.log` y `.e2e-backend.log` cuando falla antes/durante Cypress. Revisa eso primero antes de asumir bug de UI.
+- Artefactos volátiles (`.e2e-*.log`, `cypress/screenshots/`, `cypress/videos/`) quedaron ignorados para no ensuciar commits.
 - Selectores: donde existen `data-cy`, se priorizan para estabilidad.
