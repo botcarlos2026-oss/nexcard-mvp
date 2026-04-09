@@ -75,6 +75,7 @@ async function supabasePublicProfile(slug) {
     .select('*')
     .eq('slug', slug)
     .eq('status', 'active')
+    .is('deleted_at', null)
     .single();
   if (error) throw error;
   // Incrementar view_count de forma atómica (RPC en DB). No hacemos await para no bloquear la carga.
@@ -92,6 +93,7 @@ async function supabaseMyProfile() {
     .from('profiles')
     .select('*')
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .single();
   if (error) throw error;
   return data;
@@ -107,6 +109,7 @@ async function supabaseUpdateMyProfile(payload) {
     .from('profiles')
     .select('id, user_id')
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (existingError) throw existingError;
