@@ -17,24 +17,27 @@ Tener un mapa claro de los SQL ya creados/validados antes de reorganizarlos como
 - `route2_orders_payments_minimal.sql`
 - `route2_profiles_first.sql` (versión más ambiciosa; conservar solo como referencia si la mínima ya quedó validada)
 
-## Recomendación de promoción a `supabase/migrations/`
+## Promoción inicial a `supabase/migrations/`
 ### Grupo 1 — seguridad base
-1. B2 RLS
-2. B3 RLS
-3. card_scans RLS
-4. card_events RLS
+1. `2026-04-09-001-b2-rls-profiles-orders.sql`
+2. `2026-04-09-002-b3-rls-cards-payments.sql`
+3. `2026-04-09-003-card-scans-rls.sql`
+4. `2026-04-09-004-card-events-rls.sql`
 
 ### Grupo 2 — NFC/cards
-5. C3 cards schema
-6. cards activation_status alignment
-7. route2 cards lifecycle
+5. `2026-04-09-005-c3-cards-schema.sql`
+6. `2026-04-09-006-cards-activation-status-alignment.sql`
+7. `2026-04-09-010-route2-cards-lifecycle.sql`
 
 ### Grupo 3 — resiliencia Route 2
-8. route2 foundation
-9. route2 profiles snapshot minimal
-10. route2 profiles restore minimal
-11. route2 orders/payments minimal
+8. `2026-04-09-007-route2-foundation.sql`
+9. `2026-04-09-008-route2-profiles-snapshot.sql`
+10. `2026-04-09-009-route2-profiles-restore.sql`
+11. `2026-04-09-011-route2-orders-payments.sql`
+
+## Nota
+`route2_profiles_first.sql` se mantiene fuera del lote formal como referencia histórica, porque la promoción se hizo sobre la ruta mínima validada (`snapshot` + `restore`).
 
 ## Criterio
-No hace falta mover todo hoy mismo.
-Pero este inventario deja claro qué piezas ya existen y cuáles ya fueron validadas en la base real.
+La primera tanda ya quedó ordenada y versionada.
+El siguiente paso serio no es crear más SQL suelto, sino aplicar/validar estas migraciones con disciplina staging -> prod.
