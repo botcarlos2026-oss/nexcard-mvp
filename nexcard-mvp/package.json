@@ -21,12 +21,16 @@
     "server": "node server/index.js",
     "dev": "concurrently \"npm run server\" \"npm start\"",
     "cypress:open": "cypress open",
-    "test:e2e": "cypress run"
+    "test:e2e": "cypress run",
+    "test:e2e:local": "./scripts/run-e2e-local.sh",
+    "test:e2e:nfc": "./scripts/run-e2e-local.sh --spec cypress/e2e/nfc-bridge.cy.js",
+    "test:e2e:soft-delete": "./scripts/run-e2e-local.sh --spec cypress/e2e/profile-soft-delete-guard.cy.js"
   },
   "devDependencies": {
     "@testing-library/cypress": "^10.0.3",
     "concurrently": "^9.1.2",
-    "cypress": "^13.8.0"
+    "cypress": "^13.8.0",
+    "wait-on": "^8.0.1"
   },
   "browserslist": {
     "production": [
