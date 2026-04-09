@@ -10,13 +10,19 @@ Aplicar el patrón mínimo validado en perfiles/cards a la capa comercial.
 ## Orders
 - `snapshot_order()`
 - `soft_delete_order()`
+- `mark_order_payment_status()`
+- `mark_order_fulfillment_status()`
 
 ## Payments
 - `snapshot_payment()`
 - `soft_delete_payment()`
+- `mark_payment_status()`
 
 ## Audit
 - registro consistente en `audit_log`
+
+## Ops
+- playbook manual de validación
 
 ---
 
@@ -29,23 +35,28 @@ Aplicar el patrón mínimo validado en perfiles/cards a la capa comercial.
 ---
 
 # Qué se deja para después
-- change-status helpers (`paid`, `fulfilled`, etc.)
 - restore de órdenes/pagos
 - version tables dedicadas
+- sincronización automática order ↔ payment
 - UI/admin específico
+- reglas estrictas de transición entre estados
 
 ---
 
 # Validación recomendada
 ## Orders
 - snapshot de una orden de prueba
+- cambio de `payment_status`
+- cambio de `fulfillment_status`
 - soft delete de una orden de prueba
 - verificar `audit_log`
 
 ## Payments
 - snapshot de un pago de prueba
+- cambio de `status`
 - soft delete de un pago de prueba
 - verificar `audit_log`
+- seguir `docs/route2-orders-payments-ops-playbook.md`
 
 ---
 
