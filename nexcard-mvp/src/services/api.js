@@ -403,12 +403,70 @@ async function supabaseOrders() {
   return data;
 }
 
+async function reserveInventoryForOrder(orderId) {
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, order_items(*)')
+    .eq('id', orderId)
+    .single();
+  if (orderError) throw orderError;
+
+  const items = order.order_items || [];
+  for (const orderItem of items) {
+    const productName = orderItem.product_name || orderItem.product_id;
+    if (!productName) continue;
+
+    const { data: inventoryItem } = await supabase
+      .from('inventory_items')
+      .select('*')
+      .ilike('item', `%${productName}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (!inventoryItem) continue;
+
+    const quantity = orderItem.quantity || 0;
+    const nextStock = (inventoryItem.stock || 0) - quantity;
+    if (nextStock < 0) {
+      throw new Error(`Stock insuficiente para reservar ${productName}. Disponible: ${inventoryItem.stock || 0}`);
+    }
+
+    await supabase.from('inventory_movements').insert({
+      inventory_item_id: inventoryItem.id,
+      movement_type: 'out',
+      quantity,
+      reason: `Reserva automática por orden ${orderId}`,
+      order_id: orderId,
+    });
+
+    await supabase
+      .from('inventory_items')
+      .update({ stock: nextStock })
+      .eq('id', inventoryItem.id);
+  }
+}
+
 async function supabaseUpdateOrder(orderId, payload) {
+  const { data: currentOrder, error: currentOrderError } = await supabase
+    .from('orders')
+    .select('id, fulfillment_status')
+    .eq('id', orderId)
+    .single();
+  if (currentOrderError) throw currentOrderError;
+
+  const nextFulfillmentStatus = payload.fulfillment_status;
+  const shouldReserveStock = nextFulfillmentStatus === 'in_production' && currentOrder.fulfillment_status !== 'in_production';
+
   const { error } = await supabase
     .from('orders')
     .update(payload)
     .eq('id', orderId);
   if (error) throw error;
+
+  if (shouldReserveStock) {
+    await reserveInventoryForOrder(orderId);
+  }
+
   return supabaseOrders();
 }
 
