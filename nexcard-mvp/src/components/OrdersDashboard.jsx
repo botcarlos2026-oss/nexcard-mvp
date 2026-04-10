@@ -48,6 +48,7 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [busyOrderId, setBusyOrderId] = useState(null);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
+  const [draftOrder, setDraftOrder] = useState(null);
 
   useEffect(() => {
     setRows(orders);
@@ -105,6 +106,20 @@ const OrdersDashboard = ({ orders = [] }) => {
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedOrderId) || filteredOrders[0] || null;
 
+  useEffect(() => {
+    if (!selectedOrder) {
+      setDraftOrder(null);
+      return;
+    }
+
+    setDraftOrder({
+      customer_phone: selectedOrder.customer_phone || '',
+      customer_email: selectedOrder.customer_email || '',
+      delivery_address: selectedOrder.delivery_address || '',
+      notes: selectedOrder.notes || '',
+    });
+  }, [selectedOrderId, selectedOrder?.id]);
+
   const updateOrderField = async (orderId, payload, successMessage) => {
     setBusyOrderId(orderId);
     setFeedback({ type: '', message: '' });
@@ -117,6 +132,11 @@ const OrdersDashboard = ({ orders = [] }) => {
     } finally {
       setBusyOrderId(null);
     }
+  };
+
+  const saveDraftOrder = async () => {
+    if (!selectedOrder || !draftOrder) return;
+    await updateOrderField(selectedOrder.id, draftOrder, `Datos operativos actualizados para ${selectedOrder.id}.`);
   };
 
   const stats = useMemo(() => {
@@ -373,16 +393,16 @@ const OrdersDashboard = ({ orders = [] }) => {
                     <div className="grid gap-3">
                       <input
                         type="text"
-                        value={selectedOrder.customer_phone || ''}
-                        onChange={(event) => updateOrderField(selectedOrder.id, { customer_phone: event.target.value }, `Teléfono actualizado para ${selectedOrder.id}.`)}
+                        value={draftOrder?.customer_phone || ''}
+                        onChange={(event) => setDraftOrder((prev) => ({ ...(prev || {}), customer_phone: event.target.value }))}
                         disabled={busyOrderId === selectedOrder.id}
                         placeholder="Teléfono cliente"
                         className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20"
                       />
                       <input
                         type="text"
-                        value={selectedOrder.customer_email || ''}
-                        onChange={(event) => updateOrderField(selectedOrder.id, { customer_email: event.target.value }, `Email actualizado para ${selectedOrder.id}.`)}
+                        value={draftOrder?.customer_email || ''}
+                        onChange={(event) => setDraftOrder((prev) => ({ ...(prev || {}), customer_email: event.target.value }))}
                         disabled={busyOrderId === selectedOrder.id}
                         placeholder="Email cliente"
                         className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20"
@@ -393,8 +413,8 @@ const OrdersDashboard = ({ orders = [] }) => {
                   <div>
                     <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Dirección / retiro</p>
                     <textarea
-                      value={selectedOrder.delivery_address || ''}
-                      onChange={(event) => updateOrderField(selectedOrder.id, { delivery_address: event.target.value }, `Dirección actualizada para ${selectedOrder.id}.`)}
+                      value={draftOrder?.delivery_address || ''}
+                      onChange={(event) => setDraftOrder((prev) => ({ ...(prev || {}), delivery_address: event.target.value }))}
                       disabled={busyOrderId === selectedOrder.id}
                       rows="3"
                       placeholder="Dirección de despacho o instrucción de retiro"
@@ -405,8 +425,8 @@ const OrdersDashboard = ({ orders = [] }) => {
                   <div>
                     <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Notas</p>
                     <textarea
-                      value={selectedOrder.notes || ''}
-                      onChange={(event) => updateOrderField(selectedOrder.id, { notes: event.target.value }, `Notas actualizadas para ${selectedOrder.id}.`)}
+                      value={draftOrder?.notes || ''}
+                      onChange={(event) => setDraftOrder((prev) => ({ ...(prev || {}), notes: event.target.value }))}
                       disabled={busyOrderId === selectedOrder.id}
                       rows="4"
                       placeholder="Observaciones operativas internas"
@@ -415,9 +435,34 @@ const OrdersDashboard = ({ orders = [] }) => {
                   </div>
                 </div>
 
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDraftOrder({
+                      customer_phone: selectedOrder.customer_phone || '',
+                      customer_email: selectedOrder.customer_email || '',
+                      delivery_address: selectedOrder.delivery_address || '',
+                      notes: selectedOrder.notes || '',
+                    })}
+                    disabled={busyOrderId === selectedOrder.id}
+                    className="px-4 py-3 rounded-2xl border border-zinc-200 text-zinc-700 font-bold text-sm"
+                  >
+                    Descartar cambios
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveDraftOrder}
+                    disabled={busyOrderId === selectedOrder.id}
+                    className="px-5 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-200 inline-flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {busyOrderId === selectedOrder.id ? <Loader2 size={16} className="animate-spin" /> : null}
+                    Guardar datos operativos
+                  </button>
+                </div>
+
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 flex items-start gap-3">
                   {busyOrderId === selectedOrder.id ? <Loader2 size={18} className="mt-0.5 animate-spin" /> : <AlertCircle size={18} className="mt-0.5" />}
-                  <span>Este MVP ya permite cambio manual de estados. La siguiente iteración debería sumar edición operativa, acciones masivas y SLA visible.</span>
+                  <span>Este MVP ya permite cambio manual de estados. La siguiente iteración debería sumar acciones masivas, SLA visible y reservas transaccionales nativas en DB.</span>
                 </div>
               </div>
             ) : (

@@ -491,6 +491,9 @@ async function reserveInventoryForOrder(orderId) {
     .single();
   if (orderError) throw orderError;
 
+  const reservationPlan = [];
+  const createdMovementIds = [];
+
   const items = order.order_items || [];
   for (const orderItem of items) {
     const productName = orderItem.product_name || orderItem.product_id;
@@ -527,21 +530,57 @@ async function reserveInventoryForOrder(orderId) {
       throw new Error(`Stock insuficiente para reservar ${productName}. Disponible: ${inventoryItem.stock || 0}`);
     }
 
-    await supabase.from('inventory_movements').insert({
-      inventory_item_id: inventoryItem.id,
-      movement_type: 'out',
+    reservationPlan.push({
+      inventoryItem,
       quantity,
-      reason: `Reserva automática por orden ${orderId}`,
-      order_id: orderId,
+      previousStock: inventoryItem.stock || 0,
+      nextStock,
+      productName,
     });
-
-    await supabase
-      .from('inventory_items')
-      .update({ stock: nextStock })
-      .eq('id', inventoryItem.id);
   }
 
-  return { skipped: false };
+  try {
+    for (const step of reservationPlan) {
+      const { data: movement, error: movementError } = await supabase
+        .from('inventory_movements')
+        .insert({
+          inventory_item_id: step.inventoryItem.id,
+          movement_type: 'out',
+          quantity: step.quantity,
+          reason: `Reserva automática por orden ${orderId}`,
+          order_id: orderId,
+        })
+        .select('id')
+        .single();
+      if (movementError) throw movementError;
+
+      createdMovementIds.push(movement.id);
+
+      const { error: stockError } = await supabase
+        .from('inventory_items')
+        .update({ stock: step.nextStock })
+        .eq('id', step.inventoryItem.id);
+      if (stockError) throw stockError;
+    }
+  } catch (error) {
+    for (const step of reservationPlan) {
+      await supabase
+        .from('inventory_items')
+        .update({ stock: step.previousStock })
+        .eq('id', step.inventoryItem.id);
+    }
+
+    if (createdMovementIds.length > 0) {
+      await supabase
+        .from('inventory_movements')
+        .delete()
+        .in('id', createdMovementIds);
+    }
+
+    throw error;
+  }
+
+  return { skipped: false, reservedItems: reservationPlan.length };
 }
 
 async function supabaseUpdateOrder(orderId, payload) {
