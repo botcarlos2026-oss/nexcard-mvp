@@ -32,8 +32,9 @@ const AdminDashboard = ({ dashboard }) => {
           <h1 className="text-3xl font-black tracking-tight text-zinc-950">NexCard Control Center</h1>
           <p className="text-zinc-500 font-medium">Conversión, perfiles, pedidos y salud operativa desde un solo panel</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <a href="/admin/cards" className="px-4 py-3 bg-zinc-950 text-white rounded-2xl font-bold text-sm">Ver Cards</a>
+          <a href="/admin/orders" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Órdenes</a>
           <a href="/admin/profiles" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Profiles</a>
           <a href="/admin/inventory" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Inventario</a>
         </div>
