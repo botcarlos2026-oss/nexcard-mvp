@@ -391,22 +391,12 @@ async function supabaseAssignCard(cardId, profileId) {
   const actorId = await supabaseGetActorId();
   if (!profileId) throw new Error('Debes seleccionar un perfil');
 
-  const { error: updateError } = await supabase
-    .from('cards')
-    .update({
-      profile_id: profileId,
-      status: 'assigned',
-      activation_status: 'assigned',
-    })
-    .eq('id', cardId);
-  if (updateError) throw updateError;
-
-  await supabase.from('card_events').insert({
-    card_id: cardId,
-    event_type: 'assigned',
+  const { error } = await supabase.rpc('assign_card', {
+    target_card_id: cardId,
+    target_profile_id: profileId,
     actor_id: actorId,
-    metadata: { profile_id: profileId },
   });
+  if (error) throw error;
 
   return supabaseAdminCards();
 }
@@ -414,31 +404,11 @@ async function supabaseAssignCard(cardId, profileId) {
 async function supabaseActivateCard(cardId) {
   const actorId = await supabaseGetActorId();
 
-  const { data: card, error: cardError } = await supabase
-    .from('cards')
-    .select('id, status, activation_status, profile_id')
-    .eq('id', cardId)
-    .single();
-  if (cardError) throw cardError;
-
-  if (!card.profile_id) throw new Error('La tarjeta debe estar asignada antes de activarse');
-  if (card.status === 'revoked' || card.status === 'archived') throw new Error('No puedes activar una tarjeta revocada o archivada');
-
-  const { error: updateError } = await supabase
-    .from('cards')
-    .update({
-      status: 'active',
-      activation_status: 'active',
-    })
-    .eq('id', cardId);
-  if (updateError) throw updateError;
-
-  await supabase.from('card_events').insert({
-    card_id: cardId,
-    event_type: 'activated',
+  const { error } = await supabase.rpc('activate_card', {
+    target_card_id: cardId,
     actor_id: actorId,
-    metadata: { previous_status: card.status, previous_activation_status: card.activation_status },
   });
+  if (error) throw error;
 
   return supabaseAdminCards();
 }
