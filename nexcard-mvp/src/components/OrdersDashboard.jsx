@@ -359,9 +359,52 @@ const OrdersDashboard = ({ orders = [] }) => {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-zinc-100 bg-white p-4">
-                  <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Notas</p>
-                  <p className="text-sm font-medium text-zinc-600">{selectedOrder.notes || 'Sin observaciones operativas.'}</p>
+                <div className="rounded-2xl border border-zinc-100 bg-white p-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Contacto</p>
+                    <div className="grid gap-3">
+                      <input
+                        type="text"
+                        value={selectedOrder.customer_phone || ''}
+                        onChange={(event) => updateOrderField(selectedOrder.id, { customer_phone: event.target.value }, `Teléfono actualizado para ${selectedOrder.id}.`)}
+                        disabled={busyOrderId === selectedOrder.id}
+                        placeholder="Teléfono cliente"
+                        className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                      <input
+                        type="text"
+                        value={selectedOrder.customer_email || ''}
+                        onChange={(event) => updateOrderField(selectedOrder.id, { customer_email: event.target.value }, `Email actualizado para ${selectedOrder.id}.`)}
+                        disabled={busyOrderId === selectedOrder.id}
+                        placeholder="Email cliente"
+                        className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Dirección / retiro</p>
+                    <textarea
+                      value={selectedOrder.delivery_address || ''}
+                      onChange={(event) => updateOrderField(selectedOrder.id, { delivery_address: event.target.value }, `Dirección actualizada para ${selectedOrder.id}.`)}
+                      disabled={busyOrderId === selectedOrder.id}
+                      rows="3"
+                      placeholder="Dirección de despacho o instrucción de retiro"
+                      className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Notas</p>
+                    <textarea
+                      value={selectedOrder.notes || ''}
+                      onChange={(event) => updateOrderField(selectedOrder.id, { notes: event.target.value }, `Notas actualizadas para ${selectedOrder.id}.`)}
+                      disabled={busyOrderId === selectedOrder.id}
+                      rows="4"
+                      placeholder="Observaciones operativas internas"
+                      className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none"
+                    />
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 flex items-start gap-3">
