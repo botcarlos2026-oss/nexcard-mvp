@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  Link2,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -49,6 +50,7 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [busyOrderId, setBusyOrderId] = useState(null);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [draftOrder, setDraftOrder] = useState(null);
+  const [linkingCardId, setLinkingCardId] = useState('');
 
   useEffect(() => {
     setRows(orders);
@@ -118,6 +120,7 @@ const OrdersDashboard = ({ orders = [] }) => {
       delivery_address: selectedOrder.delivery_address || '',
       notes: selectedOrder.notes || '',
     });
+    setLinkingCardId('');
   }, [selectedOrderId, selectedOrder?.id]);
 
   const updateOrderField = async (orderId, payload, successMessage) => {
@@ -137,6 +140,23 @@ const OrdersDashboard = ({ orders = [] }) => {
   const saveDraftOrder = async () => {
     if (!selectedOrder || !draftOrder) return;
     await updateOrderField(selectedOrder.id, draftOrder, `Datos operativos actualizados para ${selectedOrder.id}.`);
+  };
+
+  const linkCardToOrder = async () => {
+    if (!selectedOrder || !linkingCardId) return;
+
+    setBusyOrderId(selectedOrder.id);
+    setFeedback({ type: '', message: '' });
+    try {
+      const response = await api.linkOrderCard(selectedOrder.id, linkingCardId);
+      setRows(response.orders || []);
+      setFeedback({ type: 'success', message: `Tarjeta vinculada formalmente a la orden ${selectedOrder.id}.` });
+      setLinkingCardId('');
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message || 'No fue posible vincular la tarjeta a la orden.' });
+    } finally {
+      setBusyOrderId(null);
+    }
   };
 
   const stats = useMemo(() => {
@@ -365,6 +385,37 @@ const OrdersDashboard = ({ orders = [] }) => {
                     <span className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide bg-emerald-500/20 text-emerald-300">
                       {selectedOrder.card_lifecycle_ready ? 'Cards listas para lifecycle' : 'Cards no vinculadas todavía'}
                     </span>
+                    <span className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide bg-sky-500/20 text-sky-300">
+                      Fuente cards: {selectedOrder.related_cards_source === 'order_cards' ? 'vínculo formal' : 'match heurístico'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-100 bg-white p-4 space-y-4">
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-1">Vincular card a la orden</p>
+                      <p className="text-sm font-medium text-zinc-500">Deja trazabilidad real order → card sin depender del match por perfil.</p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        value={linkingCardId}
+                        onChange={(event) => setLinkingCardId(event.target.value)}
+                        disabled={busyOrderId === selectedOrder.id}
+                        placeholder="UUID de card"
+                        className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-sky-500/20 sm:w-72"
+                      />
+                      <button
+                        type="button"
+                        onClick={linkCardToOrder}
+                        disabled={busyOrderId === selectedOrder.id || !linkingCardId}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-sky-200 disabled:opacity-60"
+                      >
+                        <Link2 size={16} />
+                        Vincular
+                      </button>
+                    </div>
                   </div>
                 </div>
 

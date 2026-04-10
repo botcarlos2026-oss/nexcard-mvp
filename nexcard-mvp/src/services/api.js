@@ -472,24 +472,46 @@ async function supabaseOrders() {
     .select('id, card_code, profile_id, status, activation_status');
   if (cardsError) throw cardsError;
 
+  const { data: orderCards, error: orderCardsError } = await supabase
+    .from('order_cards')
+    .select('order_id, card_id')
+    .throwOnError()
+    .catch(() => ({ data: [], error: null }));
+  if (orderCardsError) throw orderCardsError;
+
   const movementsByOrder = (inventoryMovements || []).reduce((acc, movement) => {
     if (!acc[movement.order_id]) acc[movement.order_id] = [];
     acc[movement.order_id].push(movement);
     return acc;
   }, {});
 
+  const cardById = (cards || []).reduce((acc, card) => {
+    acc[card.id] = card;
+    return acc;
+  }, {});
+
+  const linkedCardsByOrder = (orderCards || []).reduce((acc, row) => {
+    if (!acc[row.order_id]) acc[row.order_id] = [];
+    if (cardById[row.card_id]) acc[row.order_id].push(cardById[row.card_id]);
+    return acc;
+  }, {});
+
   return (data || []).map((order) => {
-    const matchingCards = (cards || []).filter((card) => {
+    const heuristicCards = (cards || []).filter((card) => {
       const orderProfileIds = (order.order_items || []).map((item) => item.profile_id).filter(Boolean);
       return orderProfileIds.length > 0 && orderProfileIds.includes(card.profile_id);
     });
+
+    const linkedCards = linkedCardsByOrder[order.id] || [];
+    const relatedCards = linkedCards.length > 0 ? linkedCards : heuristicCards;
 
     return {
       ...order,
       inventory_reserved: Boolean((movementsByOrder[order.id] || []).some((movement) => movement.movement_type === 'out')),
       inventory_movements: movementsByOrder[order.id] || [],
-      related_cards: matchingCards,
-      card_lifecycle_ready: matchingCards.some((card) => card.status === 'assigned' || card.status === 'active'),
+      related_cards: relatedCards,
+      related_cards_source: linkedCards.length > 0 ? 'order_cards' : 'heuristic',
+      card_lifecycle_ready: relatedCards.some((card) => card.status === 'assigned' || card.status === 'active'),
     };
   });
 }
@@ -604,6 +626,17 @@ async function reserveInventoryForOrder(orderId) {
   }
 
   return { skipped: false, reservedItems: reservationPlan.length };
+}
+
+async function supabaseLinkOrderCard(orderId, cardId) {
+  const actorId = await supabaseGetActorId();
+  const { error } = await supabase.rpc('link_order_card', {
+    target_order_id: orderId,
+    target_card_id: cardId,
+    actor_id: actorId,
+  });
+  if (error) throw error;
+  return supabaseOrders();
 }
 
 async function supabaseUpdateOrder(orderId, payload) {
@@ -749,6 +782,13 @@ export const api = {
       throw new Error('Órdenes deshabilitadas: Supabase Auth es obligatorio');
     }
     const orders = await supabaseUpdateOrder(orderId, payload);
+    return { orders };
+  },
+  linkOrderCard: async (orderId, cardId) => {
+    if (!hasSupabase) {
+      throw new Error('Órdenes deshabilitadas: Supabase Auth es obligatorio');
+    }
+    const orders = await supabaseLinkOrderCard(orderId, cardId);
     return { orders };
   },
 
