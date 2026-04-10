@@ -358,8 +358,13 @@ const OrdersDashboard = ({ orders = [] }) => {
                       <p className="text-xl font-black">{currency.format(selectedOrder.grossMarginCents / 100)}</p>
                     </div>
                   </div>
-                  <div className="mt-4 inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide bg-white/10 text-white">
-                    {selectedOrder.inventory_reserved ? 'Reserva de stock registrada' : 'Stock aún no reservado'}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide bg-white/10 text-white">
+                      {selectedOrder.inventory_reserved ? 'Reserva de stock registrada' : 'Stock aún no reservado'}
+                    </span>
+                    <span className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide bg-emerald-500/20 text-emerald-300">
+                      {selectedOrder.card_lifecycle_ready ? 'Cards listas para lifecycle' : 'Cards no vinculadas todavía'}
+                    </span>
                   </div>
                 </div>
 
@@ -386,6 +391,26 @@ const OrdersDashboard = ({ orders = [] }) => {
                     )}
                   </div>
                 </div>
+
+                {selectedOrder.related_cards?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-3">Cards relacionadas</p>
+                    <div className="space-y-3">
+                      {selectedOrder.related_cards.map((card) => (
+                        <div key={card.id} className="rounded-2xl border border-zinc-100 bg-zinc-50 p-4 flex items-center justify-between gap-4">
+                          <div>
+                            <p className="font-black text-sm text-zinc-900">{card.card_code}</p>
+                            <p className="text-xs text-zinc-500 font-medium">{card.profile_id || 'Sin perfil'}</p>
+                          </div>
+                          <div className="text-right text-xs font-black uppercase tracking-wide text-zinc-500">
+                            <p>{formatLabel(card.status)}</p>
+                            <p>{formatLabel(card.activation_status)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="rounded-2xl border border-zinc-100 bg-white p-4 space-y-4">
                   <div>

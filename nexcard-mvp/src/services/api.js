@@ -467,17 +467,31 @@ async function supabaseOrders() {
     .not('order_id', 'is', null);
   if (inventoryMovementsError) throw inventoryMovementsError;
 
+  const { data: cards, error: cardsError } = await supabase
+    .from('cards')
+    .select('id, card_code, profile_id, status, activation_status');
+  if (cardsError) throw cardsError;
+
   const movementsByOrder = (inventoryMovements || []).reduce((acc, movement) => {
     if (!acc[movement.order_id]) acc[movement.order_id] = [];
     acc[movement.order_id].push(movement);
     return acc;
   }, {});
 
-  return (data || []).map((order) => ({
-    ...order,
-    inventory_reserved: Boolean((movementsByOrder[order.id] || []).some((movement) => movement.movement_type === 'out')),
-    inventory_movements: movementsByOrder[order.id] || [],
-  }));
+  return (data || []).map((order) => {
+    const matchingCards = (cards || []).filter((card) => {
+      const orderProfileIds = (order.order_items || []).map((item) => item.profile_id).filter(Boolean);
+      return orderProfileIds.length > 0 && orderProfileIds.includes(card.profile_id);
+    });
+
+    return {
+      ...order,
+      inventory_reserved: Boolean((movementsByOrder[order.id] || []).some((movement) => movement.movement_type === 'out')),
+      inventory_movements: movementsByOrder[order.id] || [],
+      related_cards: matchingCards,
+      card_lifecycle_ready: matchingCards.some((card) => card.status === 'assigned' || card.status === 'active'),
+    };
+  });
 }
 
 async function reserveInventoryForOrder(orderId) {
