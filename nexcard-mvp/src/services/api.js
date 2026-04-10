@@ -308,11 +308,18 @@ async function supabaseAdminCards() {
     return acc;
   }, {});
 
+  const eventsByCardId = events.reduce((acc, event) => {
+    if (!acc[event.card_id]) acc[event.card_id] = [];
+    acc[event.card_id].push(event);
+    return acc;
+  }, {});
+
   return cards.map((card) => ({
     ...card,
     profile_slug: profilesById[card.profile_id]?.slug || null,
     profile_name: profilesById[card.profile_id]?.full_name || null,
     last_event: latestEventByCardId[card.id] || null,
+    events: (eventsByCardId[card.id] || []).slice(0, 8),
   }));
 }
 
@@ -601,7 +608,14 @@ async function supabaseUpdateOrder(orderId, payload) {
   if (error) throw error;
 
   if (shouldReserveStock) {
-    await reserveInventoryForOrder(orderId);
+    try {
+      await supabase.rpc('reserve_inventory_for_order', {
+        target_order_id: orderId,
+        actor_id: null,
+      });
+    } catch (_rpcError) {
+      await reserveInventoryForOrder(orderId);
+    }
   }
 
   return supabaseOrders();

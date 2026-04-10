@@ -64,6 +64,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [assigningCard, setAssigningCard] = useState(null);
   const [selectedProfileId, setSelectedProfileId] = useState('');
+  const [expandedCardId, setExpandedCardId] = useState(null);
 
   useEffect(() => {
     setRows(cards);
@@ -254,9 +255,24 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                         </div>
                       </td>
                       <td className="px-8 py-5">
-                        <div className="min-w-[160px] text-sm">
+                        <div className="min-w-[200px] text-sm">
                           <p className="font-black text-zinc-800">{lastEventLabel(card.last_event?.event_type)}</p>
                           <p className="text-xs font-medium text-zinc-400">{formatTimestamp(card.last_event?.created_at)}</p>
+                          {card.events?.length > 0 && (
+                            <button type="button" onClick={() => setExpandedCardId(expandedCardId === card.id ? null : card.id)} className="mt-2 text-[11px] font-black uppercase tracking-wide text-sky-600">
+                              {expandedCardId === card.id ? 'Ocultar historial' : 'Ver historial'}
+                            </button>
+                          )}
+                          {expandedCardId === card.id && card.events?.length > 0 && (
+                            <div className="mt-3 space-y-2 rounded-2xl bg-zinc-50 border border-zinc-100 p-3">
+                              {card.events.map((event, index) => (
+                                <div key={`${card.id}-event-${index}`} className="text-xs">
+                                  <p className="font-black text-zinc-800">{lastEventLabel(event.event_type)}</p>
+                                  <p className="text-zinc-400">{formatTimestamp(event.created_at)}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-8 py-5">
