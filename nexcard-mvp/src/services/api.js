@@ -411,6 +411,38 @@ async function supabaseAssignCard(cardId, profileId) {
   return supabaseAdminCards();
 }
 
+async function supabaseActivateCard(cardId) {
+  const actorId = await supabaseGetActorId();
+
+  const { data: card, error: cardError } = await supabase
+    .from('cards')
+    .select('id, status, activation_status, profile_id')
+    .eq('id', cardId)
+    .single();
+  if (cardError) throw cardError;
+
+  if (!card.profile_id) throw new Error('La tarjeta debe estar asignada antes de activarse');
+  if (card.status === 'revoked' || card.status === 'archived') throw new Error('No puedes activar una tarjeta revocada o archivada');
+
+  const { error: updateError } = await supabase
+    .from('cards')
+    .update({
+      status: 'active',
+      activation_status: 'active',
+    })
+    .eq('id', cardId);
+  if (updateError) throw updateError;
+
+  await supabase.from('card_events').insert({
+    card_id: cardId,
+    event_type: 'activated',
+    actor_id: actorId,
+    metadata: { previous_status: card.status, previous_activation_status: card.activation_status },
+  });
+
+  return supabaseAdminCards();
+}
+
 async function supabaseRevokeCard(cardId, reason = null) {
   const actorId = await supabaseGetActorId();
   const { error } = await supabase.rpc('revoke_card', {
@@ -758,6 +790,14 @@ export const api = {
       throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
     }
     const cards = await supabaseAssignCard(cardId, profileId);
+    const profiles = await supabaseAdminProfiles().catch(() => []);
+    return { cards, profiles: Array.isArray(profiles) ? profiles : profiles.profiles || [] };
+  },
+  activateCard: async (cardId) => {
+    if (!hasSupabase) {
+      throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const cards = await supabaseActivateCard(cardId);
     const profiles = await supabaseAdminProfiles().catch(() => []);
     return { cards, profiles: Array.isArray(profiles) ? profiles : profiles.profiles || [] };
   },

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CreditCard, Archive, ShieldBan, Link as LinkIcon, Loader2, CheckCircle2, AlertCircle, Search, Clock3, Filter, UserPlus, X } from 'lucide-react';
+import { CreditCard, Archive, ShieldBan, Link as LinkIcon, Loader2, CheckCircle2, AlertCircle, Search, Clock3, Filter, UserPlus, X, Zap } from 'lucide-react';
 import { api } from '../services/api';
 
 const badgeClasses = {
@@ -106,16 +106,26 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   const canRevoke = (card) => !card.deleted_at && card.status !== 'revoked' && card.status !== 'archived';
   const canArchive = (card) => !card.deleted_at && card.status !== 'archived';
   const canAssign = (card) => !card.deleted_at && card.status !== 'archived' && card.status !== 'revoked';
+  const canActivate = (card) => !card.deleted_at && card.status !== 'revoked' && card.status !== 'archived' && card.profile_id && card.activation_status !== 'active';
 
   const runCardAction = async (card, action) => {
     setBusyCardId(card.id);
     setFeedback({ type: '', message: '' });
     try {
-      const response = action === 'revoke' ? await api.revokeCard(card.id) : await api.archiveCard(card.id);
+      const response = action === 'revoke'
+        ? await api.revokeCard(card.id)
+        : action === 'activate'
+          ? await api.activateCard(card.id)
+          : await api.archiveCard(card.id);
       setRows(response.cards || []);
+      setProfileRows(response.profiles || profileRows);
       setFeedback({
         type: 'success',
-        message: action === 'revoke' ? `Tarjeta ${card.card_code} revocada.` : `Tarjeta ${card.card_code} archivada.`,
+        message: action === 'revoke'
+          ? `Tarjeta ${card.card_code} revocada.`
+          : action === 'activate'
+            ? `Tarjeta ${card.card_code} activada.`
+            : `Tarjeta ${card.card_code} archivada.`,
       });
     } catch (error) {
       setFeedback({ type: 'error', message: error.message || 'No fue posible ejecutar la acción sobre la tarjeta.' });
@@ -213,6 +223,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                   const revokeDisabled = isBusy || !canRevoke(card);
                   const archiveDisabled = isBusy || !canArchive(card);
                   const assignDisabled = isBusy || !canAssign(card);
+                  const activateDisabled = isBusy || !canActivate(card);
                   const flags = buildLifecycleFlags(card);
 
                   return (
@@ -280,6 +291,10 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                           <button type="button" onClick={() => openAssignModal(card)} disabled={assignDisabled} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
                             Assign
+                          </button>
+                          <button type="button" onClick={() => runCardAction(card, 'activate')} disabled={activateDisabled} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
+                            {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                            Activate
                           </button>
                           <button type="button" onClick={() => runCardAction(card, 'revoke')} disabled={revokeDisabled} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldBan size={14} />}
