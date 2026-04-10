@@ -47,10 +47,6 @@ declare
   current_card record;
   existing_link record;
 begin
-  if not public.has_role('admin') then
-    raise exception 'admin_required';
-  end if;
-
   select id, status, activation_status, profile_id
   into current_card
   from public.cards
@@ -75,13 +71,13 @@ begin
     set linked_by = excluded.linked_by
   returning * into existing_link;
 
-  insert into public.audit_log(entity_type, entity_id, action, actor_id, context)
+  insert into public.audit_log(entity_type, entity_id, action, context)
   values (
     'order',
     target_order_id,
     'link_card',
-    actor_id,
     jsonb_build_object(
+      'actor_id', actor_id,
       'card_id', target_card_id,
       'card_status', current_card.status,
       'activation_status', current_card.activation_status,
