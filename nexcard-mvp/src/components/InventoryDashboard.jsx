@@ -148,6 +148,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                 <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] uppercase tracking-widest font-black">
                   <th className="px-8 py-4">Item / Maquinaria</th>
                   <th className="px-8 py-4">Categoría</th>
+                  <th className="px-8 py-4">SKU</th>
                   <th className="px-8 py-4">Stock Actual</th>
                   <th className="px-8 py-4">Costo Unitario</th>
                   <th className="px-8 py-4">Estado</th>
@@ -167,6 +168,9 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                     </td>
                     <td className="px-8 py-5">
                       <span className="text-xs font-bold text-zinc-400">{item.category}</span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className="text-xs font-bold text-sky-600">{item.sku || 'Sin SKU'}</span>
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2">

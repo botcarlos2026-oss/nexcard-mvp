@@ -203,13 +203,18 @@ async function supabaseInventory() {
     .order('item', { ascending: true });
   if (itemsError) throw itemsError;
 
+  const normalizedItems = (items || []).map((item) => ({
+    ...item,
+    sku: item.sku || item.item_code || null,
+  }));
+
   const { data: movements, error: movementsError } = await supabase
     .from('inventory_movements')
     .select('*')
     .order('created_at', { ascending: false });
   if (movementsError) throw movementsError;
 
-  return { items: items || [], movements: movements || [] };
+  return { items: normalizedItems, movements: movements || [] };
 }
 
 async function supabaseCreateInventoryMovement(payload) {
@@ -266,6 +271,22 @@ async function supabaseAdminCards() {
 
   if (error) throw error;
 
+  const profileIds = Array.from(new Set((cards || []).map((card) => card.profile_id).filter(Boolean)));
+  let profilesById = {};
+
+  if (profileIds.length > 0) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, slug, full_name')
+      .in('id', profileIds);
+    if (profilesError) throw profilesError;
+
+    profilesById = (profiles || []).reduce((acc, profile) => {
+      acc[profile.id] = profile;
+      return acc;
+    }, {});
+  }
+
   const { data: events, error: eventsError } = await supabase
     .from('card_events')
     .select('card_id, event_type, created_at')
@@ -273,7 +294,11 @@ async function supabaseAdminCards() {
 
   if (eventsError) {
     console.warn('No fue posible cargar card_events para admin cards', eventsError.message);
-    return cards;
+    return cards.map((card) => ({
+      ...card,
+      profile_slug: profilesById[card.profile_id]?.slug || null,
+      profile_name: profilesById[card.profile_id]?.full_name || null,
+    }));
   }
 
   const latestEventByCardId = events.reduce((acc, event) => {
@@ -285,6 +310,8 @@ async function supabaseAdminCards() {
 
   return cards.map((card) => ({
     ...card,
+    profile_slug: profilesById[card.profile_id]?.slug || null,
+    profile_name: profilesById[card.profile_id]?.full_name || null,
     last_event: latestEventByCardId[card.id] || null,
   }));
 }
@@ -351,6 +378,30 @@ async function supabaseGetActorId() {
   const actorId = sessionData?.session?.user?.id;
   if (!actorId) throw new Error('No hay sesión');
   return actorId;
+}
+
+async function supabaseAssignCard(cardId, profileId) {
+  const actorId = await supabaseGetActorId();
+  if (!profileId) throw new Error('Debes seleccionar un perfil');
+
+  const { error: updateError } = await supabase
+    .from('cards')
+    .update({
+      profile_id: profileId,
+      status: 'assigned',
+      activation_status: 'assigned',
+    })
+    .eq('id', cardId);
+  if (updateError) throw updateError;
+
+  await supabase.from('card_events').insert({
+    card_id: cardId,
+    event_type: 'assigned',
+    actor_id: actorId,
+    metadata: { profile_id: profileId },
+  });
+
+  return supabaseAdminCards();
 }
 
 async function supabaseRevokeCard(cardId, reason = null) {
@@ -638,7 +689,8 @@ export const api = {
       throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
     }
     const cards = await supabaseAdminCards();
-    return { cards };
+    const profiles = await supabaseAdminProfiles().catch(() => []);
+    return { cards, profiles: Array.isArray(profiles) ? profiles : profiles.profiles || [] };
   },
 
   getAdminProfiles: async () => {
@@ -647,6 +699,14 @@ export const api = {
     }
     const profiles = await supabaseAdminProfiles();
     return { profiles };
+  },
+  assignCard: async (cardId, profileId) => {
+    if (!hasSupabase) {
+      throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const cards = await supabaseAssignCard(cardId, profileId);
+    const profiles = await supabaseAdminProfiles().catch(() => []);
+    return { cards, profiles: Array.isArray(profiles) ? profiles : profiles.profiles || [] };
   },
   revokeCard: async (cardId, reason = null) => {
     if (!hasSupabase) {
