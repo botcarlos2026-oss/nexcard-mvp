@@ -196,11 +196,66 @@ async function supabaseDashboard() {
 }
 
 async function supabaseInventory() {
-  const { data, error } = await supabase
+  const { data: items, error: itemsError } = await supabase
     .from('inventory_items')
-    .select('*');
-  if (error) throw error;
-  return data;
+    .select('*')
+    .order('category', { ascending: true })
+    .order('item', { ascending: true });
+  if (itemsError) throw itemsError;
+
+  const { data: movements, error: movementsError } = await supabase
+    .from('inventory_movements')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (movementsError) throw movementsError;
+
+  return { items: items || [], movements: movements || [] };
+}
+
+async function supabaseCreateInventoryMovement(payload) {
+  const { inventory_item_id, movement_type, quantity, reason, order_id = null } = payload;
+  const normalizedQuantity = Number(quantity);
+
+  if (!inventory_item_id) throw new Error('Debes seleccionar un item de inventario');
+  if (!movement_type) throw new Error('Debes indicar tipo de movimiento');
+  if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) throw new Error('La cantidad debe ser mayor a 0');
+  if (!reason?.trim()) throw new Error('Debes indicar un motivo');
+
+  const { data: item, error: itemError } = await supabase
+    .from('inventory_items')
+    .select('*')
+    .eq('id', inventory_item_id)
+    .single();
+  if (itemError) throw itemError;
+
+  let nextStock = item.stock || 0;
+  if (movement_type === 'in') nextStock += normalizedQuantity;
+  else if (movement_type === 'out') nextStock -= normalizedQuantity;
+  else if (movement_type === 'adjust') nextStock += normalizedQuantity;
+  else throw new Error('Tipo de movimiento inválido');
+
+  if (nextStock < 0) {
+    throw new Error(`Stock insuficiente para ${item.item}. Disponible: ${item.stock || 0}`);
+  }
+
+  const { error: movementError } = await supabase
+    .from('inventory_movements')
+    .insert({
+      inventory_item_id,
+      movement_type,
+      quantity: normalizedQuantity,
+      reason: reason.trim(),
+      order_id,
+    });
+  if (movementError) throw movementError;
+
+  const { error: stockError } = await supabase
+    .from('inventory_items')
+    .update({ stock: nextStock })
+    .eq('id', inventory_item_id);
+  if (stockError) throw stockError;
+
+  return supabaseInventory();
 }
 
 async function supabaseAdminCards() {
@@ -445,8 +500,15 @@ export const api = {
     if (!hasSupabase) {
       throw new Error('Inventario deshabilitado: Supabase Auth es obligatorio');
     }
-    const items = await supabaseInventory();
-    return { items };
+    const inventory = await supabaseInventory();
+    return inventory;
+  },
+  createInventoryMovement: async (payload) => {
+    if (!hasSupabase) {
+      throw new Error('Inventario deshabilitado: Supabase Auth es obligatorio');
+    }
+    const inventory = await supabaseCreateInventoryMovement(payload);
+    return inventory;
   },
 
   // Orders: no insecure fallback to local API

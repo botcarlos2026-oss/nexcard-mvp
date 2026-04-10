@@ -20,7 +20,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [landingContent, setLandingContent] = useState(defaultLandingContent);
   const [adminData, setAdminData] = useState(null);
-  const [inventoryData, setInventoryData] = useState([]);
+  const [inventoryData, setInventoryData] = useState({ items: [], movements: [] });
   const [cardsData, setCardsData] = useState([]);
   const [profilesAdminData, setProfilesAdminData] = useState([]);
   const [ordersAdminData, setOrdersAdminData] = useState([]);
@@ -97,7 +97,10 @@ function App() {
             setAdminData(dashboard);
           } else if (path === '/admin/inventory') {
             const inventory = await api.getInventory();
-            setInventoryData(inventory.items || []);
+            setInventoryData({
+              items: inventory.items || [],
+              movements: inventory.movements || [],
+            });
           } else if (path === '/admin/cards') {
             const cards = await api.getAdminCards();
             setCardsData(cards.cards || []);
@@ -169,7 +172,7 @@ function App() {
   if (path === '/login') return <AuthPage onAuthSuccess={handleAuthSuccess} />;
 
   if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
-  if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData} />;
+  if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />;
   if (path === '/admin/cards') return <AdminCardsDashboard cards={cardsData} />;
   if (path === '/admin/profiles') return <AdminProfilesDashboard profiles={profilesAdminData} />;
   if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
