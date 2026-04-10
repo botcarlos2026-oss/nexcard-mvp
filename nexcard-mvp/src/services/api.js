@@ -400,10 +400,39 @@ async function supabaseOrders() {
     .from('orders')
     .select('*, order_items(*), payments(*)');
   if (error) throw error;
-  return data;
+
+  const { data: inventoryMovements, error: inventoryMovementsError } = await supabase
+    .from('inventory_movements')
+    .select('order_id, id, movement_type, created_at')
+    .not('order_id', 'is', null);
+  if (inventoryMovementsError) throw inventoryMovementsError;
+
+  const movementsByOrder = (inventoryMovements || []).reduce((acc, movement) => {
+    if (!acc[movement.order_id]) acc[movement.order_id] = [];
+    acc[movement.order_id].push(movement);
+    return acc;
+  }, {});
+
+  return (data || []).map((order) => ({
+    ...order,
+    inventory_reserved: Boolean((movementsByOrder[order.id] || []).some((movement) => movement.movement_type === 'out')),
+    inventory_movements: movementsByOrder[order.id] || [],
+  }));
 }
 
 async function reserveInventoryForOrder(orderId) {
+  const { data: existingMovements, error: existingMovementsError } = await supabase
+    .from('inventory_movements')
+    .select('id')
+    .eq('order_id', orderId)
+    .eq('movement_type', 'out')
+    .limit(1);
+  if (existingMovementsError) throw existingMovementsError;
+
+  if ((existingMovements || []).length > 0) {
+    return { skipped: true, reason: 'already_reserved' };
+  }
+
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select('id, order_items(*)')
@@ -444,6 +473,8 @@ async function reserveInventoryForOrder(orderId) {
       .update({ stock: nextStock })
       .eq('id', inventoryItem.id);
   }
+
+  return { skipped: false };
 }
 
 async function supabaseUpdateOrder(orderId, payload) {

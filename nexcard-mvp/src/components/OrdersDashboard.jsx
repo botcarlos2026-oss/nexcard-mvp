@@ -231,6 +231,11 @@ const OrdersDashboard = ({ orders = [] }) => {
                         <div>
                           <p className="font-black text-sm">{order.id}</p>
                           <p className="text-xs text-zinc-400 font-medium">{order.payment_method || 'Sin método'} · {order.delivery_type || 'Sin entrega'}</p>
+                          <div className="mt-2">
+                            <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${order.inventory_reserved ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600'}`}>
+                              {order.inventory_reserved ? 'Stock reservado' : 'Sin reserva'}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-8 py-5">
@@ -322,7 +327,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                 </div>
 
                 <div className="rounded-2xl bg-zinc-950 text-white p-4">
-                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-3">Caja y margen</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-3">Caja, margen y stock</p>
                   <div className="grid grid-cols-2 gap-4 text-sm font-bold">
                     <div>
                       <p className="text-zinc-400">Venta</p>
@@ -332,6 +337,9 @@ const OrdersDashboard = ({ orders = [] }) => {
                       <p className="text-zinc-400">Margen bruto</p>
                       <p className="text-xl font-black">{currency.format(selectedOrder.grossMarginCents / 100)}</p>
                     </div>
+                  </div>
+                  <div className="mt-4 inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide bg-white/10 text-white">
+                    {selectedOrder.inventory_reserved ? 'Reserva de stock registrada' : 'Stock aún no reservado'}
                   </div>
                 </div>
 
