@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Package,
   DollarSign,
@@ -8,7 +8,9 @@ import {
   Receipt,
   AlertCircle,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
+import { api } from '../services/api';
 
 const currency = new Intl.NumberFormat('es-CL', {
   style: 'currency',
@@ -39,12 +41,19 @@ const formatDate = (value) => {
 };
 
 const OrdersDashboard = ({ orders = [] }) => {
+  const [rows, setRows] = useState(orders);
   const [searchTerm, setSearchTerm] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [fulfillmentFilter, setFulfillmentFilter] = useState('all');
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [busyOrderId, setBusyOrderId] = useState(null);
+  const [feedback, setFeedback] = useState({ type: '', message: '' });
 
-  const normalizedOrders = useMemo(() => orders.map((order) => {
+  useEffect(() => {
+    setRows(orders);
+  }, [orders]);
+
+  const normalizedOrders = useMemo(() => rows.map((order) => {
     const items = order.order_items || [];
     const payments = order.payments || [];
     const totalCents = order.amount_cents || 0;
@@ -65,7 +74,7 @@ const OrdersDashboard = ({ orders = [] }) => {
       paymentReference: paymentRecord?.transaction_reference || '—',
       paidAt: paymentRecord?.paid_at || null,
     };
-  }), [orders]);
+  }), [rows]);
 
   const paymentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.payment_status).filter(Boolean)))], [normalizedOrders]);
   const fulfillmentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.fulfillment_status).filter(Boolean)))], [normalizedOrders]);
@@ -95,6 +104,20 @@ const OrdersDashboard = ({ orders = [] }) => {
   }, [normalizedOrders, searchTerm, paymentFilter, fulfillmentFilter]);
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedOrderId) || filteredOrders[0] || null;
+
+  const updateOrderField = async (orderId, payload, successMessage) => {
+    setBusyOrderId(orderId);
+    setFeedback({ type: '', message: '' });
+    try {
+      const response = await api.updateOrder(orderId, payload);
+      setRows(response.orders || []);
+      setFeedback({ type: 'success', message: successMessage });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la orden.' });
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
 
   const stats = useMemo(() => {
     const paidOrders = normalizedOrders.filter((order) => order.payment_status === 'paid');
@@ -138,6 +161,13 @@ const OrdersDashboard = ({ orders = [] }) => {
             </div>
           ))}
         </div>
+
+        {feedback.message && (
+          <div className={`mb-6 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+            {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+            <span>{feedback.message}</span>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-[1.5fr,1fr] gap-6">
           <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm overflow-hidden">
@@ -260,18 +290,32 @@ const OrdersDashboard = ({ orders = [] }) => {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4">
                     <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Pago</p>
-                    <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone[selectedOrder.payment_status] || 'bg-zinc-100 text-zinc-700'}`}>
-                      {formatLabel(selectedOrder.payment_status)}
-                    </span>
+                    <select
+                      value={selectedOrder.payment_status || ''}
+                      onChange={(event) => updateOrderField(selectedOrder.id, { payment_status: event.target.value }, `Estado de pago actualizado para ${selectedOrder.id}.`)}
+                      disabled={busyOrderId === selectedOrder.id}
+                      className="w-full appearance-none rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      {['pending', 'paid', 'failed', 'refunded'].map((status) => (
+                        <option key={status} value={status}>{formatLabel(status)}</option>
+                      ))}
+                    </select>
                     <p className="text-sm font-semibold text-zinc-700 mt-3">Proveedor: {selectedOrder.paymentProvider}</p>
                     <p className="text-xs text-zinc-500 mt-1">Ref: {selectedOrder.paymentReference}</p>
                     <p className="text-xs text-zinc-500 mt-1">Pagado: {formatDate(selectedOrder.paidAt)}</p>
                   </div>
                   <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4">
                     <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Operación</p>
-                    <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone[selectedOrder.fulfillment_status] || 'bg-zinc-100 text-zinc-700'}`}>
-                      {formatLabel(selectedOrder.fulfillment_status)}
-                    </span>
+                    <select
+                      value={selectedOrder.fulfillment_status || ''}
+                      onChange={(event) => updateOrderField(selectedOrder.id, { fulfillment_status: event.target.value }, `Estado operativo actualizado para ${selectedOrder.id}.`)}
+                      disabled={busyOrderId === selectedOrder.id}
+                      className="w-full appearance-none rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    >
+                      {['new', 'in_production', 'ready', 'shipped', 'delivered', 'cancelled'].map((status) => (
+                        <option key={status} value={status}>{formatLabel(status)}</option>
+                      ))}
+                    </select>
                     <p className="text-sm font-semibold text-zinc-700 mt-3">Entrega: {selectedOrder.delivery_type || '—'}</p>
                     <p className="text-xs text-zinc-500 mt-1">Dirección: {selectedOrder.delivery_address || '—'}</p>
                   </div>
@@ -321,8 +365,8 @@ const OrdersDashboard = ({ orders = [] }) => {
                 </div>
 
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 flex items-start gap-3">
-                  <AlertCircle size={18} className="mt-0.5" />
-                  <span>Este MVP prioriza visibilidad y control. El cambio de estados y acciones masivas se recomienda como siguiente iteración inmediata.</span>
+                  {busyOrderId === selectedOrder.id ? <Loader2 size={18} className="mt-0.5 animate-spin" /> : <AlertCircle size={18} className="mt-0.5" />}
+                  <span>Este MVP ya permite cambio manual de estados. La siguiente iteración debería sumar edición operativa, acciones masivas y SLA visible.</span>
                 </div>
               </div>
             ) : (

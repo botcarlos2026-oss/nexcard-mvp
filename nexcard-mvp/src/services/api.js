@@ -348,6 +348,15 @@ async function supabaseOrders() {
   return data;
 }
 
+async function supabaseUpdateOrder(orderId, payload) {
+  const { error } = await supabase
+    .from('orders')
+    .update(payload)
+    .eq('id', orderId);
+  if (error) throw error;
+  return supabaseOrders();
+}
+
 async function supabaseUpdateLandingAdmin(content) {
   const { data, error } = await supabase
     .from('content_blocks')
@@ -447,6 +456,13 @@ export const api = {
     }
     const orders = await supabaseOrders();
     return { orders, products: [] };
+  },
+  updateOrder: async (orderId, payload) => {
+    if (!hasSupabase) {
+      throw new Error('Órdenes deshabilitadas: Supabase Auth es obligatorio');
+    }
+    const orders = await supabaseUpdateOrder(orderId, payload);
+    return { orders };
   },
 
   // Cards admin view
