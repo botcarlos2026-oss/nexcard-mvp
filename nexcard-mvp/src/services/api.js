@@ -401,6 +401,20 @@ async function supabaseAssignCard(cardId, profileId) {
   return supabaseAdminCards();
 }
 
+async function supabaseReassignCard(cardId, profileId) {
+  const actorId = await supabaseGetActorId();
+  if (!profileId) throw new Error('Debes seleccionar un perfil');
+
+  const { error } = await supabase.rpc('reassign_card', {
+    target_card_id: cardId,
+    target_profile_id: profileId,
+    actor_id: actorId,
+  });
+  if (error) throw error;
+
+  return supabaseAdminCards();
+}
+
 async function supabaseActivateCard(cardId) {
   const actorId = await supabaseGetActorId();
 
@@ -814,6 +828,14 @@ export const api = {
       throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
     }
     const cards = await supabaseAssignCard(cardId, profileId);
+    const profiles = await supabaseAdminProfiles().catch(() => []);
+    return { cards, profiles: Array.isArray(profiles) ? profiles : profiles.profiles || [] };
+  },
+  reassignCard: async (cardId, profileId) => {
+    if (!hasSupabase) {
+      throw new Error('Cards admin deshabilitado: Supabase Auth es obligatorio');
+    }
+    const cards = await supabaseReassignCard(cardId, profileId);
     const profiles = await supabaseAdminProfiles().catch(() => []);
     return { cards, profiles: Array.isArray(profiles) ? profiles : profiles.profiles || [] };
   },

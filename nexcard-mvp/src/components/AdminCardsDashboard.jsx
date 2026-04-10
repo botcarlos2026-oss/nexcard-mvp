@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CreditCard, Archive, ShieldBan, Link as LinkIcon, Loader2, CheckCircle2, AlertCircle, Search, Clock3, Filter, UserPlus, X, Zap } from 'lucide-react';
+import { CreditCard, Archive, ShieldBan, Link as LinkIcon, Loader2, CheckCircle2, AlertCircle, Search, Clock3, Filter, UserPlus, X, Zap, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
 
 const badgeClasses = {
@@ -55,6 +55,9 @@ const buildLifecycleFlags = (card) => {
   return flags.length ? flags : ['Healthy'];
 };
 
+const isCardActive = (card) => card.activation_status === 'activated' || card.status === 'active';
+const needsReassign = (card) => Boolean(card.profile_id) && !isCardActive(card) && card.status !== 'revoked' && card.status !== 'archived';
+
 const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   const [rows, setRows] = useState(cards);
   const [profileRows, setProfileRows] = useState(profiles);
@@ -105,8 +108,9 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
 
   const canRevoke = (card) => !card.deleted_at && card.status !== 'revoked' && card.status !== 'archived';
   const canArchive = (card) => !card.deleted_at && card.status !== 'archived';
-  const canAssign = (card) => !card.deleted_at && card.status !== 'archived' && card.status !== 'revoked';
-  const canActivate = (card) => !card.deleted_at && card.status !== 'revoked' && card.status !== 'archived' && card.profile_id && card.activation_status !== 'active';
+  const canAssign = (card) => !card.deleted_at && card.status !== 'archived' && card.status !== 'revoked' && !card.profile_id && !isCardActive(card);
+  const canReassign = (card) => !card.deleted_at && needsReassign(card);
+  const canActivate = (card) => !card.deleted_at && card.status !== 'revoked' && card.status !== 'archived' && card.profile_id && !isCardActive(card);
 
   const runCardAction = async (card, action) => {
     setBusyCardId(card.id);
@@ -149,13 +153,20 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
     setBusyCardId(assigningCard.id);
     setFeedback({ type: '', message: '' });
     try {
-      const response = await api.assignCard(assigningCard.id, selectedProfileId);
+      const response = needsReassign(assigningCard)
+        ? await api.reassignCard(assigningCard.id, selectedProfileId)
+        : await api.assignCard(assigningCard.id, selectedProfileId);
       setRows(response.cards || []);
       setProfileRows(response.profiles || profileRows);
-      setFeedback({ type: 'success', message: `Tarjeta ${assigningCard.card_code} asignada correctamente.` });
+      setFeedback({
+        type: 'success',
+        message: needsReassign(assigningCard)
+          ? `Tarjeta ${assigningCard.card_code} reasignada correctamente.`
+          : `Tarjeta ${assigningCard.card_code} asignada correctamente.`,
+      });
       closeAssignModal();
     } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No fue posible asignar la tarjeta.' });
+      setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la asignación de la tarjeta.' });
     } finally {
       setBusyCardId(null);
     }
@@ -222,7 +233,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                   const isBusy = busyCardId === card.id;
                   const revokeDisabled = isBusy || !canRevoke(card);
                   const archiveDisabled = isBusy || !canArchive(card);
-                  const assignDisabled = isBusy || !canAssign(card);
+                  const assignDisabled = isBusy || (!canAssign(card) && !canReassign(card));
                   const activateDisabled = isBusy || !canActivate(card);
                   const flags = buildLifecycleFlags(card);
 
@@ -246,6 +257,14 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                         <div>
                           <p className="font-black text-zinc-900">{card.profile_name || 'Sin perfil asignado'}</p>
                           <p className="text-xs text-zinc-500">{card.profile_slug || card.profile_id || '—'}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {card.profile_id && !isCardActive(card) && card.status !== 'revoked' && card.status !== 'archived' ? (
+                              <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-700 border border-amber-200">Usar reassign</span>
+                            ) : null}
+                            {!card.profile_id && card.status !== 'revoked' && card.status !== 'archived' ? (
+                              <span className="inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-sky-700 border border-sky-200">Lista para assign</span>
+                            ) : null}
+                          </div>
                           {card.profile_slug && <a href={`/${card.profile_slug}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-sky-600">Ver perfil</a>}
                         </div>
                       </td>
@@ -289,8 +308,8 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                       <td className="px-8 py-5">
                         <div className="flex justify-end items-center gap-2 flex-wrap">
                           <button type="button" onClick={() => openAssignModal(card)} disabled={assignDisabled} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
-                            {isBusy ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
-                            Assign
+                            {isBusy ? <Loader2 size={14} className="animate-spin" /> : canReassign(card) ? <RefreshCw size={14} /> : <UserPlus size={14} />}
+                            {canReassign(card) ? 'Reassign' : 'Assign'}
                           </button>
                           <button type="button" onClick={() => runCardAction(card, 'activate')} disabled={activateDisabled} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
@@ -324,8 +343,8 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
           <div className="w-full max-w-lg rounded-[32px] bg-white p-6 shadow-2xl border border-zinc-100">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-black text-zinc-950">Asignar tarjeta</h3>
-                <p className="text-sm text-zinc-500 font-medium">Vincula la tarjeta a un perfil real para operar lifecycle con contexto.</p>
+                <h3 className="text-2xl font-black text-zinc-950">{needsReassign(assigningCard) ? 'Reasignar tarjeta' : 'Asignar tarjeta'}</h3>
+                <p className="text-sm text-zinc-500 font-medium">{needsReassign(assigningCard) ? 'Cambia el perfil de una tarjeta ya asignada, sin permitir cards activas.' : 'Vincula la tarjeta a un perfil real para operar lifecycle con contexto.'}</p>
               </div>
               <button onClick={closeAssignModal} className="p-2 text-zinc-400 hover:text-zinc-950 transition-colors"><X size={20} /></button>
             </div>
@@ -348,8 +367,8 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
               <div className="pt-4 flex items-center justify-end gap-3">
                 <button type="button" onClick={closeAssignModal} className="px-4 py-3 rounded-2xl border border-zinc-200 text-zinc-700 font-bold text-sm">Cancelar</button>
                 <button type="button" onClick={handleAssign} disabled={!selectedProfileId || busyCardId === assigningCard.id} className="px-5 py-3 rounded-2xl bg-sky-500 text-white font-bold text-sm shadow-lg shadow-sky-200 inline-flex items-center gap-2 disabled:opacity-60">
-                  {busyCardId === assigningCard.id ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-                  Asignar tarjeta
+                  {busyCardId === assigningCard.id ? <Loader2 size={16} className="animate-spin" /> : needsReassign(assigningCard) ? <RefreshCw size={16} /> : <UserPlus size={16} />}
+                  {needsReassign(assigningCard) ? 'Reasignar tarjeta' : 'Asignar tarjeta'}
                 </button>
               </div>
             </div>
