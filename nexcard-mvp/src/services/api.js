@@ -443,14 +443,30 @@ async function reserveInventoryForOrder(orderId) {
   const items = order.order_items || [];
   for (const orderItem of items) {
     const productName = orderItem.product_name || orderItem.product_id;
-    if (!productName) continue;
+    const productSku = orderItem.sku || null;
+    if (!productName && !productSku) continue;
 
-    const { data: inventoryItem } = await supabase
-      .from('inventory_items')
-      .select('*')
-      .ilike('item', `%${productName}%`)
-      .limit(1)
-      .maybeSingle();
+    let inventoryItem = null;
+
+    if (productSku) {
+      const { data: skuMatch } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .ilike('item', `%${productSku}%`)
+        .limit(1)
+        .maybeSingle();
+      inventoryItem = skuMatch || null;
+    }
+
+    if (!inventoryItem && productName) {
+      const { data: nameMatch } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .ilike('item', `%${productName}%`)
+        .limit(1)
+        .maybeSingle();
+      inventoryItem = nameMatch || null;
+    }
 
     if (!inventoryItem) continue;
 
