@@ -259,6 +259,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                     <th className="px-8 py-4">Monto</th>
                     <th className="px-8 py-4">Pago</th>
                     <th className="px-8 py-4">Fulfillment</th>
+                    <th className="px-8 py-4">Activación</th>
                     <th className="px-8 py-4">Ítems</th>
                     <th className="px-8 py-4">Fecha</th>
                     <th className="px-8 py-4 text-right">Acción</th>
@@ -295,6 +296,11 @@ const OrdersDashboard = ({ orders = [] }) => {
                           {formatLabel(order.fulfillment_status)}
                         </span>
                       </td>
+                      <td className="px-8 py-5">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${order.activation_ready ? 'bg-emerald-100 text-emerald-700' : order.active_cards_count > 0 ? 'bg-sky-100 text-sky-700' : 'bg-zinc-100 text-zinc-600'}`}>
+                          {order.activation_ready ? `Lista (${order.activation_ready_count})` : order.active_cards_count > 0 ? `Activas (${order.active_cards_count})` : 'Pendiente'}
+                        </span>
+                      </td>
                       <td className="px-8 py-5 font-bold text-zinc-700">{order.itemCount}</td>
                       <td className="px-8 py-5 text-sm font-medium text-zinc-600">{formatDate(order.created_at)}</td>
                       <td className="px-8 py-5 text-right">
@@ -311,7 +317,7 @@ const OrdersDashboard = ({ orders = [] }) => {
 
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-8 py-12 text-center text-sm font-semibold text-zinc-500">
+                      <td colSpan={9} className="px-8 py-12 text-center text-sm font-semibold text-zinc-500">
                         No hay órdenes que coincidan con los filtros activos.
                       </td>
                     </tr>
@@ -388,6 +394,27 @@ const OrdersDashboard = ({ orders = [] }) => {
                     <span className="inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide bg-sky-500/20 text-sky-300">
                       Fuente cards: {selectedOrder.related_cards_source === 'order_cards' ? 'vínculo formal' : 'match heurístico'}
                     </span>
+                    <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${selectedOrder.activation_ready ? 'bg-emerald-500/20 text-emerald-300' : selectedOrder.active_cards_count > 0 ? 'bg-sky-500/20 text-sky-300' : 'bg-zinc-500/20 text-zinc-300'}`}>
+                      {selectedOrder.activation_ready ? `Lista para activar (${selectedOrder.activation_ready_count})` : selectedOrder.active_cards_count > 0 ? `Cards activas (${selectedOrder.active_cards_count})` : 'Aún no lista para activar'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-100 bg-white p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Semáforo operativo</p>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4">
+                      <p className="text-xs font-black uppercase tracking-wide text-zinc-400">Stock</p>
+                      <p className="mt-2 text-sm font-black text-zinc-900">{selectedOrder.inventory_reserved ? 'Reservado' : 'Pendiente'}</p>
+                    </div>
+                    <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4">
+                      <p className="text-xs font-black uppercase tracking-wide text-zinc-400">Entrega</p>
+                      <p className="mt-2 text-sm font-black text-zinc-900">{selectedOrder.delivery_ready ? 'Lista / en curso' : 'Aún no lista'}</p>
+                    </div>
+                    <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4">
+                      <p className="text-xs font-black uppercase tracking-wide text-zinc-400">Activación</p>
+                      <p className="mt-2 text-sm font-black text-zinc-900">{selectedOrder.activation_ready ? `Lista (${selectedOrder.activation_ready_count})` : selectedOrder.active_cards_count > 0 ? `Con activas (${selectedOrder.active_cards_count})` : 'Pendiente'}</p>
+                    </div>
                   </div>
                 </div>
 

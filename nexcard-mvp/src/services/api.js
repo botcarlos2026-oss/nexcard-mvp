@@ -519,6 +519,10 @@ async function supabaseOrders() {
     const linkedCards = linkedCardsByOrder[order.id] || [];
     const relatedCards = linkedCards.length > 0 ? linkedCards : heuristicCards;
 
+    const deliveryReady = ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status);
+    const activationReadyCards = relatedCards.filter((card) => card.profile_id && card.status === 'assigned' && card.activation_status === 'assigned');
+    const activeCards = relatedCards.filter((card) => card.status === 'active' || card.activation_status === 'activated');
+
     return {
       ...order,
       inventory_reserved: Boolean((movementsByOrder[order.id] || []).some((movement) => movement.movement_type === 'out')),
@@ -526,6 +530,10 @@ async function supabaseOrders() {
       related_cards: relatedCards,
       related_cards_source: linkedCards.length > 0 ? 'order_cards' : 'heuristic',
       card_lifecycle_ready: relatedCards.some((card) => card.status === 'assigned' || card.status === 'active'),
+      delivery_ready: deliveryReady,
+      activation_ready: deliveryReady && activationReadyCards.length > 0,
+      activation_ready_count: activationReadyCards.length,
+      active_cards_count: activeCards.length,
     };
   });
 }
