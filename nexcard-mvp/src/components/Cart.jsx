@@ -6,7 +6,7 @@ export default function Cart({ onProceedCheckout, onBack }) {
   const { items, removeItem, updateQuantity, getTotalCents, getTotalItems } = useCart();
   const totalCents = getTotalCents();
   const totalItems = getTotalItems();
-  const totalCLP = (totalCents / 100).toLocaleString('es-CL');
+  const totalCLP = totalCents.toLocaleString('es-CL');
 
   // Carrito vacío
   if (items.length === 0) {
@@ -61,7 +61,7 @@ export default function Cart({ onProceedCheckout, onBack }) {
                 </h3>
                 <p className="text-zinc-500 text-xs mt-0.5">SKU: {item.product_sku}</p>
                 <p className="text-emerald-400 font-semibold text-sm mt-1">
-                  ${(item.unit_price_cents / 100).toLocaleString('es-CL')} c/u
+                  ${item.unit_price_cents.toLocaleString('es-CL')} c/u
                 </p>
               </div>
 
@@ -88,7 +88,7 @@ export default function Cart({ onProceedCheckout, onBack }) {
               <div className="text-right shrink-0 hidden sm:block">
                 <p className="text-xs text-zinc-500">Subtotal</p>
                 <p className="font-bold">
-                  ${((item.unit_price_cents * item.quantity) / 100).toLocaleString('es-CL')}
+                  ${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}
                 </p>
               </div>
 

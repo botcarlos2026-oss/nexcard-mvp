@@ -101,7 +101,7 @@ export default function ProductCatalog({ onProceedToCart }) {
 
                     <div className="mb-5">
                       <span className="text-3xl font-black text-emerald-400">
-                        ${(product.price_cents / 100).toLocaleString('es-CL')}
+                        ${product.price_cents.toLocaleString('es-CL')}
                       </span>
                       <span className="text-zinc-500 text-sm ml-1">CLP</span>
                     </div>

@@ -18,7 +18,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   });
 
   const totalCents = getTotalCents();
-  const totalCLP = (totalCents / 100).toLocaleString('es-CL');
+  const totalCLP = totalCents.toLocaleString('es-CL');
 
   // Guard: si llegan aquí sin items, redirigir
   if (items.length === 0) {
@@ -328,7 +328,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                       <span className="text-zinc-500 ml-1">×{item.quantity}</span>
                     </span>
                     <span className="font-semibold shrink-0 ml-2">
-                      ${((item.unit_price_cents * item.quantity) / 100).toLocaleString('es-CL')}
+                      ${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}
                     </span>
                   </div>
                 ))}
