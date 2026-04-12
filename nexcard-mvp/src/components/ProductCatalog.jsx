@@ -30,6 +30,15 @@ export default function ProductCatalog({ onProceedToCart }) {
     setTimeout(() => setAddedProduct(null), 2000);
   };
 
+  const handleGoToCart = () => {
+    console.log('Yendo al carrito, onProceedToCart:', onProceedToCart);
+    if (onProceedToCart) {
+      onProceedToCart();
+    } else {
+      console.error('onProceedToCart no está definido');
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">Cargando catálogo...</div>;
   }
@@ -87,12 +96,12 @@ export default function ProductCatalog({ onProceedToCart }) {
         </div>
 
         {totalItems > 0 && (
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center mb-8">
             <button
-              onClick={onProceedToCart}
-              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-all"
+              onClick={handleGoToCart}
+              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-lg transition-all transform hover:scale-105"
             >
-              Ir al Carrito ({totalItems} items)
+              🛒 Ir al Carrito ({totalItems} items)
             </button>
           </div>
         )}
