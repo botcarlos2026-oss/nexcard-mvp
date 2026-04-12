@@ -914,3 +914,8 @@ export const api = {
     return request('/track', { method: 'POST', body: JSON.stringify({ slug, buttonType }) });
   },
 };
+
+// Asegurar que getProducts está en el objeto api
+if (!api.getProducts) {
+  api.getProducts = supabaseGetProducts;
+}
