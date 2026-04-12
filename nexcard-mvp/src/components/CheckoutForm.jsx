@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useCart } from '../store/cartStore';
 import { api } from '../services/api';
+import { ArrowLeft, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const { items, getTotalCents, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('mercado-pago');
-  
+
   const [formData, setFormData] = useState({
     customerName: '',
     customerEmail: '',
@@ -19,8 +20,27 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const totalCents = getTotalCents();
   const totalCLP = (totalCents / 100).toLocaleString('es-CL');
 
+  // Guard: si llegan aquí sin items, redirigir
+  if (items.length === 0) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-8 text-center">
+        <AlertCircle size={48} className="text-yellow-400 mb-4" />
+        <p className="text-xl font-bold mb-2">Tu carrito está vacío</p>
+        <p className="text-zinc-400 mb-6 text-sm">No puedes iniciar un checkout sin productos</p>
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
+        >
+          <ArrowLeft size={18} />
+          Volver al carrito
+        </button>
+      </div>
+    );
+  }
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    setError(''); // limpiar error al escribir
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -28,46 +48,42 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   };
 
   const validateForm = () => {
-    if (!formData.customerName.trim()) {
-      setError('Por favor ingresa tu nombre completo');
-      return false;
-    }
-    if (!formData.customerEmail.includes('@')) {
-      setError('Por favor ingresa un email válido');
-      return false;
-    }
-    if (!formData.customerPhone.trim()) {
-      setError('Por favor ingresa un teléfono');
-      return false;
-    }
-    if (!formData.customerAddress.trim()) {
-      setError('Por favor ingresa tu dirección');
-      return false;
-    }
-    if (!formData.acceptTerms) {
-      setError('Debes aceptar los términos y condiciones');
-      return false;
-    }
-    return true;
+    if (!formData.customerName.trim()) return 'Por favor ingresa tu nombre completo';
+    if (formData.customerName.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
+    if (!formData.customerEmail.includes('@') || !formData.customerEmail.includes('.'))
+      return 'Por favor ingresa un email válido';
+    if (!formData.customerPhone.trim()) return 'Por favor ingresa un teléfono de contacto';
+    if (formData.customerPhone.replace(/\D/g, '').length < 8)
+      return 'El teléfono debe tener al menos 8 dígitos';
+    if (!formData.customerAddress.trim()) return 'Por favor ingresa tu dirección de despacho';
+    if (formData.customerAddress.trim().length < 10) return 'La dirección parece muy corta, incluye calle y número';
+    if (!formData.acceptTerms) return 'Debes aceptar los términos y condiciones para continuar';
+    return null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) return;
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      // Scroll al error
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
     setLoading(true);
     setError('');
 
     try {
       const orderPayload = {
-        customer_name: formData.customerName,
-        customer_email: formData.customerEmail,
-        customer_phone: formData.customerPhone,
-        customer_address: formData.customerAddress,
+        customer_name: formData.customerName.trim(),
+        customer_email: formData.customerEmail.trim().toLowerCase(),
+        customer_phone: formData.customerPhone.trim(),
+        customer_address: formData.customerAddress.trim(),
         payment_method: paymentMethod,
         payment_status: 'pending',
-        fulfillment_status: 'pending',
+        fulfillment_status: 'new',
         amount_cents: totalCents,
         currency: 'CLP',
         items: items.map((item) => ({
@@ -79,131 +95,182 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
       const result = await api.createOrder(orderPayload);
 
-      if (result.id) {
+      if (result?.id) {
         clearCart();
         onOrderSuccess(result);
       } else {
-        setError('No fue posible crear la orden');
+        throw new Error('La orden no retornó un ID válido');
       }
     } catch (err) {
-      setError(err.message || 'Error al procesar orden');
+      const message = err?.message || 'Error inesperado al procesar la orden';
+      setError(
+        message.includes('duplicate')
+          ? 'Ya existe una orden con estos datos. Revisa tu email.'
+          : message.includes('network') || message.includes('fetch')
+          ? 'Error de conexión. Verifica tu internet e intenta nuevamente.'
+          : message
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
   };
 
+  const inputClass =
+    'w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-colors text-sm';
+
+  const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-300';
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-4xl font-black mb-8">Checkout</h1>
+    <div className="min-h-screen bg-zinc-950 text-white p-4 sm:p-8">
+      <div className="max-w-3xl mx-auto">
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <button
+            onClick={onBack}
+            disabled={loading}
+            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm disabled:opacity-50"
+          >
+            <ArrowLeft size={16} />
+            Volver
+          </button>
+          <h1 className="text-3xl sm:text-4xl font-black">Checkout</h1>
+        </div>
+
+        {/* Error global */}
+        {error && (
+          <div className="flex items-start gap-3 bg-red-950 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+            <AlertCircle size={18} className="shrink-0 mt-0.5 text-red-400" />
+            <span className="text-sm">{error}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
           {/* Formulario */}
-          <form onSubmit={handleSubmit} className="lg:col-span-2">
-            {error && (
-              <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg mb-6">
-                {error}
-              </div>
-            )}
+          <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-5">
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
-              <h2 className="text-xl font-bold mb-4">Datos Personales</h2>
+            {/* Datos personales */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <h2 className="text-lg font-bold mb-5">Datos de contacto</h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className={labelClass}>Nombre completo</label>
+                  <input
+                    type="text"
+                    name="customerName"
+                    value={formData.customerName}
+                    onChange={handleChange}
+                    placeholder="Juan Pérez García"
+                    autoComplete="name"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Teléfono</label>
+                  <input
+                    type="tel"
+                    name="customerPhone"
+                    value={formData.customerPhone}
+                    onChange={handleChange}
+                    placeholder="+56 9 1234 5678"
+                    autoComplete="tel"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">Nombre Completo</label>
-                <input
-                  type="text"
-                  name="customerName"
-                  value={formData.customerName}
-                  onChange={handleChange}
-                  placeholder="Juan Pérez García"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">Email</label>
+                <label className={labelClass}>Email</label>
                 <input
                   type="email"
                   name="customerEmail"
                   value={formData.customerEmail}
                   onChange={handleChange}
                   placeholder="juan@example.com"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-sm font-semibold mb-2">Teléfono</label>
-                <input
-                  type="tel"
-                  name="customerPhone"
-                  value={formData.customerPhone}
-                  onChange={handleChange}
-                  placeholder="+56 9 1234 5678"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                  autoComplete="email"
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Dirección</label>
+                <label className={labelClass}>Dirección de despacho</label>
                 <textarea
                   name="customerAddress"
                   value={formData.customerAddress}
                   onChange={handleChange}
-                  placeholder="Calle Principal 123, Depto 4B, Santiago"
+                  placeholder="Calle Principal 123, Depto 4B, Santiago, Región Metropolitana"
                   rows="3"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                  autoComplete="street-address"
+                  className={inputClass + ' resize-none'}
                 />
               </div>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
-              <h2 className="text-xl font-bold mb-4">Método de Pago</h2>
+            {/* Método de pago */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <h2 className="text-lg font-bold mb-4">Método de pago</h2>
 
               <div className="space-y-3">
-                <label className="flex items-center p-3 border border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-800 transition-colors" style={{ borderColor: paymentMethod === 'mercado-pago' ? '#10B981' : undefined }}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="mercado-pago"
-                    checked={paymentMethod === 'mercado-pago'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="mr-3"
-                  />
-                  <div>
-                    <p className="font-semibold">Mercado Pago</p>
-                    <p className="text-xs text-zinc-400">Tarjeta, transferencia, efectivo</p>
-                  </div>
-                </label>
-
-                <label className="flex items-center p-3 border border-zinc-700 rounded-lg cursor-pointer hover:bg-zinc-800 transition-colors" style={{ borderColor: paymentMethod === 'transbank' ? '#10B981' : undefined }}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="transbank"
-                    checked={paymentMethod === 'transbank'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="mr-3"
-                  />
-                  <div>
-                    <p className="font-semibold">Transbank WebPay</p>
-                    <p className="text-xs text-zinc-400">Tarjetas de crédito y débito</p>
-                  </div>
-                </label>
+                {[
+                  {
+                    value: 'mercado-pago',
+                    label: 'Mercado Pago',
+                    description: 'Tarjeta, transferencia, efectivo',
+                    badge: 'Recomendado',
+                  },
+                  {
+                    value: 'transbank',
+                    label: 'Transbank WebPay',
+                    description: 'Tarjetas de crédito y débito',
+                    badge: null,
+                  },
+                ].map((method) => (
+                  <label
+                    key={method.value}
+                    className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${
+                      paymentMethod === method.value
+                        ? 'border-emerald-500 bg-emerald-900/20'
+                        : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={method.value}
+                      checked={paymentMethod === method.value}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="mr-3 accent-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm">{method.label}</p>
+                        {method.badge && (
+                          <span className="text-xs bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded-full">
+                            {method.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-0.5">{method.description}</p>
+                    </div>
+                  </label>
+                ))}
               </div>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
-              <label className="flex items-start cursor-pointer">
+            {/* Términos */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   name="acceptTerms"
                   checked={formData.acceptTerms}
                   onChange={handleChange}
-                  className="mt-1 mr-3"
+                  className="mt-0.5 accent-emerald-500"
                 />
-                <span className="text-sm">
+                <span className="text-sm text-zinc-300 leading-relaxed">
                   Acepto los{' '}
                   <a href="#" className="text-emerald-400 hover:underline">
                     términos y condiciones
@@ -211,63 +278,84 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   y la{' '}
                   <a href="#" className="text-emerald-400 hover:underline">
                     política de privacidad
-                  </a>
+                  </a>{' '}
+                  de NexCard
                 </span>
               </label>
             </div>
 
-            <div className="flex gap-4">
+            {/* Botones */}
+            <div className="flex gap-3">
               <button
                 type="button"
                 onClick={onBack}
-                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 rounded-lg transition-colors"
+                disabled={loading}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-colors text-sm"
               >
-                Volver
+                ← Volver
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-colors"
+                className="flex-[2] bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
               >
-                {loading ? 'Procesando...' : 'Confirmar Orden'}
+                {loading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={18} />
+                    Confirmar Orden
+                  </>
+                )}
               </button>
             </div>
+
           </form>
 
-          {/* Resumen */}
+          {/* Resumen lateral */}
           <div className="lg:col-span-1">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 sticky top-8">
-              <h3 className="text-lg font-bold mb-4">Resumen de Orden</h3>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 lg:sticky lg:top-8">
+              <h3 className="font-bold mb-4 text-base">Resumen</h3>
 
-              <div className="space-y-3 mb-6 pb-6 border-b border-zinc-800">
+              <div className="space-y-3 mb-4 pb-4 border-b border-zinc-800">
                 {items.map((item) => (
                   <div key={item.product_id} className="flex justify-between text-sm">
-                    <span>
-                      {item.product_name} × {item.quantity}
+                    <span className="text-zinc-300 leading-tight">
+                      {item.product_name}
+                      <span className="text-zinc-500 ml-1">×{item.quantity}</span>
                     </span>
-                    <span className="font-semibold">
+                    <span className="font-semibold shrink-0 ml-2">
                       ${((item.unit_price_cents * item.quantity) / 100).toLocaleString('es-CL')}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-zinc-400">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between text-zinc-400">
                   <span>Subtotal</span>
                   <span>${totalCLP}</span>
                 </div>
-                <div className="flex justify-between text-sm text-zinc-400">
+                <div className="flex justify-between text-zinc-400">
                   <span>Envío</span>
-                  <span>$0</span>
-                </div>
-                <div className="flex justify-between text-2xl font-black text-emerald-400 pt-2 border-t border-zinc-700">
-                  <span>Total</span>
-                  <span>${totalCLP}</span>
+                  <span className="text-emerald-400">Gratis</span>
                 </div>
               </div>
+
+              <div className="flex justify-between items-baseline pt-4 mt-4 border-t border-zinc-700">
+                <span className="text-lg font-black">Total</span>
+                <span className="text-2xl font-black text-emerald-400">${totalCLP}</span>
+              </div>
+
+              <p className="text-xs text-zinc-500 mt-3 text-center">
+                Pago 100% seguro · SSL encriptado
+              </p>
             </div>
           </div>
+
         </div>
       </div>
     </div>
