@@ -32,7 +32,7 @@ function App() {
   const [error, setError] = useState('');
   
   // Checkout state
-  const [checkoutStep, setCheckoutStep] = useState(null); // 'catalog' | 'cart' | 'checkout' | 'confirmation'
+  const [checkoutStep, setCheckoutStep] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
   const { getTotalItems } = useCart();
 
@@ -41,7 +41,7 @@ function App() {
     setPath(newPath);
   };
 
-  // Handlers for checkout flow
+  // Checkout handlers
   const handleCheckoutStart = () => {
     setCheckoutStep('catalog');
   };
@@ -65,7 +65,10 @@ function App() {
     setCheckoutStep('catalog');
   };
 
-  // Escucha cambios de sesión supabase
+  const handleBackToCart = () => {
+    setCheckoutStep('cart');
+  };
+
   useEffect(() => {
     if (!hasSupabase || !supabase) return;
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -208,18 +211,18 @@ function App() {
 
   // ==================== CHECKOUT FLOW ====================
   if (checkoutStep === 'catalog') {
-    return <ProductCatalog />;
+    return <ProductCatalog onProceedToCart={handleProceedToCart} />;
   }
 
   if (checkoutStep === 'cart') {
-    return <Cart onProceedCheckout={handleProceedToCheckout} />;
+    return <Cart onProceedCheckout={handleProceedToCheckout} onBack={handleBackToShop} />;
   }
 
   if (checkoutStep === 'checkout') {
     return (
       <CheckoutForm
         onOrderSuccess={handleOrderSuccess}
-        onBack={() => setCheckoutStep('cart')}
+        onBack={handleBackToCart}
       />
     );
   }

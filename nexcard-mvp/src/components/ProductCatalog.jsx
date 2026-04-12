@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useCart } from '../store/cartStore';
 
-export default function ProductCatalog() {
+export default function ProductCatalog({ onProceedToCart }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -43,12 +43,10 @@ export default function ProductCatalog() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="mb-12">
           <h1 className="text-4xl font-black mb-2">Catálogo NexCard</h1>
           <p className="text-zinc-400 mb-6">Selecciona el pack perfecto para tu negocio</p>
           
-          {/* Carrito Badge */}
           {totalItems > 0 && (
             <div className="inline-block bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold mb-6">
               🛒 {totalItems} producto{totalItems !== 1 ? 's' : ''} en el carrito
@@ -56,7 +54,6 @@ export default function ProductCatalog() {
           )}
         </div>
 
-        {/* Grid de productos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {products.map((product) => (
             <div
@@ -89,11 +86,10 @@ export default function ProductCatalog() {
           ))}
         </div>
 
-        {/* Botón Ir al Carrito */}
         {totalItems > 0 && (
           <div className="flex gap-4 justify-center">
             <button
-              onClick={() => window.location.href = '/?step=cart'}
+              onClick={onProceedToCart}
               className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-all"
             >
               Ir al Carrito ({totalItems} items)
