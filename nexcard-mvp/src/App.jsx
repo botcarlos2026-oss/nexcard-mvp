@@ -9,9 +9,14 @@ import OrdersDashboard from './components/OrdersDashboard';
 import UserEditor from './components/UserEditor';
 import SetupWizard from './components/SetupWizard';
 import AuthPage from './components/AuthPage';
+import ProductCatalog from './components/ProductCatalog';
+import Cart from './components/Cart';
+import CheckoutForm from './components/CheckoutForm';
+import OrderConfirmation from './components/OrderConfirmation';
 import { api, getStoredAuth, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { supabase, hasSupabase } from './services/supabaseClient';
+import { useCart } from './store/cartStore';
 
 function App() {
   const [data, setData] = useState(initialMockData);
@@ -25,10 +30,39 @@ function App() {
   const [profilesAdminData, setProfilesAdminData] = useState([]);
   const [ordersAdminData, setOrdersAdminData] = useState([]);
   const [error, setError] = useState('');
+  
+  // Checkout state
+  const [checkoutStep, setCheckoutStep] = useState(null); // 'catalog' | 'cart' | 'checkout' | 'confirmation'
+  const [currentOrder, setCurrentOrder] = useState(null);
+  const { getTotalItems } = useCart();
 
   const navigate = (newPath) => {
     window.history.pushState({}, '', newPath);
     setPath(newPath);
+  };
+
+  // Handlers for checkout flow
+  const handleCheckoutStart = () => {
+    setCheckoutStep('catalog');
+  };
+
+  const handleProceedToCart = () => {
+    if (getTotalItems() > 0) {
+      setCheckoutStep('cart');
+    }
+  };
+
+  const handleProceedToCheckout = () => {
+    setCheckoutStep('checkout');
+  };
+
+  const handleOrderSuccess = (order) => {
+    setCurrentOrder(order);
+    setCheckoutStep('confirmation');
+  };
+
+  const handleBackToShop = () => {
+    setCheckoutStep('catalog');
   };
 
   // Escucha cambios de sesión supabase
@@ -172,6 +206,34 @@ function App() {
     return <div className="min-h-screen bg-zinc-950 text-white grid place-items-center font-bold">Cargando NexCard…</div>;
   }
 
+  // ==================== CHECKOUT FLOW ====================
+  if (checkoutStep === 'catalog') {
+    return <ProductCatalog />;
+  }
+
+  if (checkoutStep === 'cart') {
+    return <Cart onProceedCheckout={handleProceedToCheckout} />;
+  }
+
+  if (checkoutStep === 'checkout') {
+    return (
+      <CheckoutForm
+        onOrderSuccess={handleOrderSuccess}
+        onBack={() => setCheckoutStep('cart')}
+      />
+    );
+  }
+
+  if (checkoutStep === 'confirmation') {
+    return (
+      <OrderConfirmation
+        order={currentOrder}
+        onContinueShopping={handleBackToShop}
+      />
+    );
+  }
+
+  // ==================== REGULAR ROUTES ====================
   if (path === '/login') return <AuthPage onAuthSuccess={handleAuthSuccess} />;
 
   if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
