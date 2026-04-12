@@ -101,6 +101,18 @@ async function supabaseCreateOrder(payload) {
     }
   }
 
+  // Enviar email de confirmación (async, no bloquea)
+  try {
+    const emailModule = await import('./email.js');
+    if (emailModule.sendOrderConfirmationEmail) {
+      emailModule.sendOrderConfirmationEmail(payload.customer_email, orderData).catch(err => {
+        console.error('Email error:', err);
+      });
+    }
+  } catch (emailError) {
+    console.warn('Email service not available:', emailError);
+  }
+
   return orderData;
 }
 
