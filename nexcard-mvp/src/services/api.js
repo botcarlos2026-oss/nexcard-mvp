@@ -63,7 +63,7 @@ async function supabaseCreateOrder(payload) {
     customer_email: payload.customer_email,
     payment_method: payload.payment_method,
     payment_status: 'pending',
-    fulfillment_status: 'pending',
+    fulfillment_status: 'new',
     amount_cents: payload.amount_cents,
     currency: payload.currency || 'CLP',
   };
