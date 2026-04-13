@@ -280,7 +280,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           <div className="text-center bg-zinc-900 border border-zinc-800 rounded-2xl p-10">
             <p className="text-zinc-400 text-sm mb-2">¿Tienes preguntas sobre Google Reviews Card?</p>
             <p className="text-white font-bold text-lg mb-6">Escríbenos y te ayudamos a configurar tu primer tarjeta.</p>
-            
+            <a
               href="https://wa.me/56900000000"
               target="_blank"
               rel="noreferrer"
