@@ -172,8 +172,25 @@ export const api = {
   getAdminDashboard: async () => {
     if (!hasSupabase) throw new Error('Admin deshabilitado');
     const { data: profiles } = await supabase.from('profiles').select('*');
-    const { data: orders } = await supabase.from('orders').select('*');
-    return { stats: { totalProfiles: profiles?.length || 0, totalOrders: orders?.length || 0 }, users: [], recentOrders: [] };
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    const paidOrders = (orders || []).filter(o => o.payment_status === 'paid');
+    const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
+    const pendingOrders = (orders || []).filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
+    return {
+      stats: {
+        totalProfiles: profiles?.length || 0,
+        totalOrders: orders?.length || 0,
+        totalRevenue,
+        pendingOrders,
+      },
+      users: [],
+      recentOrders: (orders || []).slice(0, 5),
+    };
   },
 
   getProducts: async () => supabaseGetProducts(),
