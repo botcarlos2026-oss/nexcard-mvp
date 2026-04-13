@@ -183,6 +183,17 @@ export const api = {
     const paidOrders = (orders || []).filter(o => o.payment_status === 'paid');
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const pendingOrders = (orders || []).filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
+    const users = (profiles || []).map(p => ({
+      id: p.id,
+      name: p.name || p.slug || 'Sin nombre',
+      slug: p.slug || '',
+      status: p.status || 'active',
+      color: p.color || '#10B981',
+      taps: p.taps || 0,
+      wa_clicks: p.wa_clicks || 0,
+      vcard_clicks: p.vcard_clicks || 0,
+      account_type: p.account_type || 'individual',
+    }));
     return {
       stats: {
         totalProfiles: profiles?.length || 0,
@@ -190,7 +201,7 @@ export const api = {
         totalRevenue,
         pendingOrders,
       },
-      users: [],
+      users,
       recentOrders: (orders || []).slice(0, 5),
     };
   },
