@@ -10,8 +10,10 @@ import {
   ShoppingCart,
   CheckCircle2,
   BarChart2,
+  Search,
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
+import { api } from '../services/api';
 
 const SalesChart = ({ orders }) => {
   const days = useMemo(() => {
@@ -55,6 +57,33 @@ const SalesChart = ({ orders }) => {
 
 const AdminDashboard = ({ dashboard }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [globalResults, setGlobalResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  const handleGlobalSearch = async (term) => {
+    if (!term.trim()) { setGlobalResults(null); return; }
+    setSearching(true);
+    try {
+      const [ordersRes] = await Promise.all([api.getOrders()]);
+      const orders = ordersRes.orders || [];
+      const t = term.toLowerCase();
+      const matchedOrders = orders.filter(o =>
+        o.customer_name?.toLowerCase().includes(t) ||
+        o.customer_email?.toLowerCase().includes(t) ||
+        o.id?.toLowerCase().includes(t)
+      ).slice(0, 5);
+      const matchedProfiles = users.filter(u =>
+        u.name?.toLowerCase().includes(t) ||
+        u.slug?.toLowerCase().includes(t)
+      ).slice(0, 5);
+      setGlobalResults({ orders: matchedOrders, profiles: matchedProfiles });
+    } catch (err) {
+      console.warn('Search error:', err);
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const users = dashboard?.users || [];
   const statsSource = dashboard?.stats || {};
@@ -71,16 +100,83 @@ const AdminDashboard = ({ dashboard }) => {
 
   return (
     <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 p-8">
-      <div className="max-w-7xl mx-auto flex justify-between items-center mb-10">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-zinc-950">NexCard Control Center</h1>
-          <p className="text-zinc-500 font-medium">Conversión, perfiles, pedidos y salud operativa desde un solo panel</p>
+      <div className="max-w-7xl mx-auto mb-10">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-zinc-950">NexCard Control Center</h1>
+            <p className="text-zinc-500 font-medium">Conversión, perfiles, pedidos y salud operativa desde un solo panel</p>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            <a href="/admin/cards" className="px-4 py-3 bg-zinc-950 text-white rounded-2xl font-bold text-sm">Ver Cards</a>
+            <a href="/admin/orders" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Órdenes</a>
+            <a href="/admin/profiles" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Profiles</a>
+            <a href="/admin/inventory" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Inventario</a>
+          </div>
         </div>
-        <div className="flex gap-3 flex-wrap">
-          <a href="/admin/cards" className="px-4 py-3 bg-zinc-950 text-white rounded-2xl font-bold text-sm">Ver Cards</a>
-          <a href="/admin/orders" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Órdenes</a>
-          <a href="/admin/profiles" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Profiles</a>
-          <a href="/admin/inventory" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Inventario</a>
+
+        {/* Búsqueda global */}
+        <div className="relative">
+          <div className="flex items-center gap-3 bg-white border border-zinc-200 rounded-2xl px-4 py-3 shadow-sm">
+            <Search size={18} className="text-zinc-400 shrink-0" />
+            <input
+              type="text"
+              value={globalSearch}
+              onChange={(e) => {
+                setGlobalSearch(e.target.value);
+                handleGlobalSearch(e.target.value);
+              }}
+              placeholder="Buscar órdenes, clientes, perfiles..."
+              className="flex-1 outline-none text-sm font-medium text-zinc-700 placeholder-zinc-400 bg-transparent"
+            />
+            {searching && <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin shrink-0" />}
+            {globalSearch && !searching && (
+              <button onClick={() => { setGlobalSearch(''); setGlobalResults(null); }} className="text-zinc-400 hover:text-zinc-700">✕</button>
+            )}
+          </div>
+
+          {globalResults && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 overflow-hidden">
+              {globalResults.orders.length === 0 && globalResults.profiles.length === 0 ? (
+                <div className="px-5 py-4 text-sm text-zinc-400 font-medium">Sin resultados para "{globalSearch}"</div>
+              ) : (
+                <>
+                  {globalResults.orders.length > 0 && (
+                    <div>
+                      <p className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-50">Órdenes</p>
+                      {globalResults.orders.map(o => (
+                        <a key={o.id} href="/admin/orders" className="flex items-center justify-between px-5 py-3 hover:bg-zinc-50 transition-colors border-b border-zinc-50 last:border-0">
+                          <div>
+                            <p className="font-bold text-sm text-zinc-900">{o.customer_name || 'Sin nombre'}</p>
+                            <p className="text-xs text-zinc-400">{o.customer_email}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-black text-sm">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(o.amount_cents || 0)}</p>
+                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${o.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{o.payment_status}</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {globalResults.profiles.length > 0 && (
+                    <div>
+                      <p className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-50">Perfiles</p>
+                      {globalResults.profiles.map(p => (
+                        <a key={p.id} href={`/${p.slug}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 transition-colors border-b border-zinc-50 last:border-0">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black" style={{ backgroundColor: p.color || '#10B981' }}>
+                            {p.name?.[0]?.toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm text-zinc-900">{p.name}</p>
+                            <p className="text-xs text-zinc-400">/{p.slug}</p>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
