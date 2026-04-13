@@ -110,22 +110,20 @@ function App() {
           if (!hasSupabase || !supabase) {
             throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
-          if (!user) {
-            navigate('/login');
-            setLoading(false);
-            return;
-          }
 
-          // Admin whitelist — agregar emails aquí hasta tener tabla memberships
+          // Admin whitelist — verificar sesión de Supabase directamente
           const ADMIN_EMAILS = [
             'bot.carlos.2026@gmail.com',
             // 'carlos@nexcard.com',  ← agregar cuando compres el dominio
           ];
 
-          const isAdmin = ADMIN_EMAILS.includes(user.email?.toLowerCase().trim());
+          // Obtener sesión activa de Supabase (más confiable que localStorage)
+          const { data: { session } } = await supabase.auth.getSession();
+          const sessionEmail = session?.user?.email?.toLowerCase().trim();
+          const isAdmin = sessionEmail && ADMIN_EMAILS.includes(sessionEmail);
 
           if (!isAdmin) {
-            navigate('/');
+            navigate('/login');
             setLoading(false);
             return;
           }
