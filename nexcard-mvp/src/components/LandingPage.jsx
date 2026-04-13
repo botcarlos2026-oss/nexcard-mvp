@@ -153,6 +153,146 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         </div>
       </section>
 
+      {/* ============ GOOGLE REVIEWS CARD SECTION ============ */}
+      <section className="border-t border-zinc-800/60 py-24 px-6 bg-zinc-900/20" id="reviews-card">
+        <div className="max-w-6xl mx-auto">
+
+          {/* Header */}
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 bg-blue-950 border border-blue-800 text-blue-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
+              <span>★</span>
+              Nuevo producto — Google Reviews Card · NexReview
+            </div>
+            <h2 className="text-4xl md:text-5xl font-black mb-6 leading-tight">
+              Más reseñas.<br />
+              <span className="text-blue-400">Más clientes.</span>
+            </h2>
+            <p className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
+              Una tarjeta NFC que tus clientes tocan con el teléfono y en segundos están dejando una reseña en Google. Sin fricción, sin buscar, sin olvidar.
+            </p>
+          </div>
+
+          {/* Beneficios */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+            {[
+              {
+                icon: '⭐',
+                title: 'Más reseñas en Google',
+                desc: 'El 90% de los clientes no deja reseñas porque el proceso es tedioso. Con un toque, el proceso dura 15 segundos.',
+              },
+              {
+                icon: '👁️',
+                title: 'Más visibilidad local',
+                desc: 'Más reseñas = mejor posicionamiento en Google Maps. Tus clientes te encuentran antes que a la competencia.',
+              },
+              {
+                icon: '💬',
+                title: 'Más confianza, más ventas',
+                desc: 'El 88% de los consumidores confía en reseñas online igual que en recomendaciones personales.',
+              },
+            ].map((b, i) => (
+              <div key={i} className="bg-zinc-900 border border-zinc-800 hover:border-blue-500/40 rounded-xl p-6 transition-colors">
+                <div className="text-3xl mb-4">{b.icon}</div>
+                <h3 className="font-bold text-lg mb-2">{b.title}</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">{b.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Cómo funciona */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 mb-16">
+            <h3 className="text-2xl font-black text-center mb-10">¿Cómo funciona?</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+              {[
+                { num: '01', title: 'Cliente paga', desc: 'Selecciona tu pack y recibe tus tarjetas en casa.' },
+                { num: '02', title: 'Tú envías tu link', desc: 'Nos mandas tu URL de reseñas de Google. La programamos en todas tus tarjetas.' },
+                { num: '03', title: 'Ubica la tarjeta', desc: 'Pon la tarjeta en caja, mostrador o mesa. Con logo Google y QR impreso.' },
+                { num: '04', title: 'Clientes reseñan', desc: 'Tocan con su teléfono → directo a tu página de reseñas. En 15 segundos.' },
+              ].map((step) => (
+                <div key={step.num} className="text-center">
+                  <div className="text-3xl font-black text-blue-400/30 mb-2">{step.num}</div>
+                  <h4 className="font-bold mb-1 text-sm">{step.title}</h4>
+                  <p className="text-zinc-400 text-xs leading-relaxed">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Precios */}
+          <div className="text-center mb-10">
+            <h3 className="text-2xl font-black mb-2">Elige tu pack</h3>
+            <p className="text-zinc-400 text-sm">A mayor volumen, mejor precio por unidad</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
+            {[
+              { name: 'Starter', units: 1, price: 5990, perUnit: 5990, highlight: false, features: ['1 tarjeta NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado'] },
+              { name: 'Negocio', units: 3, price: 14990, perUnit: 4997, highlight: false, features: ['3 tarjetas NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado', 'Ahorra $2.980'] },
+              { name: 'Pro', units: 5, price: 22990, perUnit: 4598, highlight: true, badge: 'Más popular', features: ['5 tarjetas NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado', 'Ahorra $6.960'] },
+              { name: 'Equipo', units: 10, price: 39990, perUnit: 3999, highlight: false, features: ['10 tarjetas NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado', 'Ahorra $19.910'] },
+            ].map((plan) => (
+              <div
+                key={plan.name}
+                className={`relative rounded-xl p-6 flex flex-col transition-all ${
+                  plan.highlight
+                    ? 'bg-blue-950 border-2 border-blue-500 shadow-lg shadow-blue-900/30'
+                    : 'bg-zinc-900 border border-zinc-800 hover:border-zinc-700'
+                }`}
+              >
+                {plan.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.badge}</span>
+                  </div>
+                )}
+                <div className="mb-4">
+                  <h4 className="font-black text-lg mb-1">{plan.name}</h4>
+                  <p className="text-zinc-400 text-xs">{plan.units} {plan.units === 1 ? 'tarjeta' : 'tarjetas'} NFC</p>
+                </div>
+                <div className="mb-5">
+                  <span className={`text-3xl font-black ${plan.highlight ? 'text-blue-400' : 'text-blue-400'}`}>
+                    ${plan.price.toLocaleString('es-CL')}
+                  </span>
+                  <p className="text-zinc-500 text-xs mt-1">${plan.perUnit.toLocaleString('es-CL')} por tarjeta</p>
+                </div>
+                <ul className="space-y-2 mb-6 flex-1">
+                  {plan.features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 text-sm text-zinc-300">
+                      <span className="text-blue-400 text-xs">✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={onCheckoutStart}
+                  className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${
+                    plan.highlight
+                      ? 'bg-blue-500 hover:bg-blue-400 text-white'
+                      : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'
+                  }`}
+                >
+                  Pedir pack
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA reviews */}
+          <div className="text-center bg-zinc-900 border border-zinc-800 rounded-2xl p-10">
+            <p className="text-zinc-400 text-sm mb-2">¿Tienes preguntas sobre Google Reviews Card?</p>
+            <p className="text-white font-bold text-lg mb-6">Escríbenos y te ayudamos a configurar tu primer tarjeta.</p>
+            
+              href="https://wa.me/56900000000"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-colors text-sm"
+            >
+              💬 Contactar por WhatsApp
+            </a>
+          </div>
+
+        </div>
+      </section>
+
       <footer className="border-t border-zinc-800/60 py-10 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <span className="text-lg font-black">Nex<span className="text-emerald-400">Card</span></span>
