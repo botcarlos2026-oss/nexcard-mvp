@@ -10,6 +10,9 @@ import {
   CheckCircle2,
   Loader2,
   Link2,
+  Calendar,
+  Bell,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -53,10 +56,51 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [draftOrder, setDraftOrder] = useState(null);
   const [linkingCardId, setLinkingCardId] = useState('');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const [lastChecked, setLastChecked] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+    const incoming = orders.filter(o => new Date(o.created_at) > lastChecked);
+    setNewOrdersCount(incoming.length);
     setRows(orders);
   }, [orders]);
+
+  // Auto-refresh cada 30 segundos
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      setRefreshing(true);
+      try {
+        const { api } = await import('../services/api');
+        const response = await api.getOrders();
+        const newOrders = response.orders || [];
+        const newCount = newOrders.filter(o => new Date(o.created_at) > lastChecked).length;
+        setNewOrdersCount(newCount);
+        setRows(newOrders);
+      } catch (err) {
+        console.warn('Auto-refresh error:', err);
+      } finally {
+        setRefreshing(false);
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [lastChecked]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const { api } = await import('../services/api');
+      const response = await api.getOrders();
+      setRows(response.orders || []);
+      setLastChecked(new Date());
+      setNewOrdersCount(0);
+    } catch (err) {
+      console.warn('Refresh error:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const normalizedOrders = useMemo(() => rows.map((order) => {
     const items = order.order_items || order.items || [];
@@ -86,10 +130,25 @@ const OrdersDashboard = ({ orders = [] }) => {
 
   const filteredOrders = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+    const now = new Date();
 
     return normalizedOrders.filter((order) => {
       const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
       const matchesFulfillment = fulfillmentFilter === 'all' || order.fulfillment_status === fulfillmentFilter;
+
+      // Filtro fecha
+      if (dateFilter !== 'all') {
+        const orderDate = new Date(order.created_at);
+        if (dateFilter === 'today') {
+          if (orderDate.toDateString() !== now.toDateString()) return false;
+        } else if (dateFilter === 'week') {
+          const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+          if (orderDate < weekAgo) return false;
+        } else if (dateFilter === 'month') {
+          const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+          if (orderDate < monthAgo) return false;
+        }
+      }
 
       if (!matchesPayment || !matchesFulfillment) return false;
       if (!term) return true;
@@ -213,7 +272,37 @@ const OrdersDashboard = ({ orders = [] }) => {
 
         <div className="grid lg:grid-cols-[1.5fr,1fr] gap-6">
           <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-zinc-100 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="p-6 border-b border-zinc-100 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Calendar size={16} className="text-zinc-400" />
+                  {['all', 'today', 'week', 'month'].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setDateFilter(f)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${dateFilter === f ? 'bg-zinc-950 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
+                    >
+                      {f === 'all' ? 'Todos' : f === 'today' ? 'Hoy' : f === 'week' ? '7 días' : '30 días'}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3">
+                  {newOrdersCount > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <Bell size={14} className="text-emerald-600" />
+                      <span className="text-xs font-black text-emerald-700">{newOrdersCount} nueva{newOrdersCount > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 rounded-xl text-xs font-bold text-zinc-600 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+                    Actualizar
+                  </button>
+                </div>
+              </div>
               <div className="flex gap-3 flex-1 flex-col sm:flex-row">
                 <label className="relative block flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
@@ -289,9 +378,22 @@ const OrdersDashboard = ({ orders = [] }) => {
                       </td>
                       <td className="px-8 py-5 font-black text-zinc-900">{currency(order.totalCents)}</td>
                       <td className="px-8 py-5">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone[order.payment_status] || 'bg-zinc-100 text-zinc-700'}`}>
-                          {formatLabel(order.payment_status)}
-                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone[order.payment_status] || 'bg-zinc-100 text-zinc-700'}`}>
+                            {formatLabel(order.payment_status)}
+                          </span>
+                          {order.payment_status !== 'paid' && (
+                            <button
+                              type="button"
+                              onClick={() => updateOrderField(order.id, { payment_status: 'paid' }, `Orden ${order.id} marcada como pagada.`)}
+                              disabled={busyOrderId === order.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                            >
+                              <CheckCircle2 size={10} />
+                              Marcar pagado
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-8 py-5">
                         <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone[order.fulfillment_status] || 'bg-zinc-100 text-zinc-700'}`}>
