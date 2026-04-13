@@ -114,6 +114,7 @@ function App() {
           // Admin whitelist — verificar sesión de Supabase directamente
           const ADMIN_EMAILS = [
             'bot.carlos.2026@gmail.com',
+            'carlos.alvarez.contreras@gmail.com',
             // 'carlos@nexcard.com',  ← agregar cuando compres el dominio
           ];
 
