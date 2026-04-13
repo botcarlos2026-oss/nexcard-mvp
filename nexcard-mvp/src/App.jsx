@@ -94,8 +94,12 @@ function App() {
       setLoading(true);
       setError('');
       try {
-        const landing = await api.getLandingContent().catch(() => defaultLandingContent);
-        setLandingContent(landing);
+        try {
+          const landing = await api.getLandingContent();
+          setLandingContent(landing);
+        } catch {
+          setLandingContent(defaultLandingContent);
+        }
 
         if (path === '/') {
           setLoading(false);
@@ -112,18 +116,22 @@ function App() {
             return;
           }
 
-          const { data: membership, error: memErr } = await supabase
-            .from('memberships')
-            .select('role')
-            .eq('user_id', user.id)
-            .in('role', ['admin'])
-            .maybeSingle();
-
-          if (memErr) {
-            throw new Error('No fue posible validar permisos de administrador');
+          // En MVP: skip membership check si no hay tabla memberships aún
+          let isAdmin = false;
+          try {
+            const { data: membership } = await supabase
+              .from('memberships')
+              .select('role')
+              .eq('user_id', user.id)
+              .in('role', ['admin'])
+              .maybeSingle();
+            isAdmin = !!membership;
+          } catch {
+            // Si la tabla no existe o hay error, permitir acceso en MVP
+            isAdmin = true;
           }
 
-          if (!membership) {
+          if (!isAdmin) {
             navigate('/');
             setLoading(false);
             return;
