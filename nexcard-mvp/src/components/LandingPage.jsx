@@ -2,70 +2,17 @@ import React, { useState } from 'react';
 import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone } from 'lucide-react';
 
 const FEATURES = [
-  {
-    icon: <Zap size={22} className="text-emerald-400" />,
-    title: 'Comparte al instante',
-    description: 'Un toque con tu tarjeta NFC y tu contacto completo aparece en el teléfono de tu cliente. Sin apps, sin fricción.',
-  },
-  {
-    icon: <Share2 size={22} className="text-emerald-400" />,
-    title: 'Perfil digital completo',
-    description: 'Nombre, cargo, empresa, redes sociales, WhatsApp y más — todo en una página personalizada con tu marca.',
-  },
-  {
-    icon: <BarChart2 size={22} className="text-emerald-400" />,
-    title: 'Actualizable siempre',
-    description: 'Cambias de cargo, número o empresa? Actualiza tu perfil en segundos. La tarjeta física nunca queda obsoleta.',
-  },
-  {
-    icon: <Shield size={22} className="text-emerald-400" />,
-    title: 'Compatible con todos',
-    description: 'Funciona con iPhone y Android sin necesidad de instalar nada. Solo acercar y compartir.',
-  },
+  { icon: <Zap size={22} className="text-emerald-400" />, title: 'Comparte al instante', description: 'Un toque con tu tarjeta NFC y tu contacto completo aparece en el teléfono de tu cliente. Sin apps, sin fricción.' },
+  { icon: <Share2 size={22} className="text-emerald-400" />, title: 'Perfil digital completo', description: 'Nombre, cargo, empresa, redes sociales, WhatsApp y más — todo en una página personalizada con tu marca.' },
+  { icon: <BarChart2 size={22} className="text-emerald-400" />, title: 'Actualizable siempre', description: 'Cambias de cargo, número o empresa? Actualiza tu perfil en segundos. La tarjeta física nunca queda obsoleta.' },
+  { icon: <Shield size={22} className="text-emerald-400" />, title: 'Compatible con todos', description: 'Funciona con iPhone y Android sin necesidad de instalar nada. Solo acercar y compartir.' },
 ];
 
 const PRICING = [
-  {
-    sku: 'BASIC-5',
-    name: 'Básico',
-    cards: 5,
-    price: 89990,
-    perUnit: 17998,
-    description: 'Ideal para equipos pequeños o para empezar',
-    highlight: false,
-    features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Soporte por email'],
-  },
-  {
-    sku: 'PREMIUM-5',
-    name: 'Premium 5',
-    cards: 5,
-    price: 79990,
-    perUnit: 15998,
-    description: 'El más popular para emprendedores',
-    highlight: false,
-    features: ['5 tarjetas NFC premium', 'Perfil personalizado', 'Analítica básica', 'Soporte prioritario'],
-  },
-  {
-    sku: 'PREMIUM-10',
-    name: 'Premium 10',
-    cards: 10,
-    price: 149990,
-    perUnit: 14999,
-    description: 'Para equipos de ventas en crecimiento',
-    highlight: true,
-    badge: 'Más popular',
-    features: ['10 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte prioritario', 'Dashboard de equipo'],
-  },
-  {
-    sku: 'PREMIUM-20',
-    name: 'Premium 20',
-    cards: 20,
-    price: 269990,
-    perUnit: 13499,
-    description: 'La mejor relación precio-volumen',
-    highlight: false,
-    features: ['20 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte dedicado', 'Dashboard de equipo', 'Onboarding asistido'],
-  },
+  { sku: 'BASIC-5', name: 'Básico', cards: 5, price: 89990, perUnit: 17998, description: 'Ideal para equipos pequeños o para empezar', highlight: false, features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Soporte por email'] },
+  { sku: 'PREMIUM-5', name: 'Premium 5', cards: 5, price: 79990, perUnit: 15998, description: 'El más popular para emprendedores', highlight: false, features: ['5 tarjetas NFC premium', 'Perfil personalizado', 'Analítica básica', 'Soporte prioritario'] },
+  { sku: 'PREMIUM-10', name: 'Premium 10', cards: 10, price: 149990, perUnit: 14999, description: 'Para equipos de ventas en crecimiento', highlight: true, badge: 'Más popular', features: ['10 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte prioritario', 'Dashboard de equipo'] },
+  { sku: 'PREMIUM-20', name: 'Premium 20', cards: 20, price: 269990, perUnit: 13499, description: 'La mejor relación precio-volumen', highlight: false, features: ['20 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte dedicado', 'Dashboard de equipo', 'Onboarding asistido'] },
 ];
 
 const STEPS = [
@@ -77,32 +24,16 @@ const STEPS = [
 
 export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
-
-  const handleSlugSubmit = (e) => {
-    if (e.key === 'Enter' && slug.trim()) {
-      window.location.href = `/${slug.trim()}`;
-    }
-  };
-
   const formatPrice = (n) => n.toLocaleString('es-CL');
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
 
       <nav className="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-        <span className="text-xl font-black tracking-tight">
-          Nex<span className="text-emerald-400">Card</span>
-        </span>
+        <span className="text-xl font-black tracking-tight">Nex<span className="text-emerald-400">Card</span></span>
         <div className="flex items-center gap-3">
-          <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-1.5">
-            Iniciar sesión
-          </a>
-          <button
-            onClick={onCheckoutStart}
-            className="text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition-colors"
-          >
-            Comprar
-          </button>
+          <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-1.5">Iniciar sesión</a>
+          <button onClick={onCheckoutStart} className="text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition-colors">Comprar</button>
         </div>
       </nav>
 
@@ -124,23 +55,15 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             Comparte tu contacto completo con un solo toque. Sin apps, sin papel, sin quedarte sin tarjetas. Actualiza tu información cuando quieras.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={onCheckoutStart}
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/40 text-base"
-            >
+            <button onClick={onCheckoutStart} className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/40 text-base">
               Ver precios y packs
               <ArrowRight size={18} />
             </button>
-            
-              href="#precios"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-all border border-zinc-700 text-base"
-            >
+            <button onClick={onCheckoutStart} className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-all border border-zinc-700 text-base">
               Ver precios
-            </a>
+            </button>
           </div>
-          <p className="mt-10 text-sm text-zinc-500">
-            Despacho a todo Chile · Activación en minutos · Sin contratos
-          </p>
+          <p className="mt-10 text-sm text-zinc-500">Despacho a todo Chile · Activación en minutos · Sin contratos</p>
         </div>
       </section>
 
@@ -153,9 +76,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {FEATURES.map((f, i) => (
               <div key={i} className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-6 transition-colors">
-                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-lg flex items-center justify-center mb-4">
-                  {f.icon}
-                </div>
+                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-lg flex items-center justify-center mb-4">{f.icon}</div>
                 <h3 className="font-bold mb-2">{f.title}</h3>
                 <p className="text-zinc-400 text-sm leading-relaxed">{f.description}</p>
               </div>
@@ -190,19 +111,10 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {PRICING.map((plan) => (
-              <div
-                key={plan.sku}
-                className={`relative rounded-xl p-6 flex flex-col transition-all ${
-                  plan.highlight
-                    ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30'
-                    : 'bg-zinc-900 border border-zinc-800 hover:border-zinc-700'
-                }`}
-              >
+              <div key={plan.sku} className={`relative rounded-xl p-6 flex flex-col transition-all ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800 hover:border-zinc-700'}`}>
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
-                      {plan.badge}
-                    </span>
+                    <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.badge}</span>
                   </div>
                 )}
                 <div className="mb-5">
@@ -210,9 +122,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                   <p className="text-zinc-400 text-xs leading-relaxed">{plan.description}</p>
                 </div>
                 <div className="mb-5">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-emerald-400">${formatPrice(plan.price)}</span>
-                  </div>
+                  <span className="text-3xl font-black text-emerald-400">${formatPrice(plan.price)}</span>
                   <p className="text-zinc-500 text-xs mt-1">${formatPrice(plan.perUnit)} por tarjeta · {plan.cards} unidades</p>
                 </div>
                 <ul className="space-y-2 mb-6 flex-1">
@@ -223,14 +133,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                     </li>
                   ))}
                 </ul>
-                <button
-                  onClick={onCheckoutStart}
-                  className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${
-                    plan.highlight
-                      ? 'bg-emerald-500 hover:bg-emerald-400 text-white'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'
-                  }`}
-                >
+                <button onClick={onCheckoutStart} className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${plan.highlight ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'}`}>
                   Comprar pack
                 </button>
               </div>
@@ -243,10 +146,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-black mb-4">Listo para modernizar tu networking</h2>
           <p className="text-zinc-400 mb-8">Únete a los profesionales que ya dejaron las tarjetas de papel atrás.</p>
-          <button
-            onClick={onCheckoutStart}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/40 text-base"
-          >
+          <button onClick={onCheckoutStart} className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/40 text-base">
             Ver packs y precios
             <ArrowRight size={18} />
           </button>
@@ -270,14 +170,11 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               type="text"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              onKeyPress={handleSlugSubmit}
+              onKeyPress={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
               placeholder="mi-perfil"
               className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-32"
             />
-            <button
-              onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)}
-              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap"
-            >
+            <button onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap">
               Ver perfil
             </button>
           </div>
