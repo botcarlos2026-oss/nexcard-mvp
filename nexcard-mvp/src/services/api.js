@@ -109,8 +109,10 @@ export const api = {
     if (hasSupabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email: payload.email, password: payload.password });
       if (error) throw new Error(error.message);
-      setStoredAuth({ user: data.session?.user });
-      return { user: data.session?.user };
+      const user = data.user || data.session?.user;
+      if (!user) throw new Error('No se pudo obtener el usuario');
+      setStoredAuth({ user });
+      return { user };
     }
     return request('/auth/login', { method: 'POST', body: JSON.stringify(payload) });
   },
