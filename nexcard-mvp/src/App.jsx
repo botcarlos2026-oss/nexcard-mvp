@@ -195,7 +195,16 @@ function App() {
   const handleAuthSuccess = (authPayload) => {
     setUser(authPayload.user);
     setStoredAuth(authPayload);
-    navigate('/edit');
+    const ADMIN_EMAILS = [
+      'bot.carlos.2026@gmail.com',
+      'carlos.alvarez.contreras@gmail.com',
+    ];
+    const email = authPayload.user?.email?.toLowerCase().trim();
+    if (email && ADMIN_EMAILS.includes(email)) {
+      navigate('/admin');
+    } else {
+      navigate('/edit');
+    }
   };
 
   const handleLogout = async () => {
