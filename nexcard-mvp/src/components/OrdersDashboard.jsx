@@ -13,6 +13,7 @@ import {
   Calendar,
   Bell,
   RefreshCw,
+  Download,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -235,6 +236,28 @@ const OrdersDashboard = ({ orders = [] }) => {
     ];
   }, [normalizedOrders]);
 
+  const exportCSV = () => {
+    const headers = ['ID', 'Cliente', 'Email', 'Método Pago', 'Estado Pago', 'Fulfillment', 'Monto CLP', 'Fecha'];
+    const rows = filteredOrders.map(o => [
+      o.id,
+      o.customerLabel,
+      o.customer_email || '',
+      o.payment_method || '',
+      o.payment_status || '',
+      o.fulfillment_status || '',
+      o.totalCents,
+      formatDate(o.created_at),
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nexcard-ordenes-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 p-8">
       <div className="max-w-7xl mx-auto">
@@ -300,6 +323,13 @@ const OrdersDashboard = ({ orders = [] }) => {
                   >
                     <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
                     Actualizar
+                  </button>
+                  <button
+                    onClick={exportCSV}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-xs font-bold text-white transition-colors"
+                  >
+                    <Download size={13} />
+                    Export CSV
                   </button>
                 </div>
               </div>

@@ -6,9 +6,52 @@ import {
   MousePointer2,
   QrCode,
   Package,
-  DollarSign
+  DollarSign,
+  ShoppingCart,
+  CheckCircle2,
+  BarChart2,
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
+
+const SalesChart = ({ orders }) => {
+  const days = useMemo(() => {
+    const result = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toDateString();
+      const dayOrders = orders.filter(o => new Date(o.created_at).toDateString() === dateStr);
+      const revenue = dayOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
+      result.push({
+        label: date.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' }),
+        revenue,
+        count: dayOrders.length,
+      });
+    }
+    return result;
+  }, [orders]);
+
+  const maxRevenue = Math.max(...days.map(d => d.revenue), 1);
+  const formatCLP = (n) => n >= 1000 ? `$${Math.round(n/1000)}K` : `$${n}`;
+
+  return (
+    <div className="flex items-end gap-3 h-32">
+      {days.map((day, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+          <span className="text-xs font-bold text-zinc-500">{day.revenue > 0 ? formatCLP(day.revenue) : ''}</span>
+          <div className="w-full relative" style={{ height: '80px' }}>
+            <div
+              className="w-full rounded-t-lg bg-emerald-500 absolute bottom-0 transition-all"
+              style={{ height: `${Math.max((day.revenue / maxRevenue) * 80, day.revenue > 0 ? 4 : 0)}px` }}
+            />
+            {day.revenue === 0 && <div className="w-full h-1 bg-zinc-100 absolute bottom-0 rounded" />}
+          </div>
+          <span className="text-[10px] font-bold text-zinc-400 text-center leading-tight">{day.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const AdminDashboard = ({ dashboard }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,6 +96,51 @@ const AdminDashboard = ({ dashboard }) => {
             <h3 className="text-3xl font-black mt-1">{stat.value}</h3>
           </div>
         ))}
+      </div>
+
+      {/* Gráfico ventas por día */}
+      <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm p-6 mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="font-black text-xl">Ventas últimos 7 días</h2>
+            <p className="text-sm text-zinc-500 font-medium">Ingresos diarios en CLP</p>
+          </div>
+          <BarChart2 size={20} className="text-emerald-500" />
+        </div>
+        <SalesChart orders={recentOrders} />
+      </div>
+
+      {/* Métricas conversión */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+        <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm p-6">
+          <div className="p-3 rounded-2xl bg-zinc-50 inline-flex mb-4 text-blue-500">
+            <ShoppingCart size={24} />
+          </div>
+          <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Total órdenes</p>
+          <h3 className="text-3xl font-black mt-1">{statsSource.totalOrders || 0}</h3>
+        </div>
+        <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm p-6">
+          <div className="p-3 rounded-2xl bg-zinc-50 inline-flex mb-4 text-emerald-500">
+            <CheckCircle2 size={24} />
+          </div>
+          <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Tasa de pago</p>
+          <h3 className="text-3xl font-black mt-1">
+            {statsSource.totalOrders > 0
+              ? Math.round(((statsSource.totalOrders - (statsSource.pendingOrders || 0)) / statsSource.totalOrders) * 100)
+              : 0}%
+          </h3>
+        </div>
+        <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm p-6">
+          <div className="p-3 rounded-2xl bg-zinc-50 inline-flex mb-4 text-amber-500">
+            <TrendingUp size={24} />
+          </div>
+          <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Ticket promedio</p>
+          <h3 className="text-3xl font-black mt-1">
+            {statsSource.totalOrders > 0
+              ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format((statsSource.totalRevenue || 0) / statsSource.totalOrders)
+              : '$0'}
+          </h3>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-[1.6fr,1fr] gap-6">
