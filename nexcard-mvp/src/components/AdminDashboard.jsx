@@ -18,9 +18,10 @@ const AdminDashboard = ({ dashboard }) => {
   const recentOrders = dashboard?.recentOrders || [];
 
   const stats = useMemo(() => ([
-    { label: 'Ingresos cobrados', value: statsSource.totalRevenue || 0, icon: DollarSign, color: 'text-emerald-500' },
+    { label: 'Ingresos cobrados', value: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.totalRevenue || 0), icon: DollarSign, color: 'text-emerald-500' },
     { label: 'Perfiles activos', value: `${statsSource.totalProfiles || 0}`, icon: Users, color: 'text-blue-500' },
     { label: 'Pedidos abiertos', value: `${statsSource.pendingOrders || 0}`, icon: Package, color: 'text-amber-500' },
+    { label: 'Total órdenes', value: `${statsSource.totalOrders || 0}`, icon: Package, color: 'text-blue-400' },
   ]), [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -136,7 +137,7 @@ const AdminDashboard = ({ dashboard }) => {
                       <p className="font-black text-sm">{order.customer_name}</p>
                       <p className="text-xs text-zinc-500 font-medium">{order.payment_method} · {order.payment_status}</p>
                     </div>
-                    <span className="text-sm font-black text-zinc-950">{order.amount_cents ? Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(order.amount_cents / 100) : '-'}</span>
+                    <span className="text-sm font-black text-zinc-950">{order.amount_cents ? Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(order.amount_cents || 0) : '-'}</span>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-zinc-400">
                     <span>{order.id}</span>

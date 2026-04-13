@@ -13,11 +13,13 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 
-const currency = new Intl.NumberFormat('es-CL', {
-  style: 'currency',
-  currency: 'CLP',
-  maximumFractionDigits: 0,
-});
+const currency = (cents) => {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0,
+  }).format(cents);
+};
 
 const statusTone = {
   paid: 'bg-emerald-100 text-emerald-700',
@@ -57,7 +59,7 @@ const OrdersDashboard = ({ orders = [] }) => {
   }, [orders]);
 
   const normalizedOrders = useMemo(() => rows.map((order) => {
-    const items = order.order_items || [];
+    const items = order.order_items || order.items || [];
     const payments = order.payments || [];
     const totalCents = order.amount_cents || 0;
     const totalCostCents = items.reduce((sum, item) => sum + ((item.unit_cost_cents || 0) * (item.quantity || 0)), 0);
@@ -167,10 +169,10 @@ const OrdersDashboard = ({ orders = [] }) => {
     const avgTicket = normalizedOrders.length ? normalizedOrders.reduce((sum, order) => sum + order.totalCents, 0) / normalizedOrders.length : 0;
 
     return [
-      { label: 'Ventas cobradas', value: currency.format(paidRevenue / 100), icon: DollarSign, color: 'text-emerald-500' },
+      { label: 'Ventas cobradas', value: currency(paidRevenue), icon: DollarSign, color: 'text-emerald-500' },
       { label: 'Pedidos pendientes', value: `${pendingOrders}`, icon: Package, color: 'text-amber-500' },
       { label: 'Pedidos atrasados', value: `${overdueOrders}`, icon: AlertCircle, color: 'text-rose-500' },
-      { label: 'Ticket promedio', value: currency.format(avgTicket / 100), icon: Receipt, color: 'text-blue-500' },
+      { label: 'Ticket promedio', value: currency(avgTicket), icon: Receipt, color: 'text-blue-500' },
     ];
   }, [normalizedOrders]);
 
@@ -285,7 +287,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                           <p className="text-xs text-zinc-400 font-medium">{order.customer_email || order.customer_phone || 'Sin contacto'}</p>
                         </div>
                       </td>
-                      <td className="px-8 py-5 font-black text-zinc-900">{currency.format(order.totalCents / 100)}</td>
+                      <td className="px-8 py-5 font-black text-zinc-900">{currency(order.totalCents)}</td>
                       <td className="px-8 py-5">
                         <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone[order.payment_status] || 'bg-zinc-100 text-zinc-700'}`}>
                           {formatLabel(order.payment_status)}
@@ -377,11 +379,11 @@ const OrdersDashboard = ({ orders = [] }) => {
                   <div className="grid grid-cols-2 gap-4 text-sm font-bold">
                     <div>
                       <p className="text-zinc-400">Venta</p>
-                      <p className="text-xl font-black">{currency.format(selectedOrder.totalCents / 100)}</p>
+                      <p className="text-xl font-black">{currency(selectedOrder.totalCents)}</p>
                     </div>
                     <div>
                       <p className="text-zinc-400">Margen bruto</p>
-                      <p className="text-xl font-black">{currency.format(selectedOrder.grossMarginCents / 100)}</p>
+                      <p className="text-xl font-black">{currency(selectedOrder.grossMarginCents)}</p>
                     </div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -458,7 +460,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                           </div>
                           <div className="text-right text-sm font-bold text-zinc-700">
                             <p>x{item.quantity || 0}</p>
-                            <p>{currency.format(((item.unit_price_cents || 0) * (item.quantity || 0)) / 100)}</p>
+                            <p>{currency((item.unit_price_cents || 0) * (item.quantity || 0))}</p>
                           </div>
                         </div>
                       </div>
