@@ -21,6 +21,7 @@ import { useCart } from './store/cartStore';
 function App() {
   const [data, setData] = useState(initialMockData);
   const [user, setUser] = useState(() => getStoredAuth()?.user || null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [path, setPath] = useState(window.location.pathname);
   const [loading, setLoading] = useState(true);
   const [landingContent, setLandingContent] = useState(defaultLandingContent);
@@ -71,6 +72,15 @@ function App() {
 
   useEffect(() => {
     if (!hasSupabase || !supabase) return;
+    // Leer sesión activa primero
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        setStoredAuth({ user: session.user });
+      }
+      setSessionReady(true);
+    });
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
@@ -91,6 +101,7 @@ function App() {
 
   useEffect(() => {
     const bootstrap = async () => {
+      if (!sessionReady && hasSupabase) return; // esperar sesión
       setLoading(true);
       setError('');
       try {
@@ -185,7 +196,7 @@ function App() {
     };
 
     bootstrap();
-  }, [path, user]);
+  }, [path, user, sessionReady]);
 
   const handleSave = async (newData) => {
     const saved = await api.updateMyProfile(newData);
