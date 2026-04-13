@@ -18,7 +18,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
     minute: '2-digit',
   });
 
-  const totalCLP = (order.amount_cents / 100).toLocaleString('es-CL');
+  const totalCLP = (order.amount_cents).toLocaleString('es-CL');
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">

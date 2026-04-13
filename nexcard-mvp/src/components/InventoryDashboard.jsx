@@ -46,7 +46,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
   });
 
   const stock = rows;
-  const totalValue = stock.reduce((sum, item) => sum + ((item.stock || 0) * (item.cost_cents ? item.cost_cents / 100 : 0)), 0);
+  const totalValue = stock.reduce((sum, item) => sum + ((item.stock || 0) * (item.cost_cents || 0)), 0);
   const criticalItems = stock.filter(item => (item.stock || 0) <= (item.min_stock || 0)).length;
   const movementCount = movementRows.length;
 
@@ -178,7 +178,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                         <span className="text-xs font-bold text-zinc-400">{item.unit}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-5 font-bold text-zinc-700">{currency.format(item.cost_cents ? item.cost_cents / 100 : 0)}</td>
+                    <td className="px-8 py-5 font-bold text-zinc-700">{currency.format(item.cost_cents || 0)}</td>
                     <td className="px-8 py-5">
                       {(item.stock || 0) <= (item.min_stock || 0) ? (
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-rose-50 text-rose-600 text-[10px] font-black uppercase">
