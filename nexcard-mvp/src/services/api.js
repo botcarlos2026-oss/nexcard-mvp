@@ -270,9 +270,32 @@ export const api = {
 
   updateOrder: async (orderId, payload) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
+
+    // Obtener valores anteriores para historial
+    const { data: current } = await supabase
+      .from('orders').select('*').eq('id', orderId).single();
+
     const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
     if (error) throw new Error(error.message);
-    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+
+    // Guardar historial de cambios
+    const historyEntries = Object.keys(payload)
+      .filter(key => current && String(current[key]) !== String(payload[key]))
+      .map(key => ({
+        order_id: orderId,
+        field: key,
+        old_value: String(current?.[key] || ''),
+        new_value: String(payload[key]),
+      }));
+
+    if (historyEntries.length > 0) {
+      await supabase.from('order_status_history').insert(historyEntries);
+    }
+
+    const { data } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .order('created_at', { ascending: false });
     return { orders: data || [] };
   },
 

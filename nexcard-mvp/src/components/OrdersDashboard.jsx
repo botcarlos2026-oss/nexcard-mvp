@@ -57,6 +57,23 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [draftOrder, setDraftOrder] = useState(null);
   const [linkingCardId, setLinkingCardId] = useState('');
+  const [orderHistory, setOrderHistory] = useState({});
+
+  const loadOrderHistory = async (orderId) => {
+    if (orderHistory[orderId]) return;
+    try {
+      const { supabase } = await import('../services/supabaseClient');
+      const { data } = await supabase
+        .from('order_status_history')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('changed_at', { ascending: false })
+        .limit(10);
+      setOrderHistory(prev => ({ ...prev, [orderId]: data || [] }));
+    } catch (err) {
+      console.warn('History error:', err);
+    }
+  };
   const [dateFilter, setDateFilter] = useState('all');
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [lastChecked, setLastChecked] = useState(new Date());
@@ -175,6 +192,7 @@ const OrdersDashboard = ({ orders = [] }) => {
       setDraftOrder(null);
       return;
     }
+    loadOrderHistory(selectedOrder.id);
 
     setDraftOrder({
       customer_phone: selectedOrder.customer_phone || '',
@@ -618,6 +636,30 @@ const OrdersDashboard = ({ orders = [] }) => {
                             <p>{formatLabel(card.status)}</p>
                             <p>{formatLabel(card.activation_status)}</p>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Historial de cambios */}
+                {orderHistory[selectedOrder?.id]?.length > 0 && (
+                  <div className="rounded-2xl border border-zinc-100 bg-white p-4">
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-3">Historial de cambios</p>
+                    <div className="space-y-2">
+                      {orderHistory[selectedOrder.id].map((entry, i) => (
+                        <div key={i} className="flex items-start justify-between gap-4 py-2 border-b border-zinc-50 last:border-0">
+                          <div>
+                            <p className="text-xs font-black text-zinc-700 capitalize">{entry.field.replace(/_/g, ' ')}</p>
+                            <p className="text-xs text-zinc-400">
+                              <span className="line-through">{entry.old_value || '—'}</span>
+                              {' → '}
+                              <span className="text-emerald-600 font-bold">{entry.new_value}</span>
+                            </p>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 shrink-0">
+                            {new Date(entry.changed_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                          </p>
                         </div>
                       ))}
                     </div>
