@@ -126,7 +126,7 @@ const AdminDashboard = ({ dashboard }) => {
           <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Tasa de pago</p>
           <h3 className="text-3xl font-black mt-1">
             {statsSource.totalOrders > 0
-              ? Math.round(((statsSource.totalOrders - (statsSource.pendingOrders || 0)) / statsSource.totalOrders) * 100)
+              ? Math.round(((statsSource.paidOrders || 0) / statsSource.totalOrders) * 100)
               : 0}%
           </h3>
         </div>

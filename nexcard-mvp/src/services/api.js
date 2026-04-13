@@ -183,6 +183,7 @@ export const api = {
     const paidOrders = (orders || []).filter(o => o.payment_status === 'paid');
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const pendingOrders = (orders || []).filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
+    const paidOrdersCount = paidOrders.length;
     const users = (profiles || []).map(p => ({
       id: p.id,
       name: p.name || p.slug || 'Sin nombre',
@@ -200,6 +201,7 @@ export const api = {
         totalOrders: orders?.length || 0,
         totalRevenue,
         pendingOrders,
+        paidOrders: paidOrdersCount,
       },
       users,
       recentOrders: (orders || []).slice(0, 5),
