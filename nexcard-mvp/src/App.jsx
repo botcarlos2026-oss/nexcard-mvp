@@ -116,20 +116,13 @@ function App() {
             return;
           }
 
-          // En MVP: skip membership check si no hay tabla memberships aún
-          let isAdmin = false;
-          try {
-            const { data: membership } = await supabase
-              .from('memberships')
-              .select('role')
-              .eq('user_id', user.id)
-              .in('role', ['admin'])
-              .maybeSingle();
-            isAdmin = !!membership;
-          } catch {
-            // Si la tabla no existe o hay error, permitir acceso en MVP
-            isAdmin = true;
-          }
+          // Admin whitelist — agregar emails aquí hasta tener tabla memberships
+          const ADMIN_EMAILS = [
+            'bot.carlos.2026@gmail.com',
+            // 'carlos@nexcard.com',  ← agregar cuando compres el dominio
+          ];
+
+          const isAdmin = ADMIN_EMAILS.includes(user.email?.toLowerCase().trim());
 
           if (!isAdmin) {
             navigate('/');
