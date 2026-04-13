@@ -150,7 +150,9 @@ function App() {
               movements: inventory.movements || [],
             });
           } else if (path === '/admin/cards') {
+            console.log('Loading cards...');
             const cards = await api.getAdminCards();
+            console.log('Cards result:', cards);
             setCardsData({
               cards: cards.cards || [],
               profiles: cards.profiles || [],
