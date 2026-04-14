@@ -9,14 +9,21 @@ export default function ComingSoon() {
     e.preventDefault();
     if (!email.includes('@')) return;
     setLoading(true);
-    // Guardar en localStorage por ahora, luego conectamos a Supabase
-    const emails = JSON.parse(localStorage.getItem('nexcard_waitlist') || '[]');
-    emails.push({ email, date: new Date().toISOString() });
-    localStorage.setItem('nexcard_waitlist', JSON.stringify(emails));
-    setTimeout(() => {
+    try {
+      const { supabase } = await import('../services/supabaseClient');
+      const { error } = await supabase
+        .from('waitlist')
+        .insert([{ email: email.trim().toLowerCase() }]);
+      if (error && error.code !== '23505') {
+        throw error;
+      }
       setSubmitted(true);
+    } catch (err) {
+      console.warn('Waitlist error:', err);
+      setSubmitted(true);
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
