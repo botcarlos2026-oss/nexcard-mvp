@@ -81,7 +81,9 @@ async function supabaseCreateOrder(payload) {
     currency: payload.currency || 'CLP',
   }));
 
+  console.log('Inserting order_items:', JSON.stringify(orderItems));
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+  if (itemsError) console.error('order_items error:', JSON.stringify(itemsError));
   if (itemsError) {
     await supabase.from('orders').delete().eq('id', orderId);
     throw new Error('Error al guardar los items. La operación fue revertida.');
