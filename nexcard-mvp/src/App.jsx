@@ -182,7 +182,7 @@ function App() {
           return;
         }
 
-        if (path === '/login' || path === '/setup') {
+        if (path === '/login' || path === '/setup' || path === '/privacidad' || path === '/preview') {
           setLoading(false);
           return;
         }
