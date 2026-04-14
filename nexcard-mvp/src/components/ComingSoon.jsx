@@ -91,6 +91,11 @@ export default function ComingSoon() {
               {loading ? 'Guardando...' : 'Notifícame'}
             </button>
           </form>
+        <p className="text-zinc-600 text-xs mt-3 text-center max-w-md mx-auto">
+          Al registrarte aceptas recibir novedades de NexCard. Puedes cancelar cuando quieras.{' '}
+          <a href="/privacidad" className="text-zinc-500 hover:text-zinc-400 underline">Política de privacidad</a>
+        </p>
+
         ) : (
           <div className="flex items-center justify-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 px-6 py-4 rounded-xl max-w-md mx-auto">
             <span className="text-xl">✅</span>

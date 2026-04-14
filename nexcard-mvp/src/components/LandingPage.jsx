@@ -299,11 +299,11 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           <div className="flex items-center gap-4 text-sm text-zinc-500">
             <span>© 2026 NexCard</span>
             <span>·</span>
-            <a href="#" className="hover:text-zinc-300 transition-colors">Términos</a>
+            <a href="/privacidad" className="hover:text-zinc-300 transition-colors">Términos</a>
             <span>·</span>
-            <a href="#" className="hover:text-zinc-300 transition-colors">Privacidad</a>
+            <a href="/privacidad" className="hover:text-zinc-300 transition-colors">Privacidad</a>
             <span>·</span>
-            <a href="#" className="hover:text-zinc-300 transition-colors">Contacto</a>
+            <a href="/privacidad" className="hover:text-zinc-300 transition-colors">Contacto</a>
           </div>
           <div className="flex items-center gap-2">
             <input

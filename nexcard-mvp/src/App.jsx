@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import LandingPage from './components/LandingPage';
 import ComingSoon from './components/ComingSoon';
+import PrivacyPolicy from './components/PrivacyPolicy';
 import NexCardProfile from './components/NexCardProfile';
 import AdminDashboard from './components/AdminDashboard';
 import InventoryDashboard from './components/InventoryDashboard';
@@ -282,6 +283,7 @@ function App() {
 
   if (path === '/') return <ComingSoon />;
   if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
+  if (path === '/privacidad') return <PrivacyPolicy />;
 
   if (error) {
     return <div className="min-h-screen bg-zinc-950 text-white grid place-items-center p-8 text-center"><div><p className="font-black text-2xl mb-3">NexCard no pudo cargar el perfil</p><p className="text-zinc-400">{error}</p></div></div>;

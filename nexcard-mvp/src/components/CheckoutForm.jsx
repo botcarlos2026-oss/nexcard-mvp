@@ -272,11 +272,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 />
                 <span className="text-sm text-zinc-300 leading-relaxed">
                   Acepto los{' '}
-                  <a href="#" className="text-emerald-400 hover:underline">
+                  <a href="/privacidad" className="text-emerald-400 hover:underline">
                     términos y condiciones
                   </a>{' '}
                   y la{' '}
-                  <a href="#" className="text-emerald-400 hover:underline">
+                  <a href="/privacidad" className="text-emerald-400 hover:underline">
                     política de privacidad
                   </a>{' '}
                   de NexCard
