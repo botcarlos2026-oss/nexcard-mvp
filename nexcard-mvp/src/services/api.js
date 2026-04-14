@@ -89,15 +89,20 @@ async function supabaseCreateOrder(payload) {
 
   // Enviar email de confirmación vía Edge Function
   try {
-    await supabase.functions.invoke('send-order-confirmation', {
-      body: {
-        order: orderData,
-        items: payload.items.map(item => ({
-          ...item,
-          product_name: item.product_name || item.product_id,
-        })),
-      },
+    const emailPayload = {
+      order: orderData,
+      items: payload.items.map(item => ({
+        product_id: item.product_id,
+        product_name: item.product_name || item.product_id,
+        quantity: item.quantity,
+        unit_price_cents: item.unit_price_cents,
+      })),
+    };
+    const { error: fnError } = await supabase.functions.invoke('send-order-confirmation', {
+      body: JSON.stringify(emailPayload),
+      headers: { 'Content-Type': 'application/json' },
     });
+    if (fnError) console.warn('Email function error:', fnError);
   } catch (emailErr) {
     console.warn('Email no enviado:', emailErr);
   }
