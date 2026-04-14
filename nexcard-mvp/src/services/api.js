@@ -76,8 +76,8 @@ async function supabaseCreateOrder(payload) {
   const orderItems = payload.items.map((item) => ({
     order_id: orderId,
     product_id: item.product_id,
-    quantity: item.quantity,
-    unit_price_cents: item.unit_price_cents,
+    quantity: Number(item.quantity) || 1,
+    unit_price_cents: Number(item.unit_price_cents),
     currency: payload.currency || 'CLP',
   }));
 
