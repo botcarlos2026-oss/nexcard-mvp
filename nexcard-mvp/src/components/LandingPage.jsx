@@ -281,7 +281,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <p className="text-zinc-400 text-sm mb-2">¿Tienes preguntas sobre Google Reviews Card?</p>
             <p className="text-white font-bold text-lg mb-6">Escríbenos y te ayudamos a configurar tu primer tarjeta.</p>
             <a
-              href="https://wa.me/56900000000"
+              href="https://wa.me/56993183021"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-colors text-sm"
