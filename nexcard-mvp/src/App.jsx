@@ -38,6 +38,7 @@ function App() {
   // Checkout state
   const [checkoutStep, setCheckoutStep] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
+  const [paymentResult, setPaymentResult] = useState(null);
   const { getTotalItems } = useCart();
 
   const navigate = (newPath) => {
@@ -100,6 +101,19 @@ function App() {
     const handleLocationChange = () => setPath(window.location.pathname);
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
+  // Leer parámetros de retorno de Mercado Pago
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    const orderId = params.get('order');
+    if (payment && orderId) {
+      window.history.replaceState({}, '', '/');
+      setPaymentResult(payment);
+      setCurrentOrder({ id: orderId, payment_status: payment === 'success' ? 'paid' : 'pending' });
+      setCheckoutStep('confirmation');
+    }
   }, []);
 
   useEffect(() => {

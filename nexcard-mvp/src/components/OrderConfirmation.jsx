@@ -10,6 +10,14 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const paymentStatusLabel = {
+    paid: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
+    success: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
+    pending: { text: 'Pendiente de confirmación', color: 'text-amber-400', dot: 'bg-amber-400' },
+    failure: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
+    failed: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
+  }[order.payment_status] || { text: 'Pendiente', color: 'text-amber-400', dot: 'bg-amber-400' };
+
   const orderDate = new Date(order.created_at).toLocaleDateString('es-CL', {
     year: 'numeric',
     month: 'long',

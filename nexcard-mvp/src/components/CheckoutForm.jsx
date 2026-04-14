@@ -97,8 +97,36 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
       const result = await api.createOrder(orderPayload);
 
       if (result?.id) {
-        clearCart();
-        onOrderSuccess(result);
+        if (paymentMethod === 'mercado-pago') {
+          // Crear preferencia en MP vía Edge Function
+          const { supabase } = await import('../services/supabaseClient');
+          const { data, error } = await supabase.functions.invoke('create-mp-preference', {
+            body: JSON.stringify({
+              orderId: result.id,
+              items: items.map(item => ({
+                product_id: item.product_id,
+                product_name: item.product_name,
+                quantity: item.quantity,
+                unit_price_cents: item.unit_price_cents,
+              })),
+              customerEmail: formData.customerEmail,
+              totalCents: totalCents,
+            }),
+          });
+
+          if (error || !data?.init_point) {
+            throw new Error('No se pudo iniciar el pago con Mercado Pago');
+          }
+
+          clearCart();
+          // Redirigir a Mercado Pago
+          window.location.href = data.init_point;
+
+        } else {
+          // Transbank — flujo pendiente
+          clearCart();
+          onOrderSuccess(result);
+        }
       } else {
         throw new Error('La orden no retornó un ID válido');
       }
