@@ -88,7 +88,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         currency: 'CLP',
         items: items.map((item) => ({
           product_id: item.product_id,
-          quantity: item.quantity,
+          product_id: item.product_id,
+          product_name: item.product_name,
           unit_price_cents: item.unit_price_cents,
         })),
       };
