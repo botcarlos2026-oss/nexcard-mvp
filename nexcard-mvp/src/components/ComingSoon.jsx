@@ -4,10 +4,19 @@ export default function ComingSoon() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
+  const validateEmail = (value) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!value) return 'Ingresa tu email';
+    if (!regex.test(value)) return 'Email inválido — ej: nombre@gmail.com';
+    return '';
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.includes('@')) return;
+    const error = validateEmail(email);
+    if (error) { setEmailError(error); return; }
     setLoading(true);
     try {
       const { supabase } = await import('../services/supabaseClient');
@@ -63,14 +72,17 @@ export default function ComingSoon() {
         {/* Form */}
         {!submitted ? (
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@email.com"
-              required
-              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 text-sm"
-            />
+            <div className="flex-1 flex flex-col gap-1">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
+                onBlur={(e) => setEmailError(validateEmail(e.target.value))}
+                placeholder="tu@email.com"
+                className={`w-full bg-zinc-900 border rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none text-sm transition-colors ${emailError ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-emerald-500'}`}
+              />
+              {emailError && <p className="text-red-400 text-xs px-1">{emailError}</p>}
+            </div>
             <button
               type="submit"
               disabled={loading}
