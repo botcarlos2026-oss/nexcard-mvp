@@ -87,7 +87,20 @@ async function supabaseCreateOrder(payload) {
     throw new Error('Error al guardar los items. La operación fue revertida.');
   }
 
-  // Email de confirmación: se implementará vía Supabase Edge Function (pendiente)
+  // Enviar email de confirmación vía Edge Function
+  try {
+    await supabase.functions.invoke('send-order-confirmation', {
+      body: {
+        order: orderData,
+        items: payload.items.map(item => ({
+          ...item,
+          product_name: item.product_name || item.product_id,
+        })),
+      },
+    });
+  } catch (emailErr) {
+    console.warn('Email no enviado:', emailErr);
+  }
 
   return orderData;
 }
