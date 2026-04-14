@@ -90,8 +90,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           product_id: item.product_id,
           product_id: item.product_id,
           product_name: item.product_name,
+          quantity: item.quantity,
           unit_price_cents: item.unit_price_cents,
-        })),
       };
 
       const result = await api.createOrder(orderPayload);
