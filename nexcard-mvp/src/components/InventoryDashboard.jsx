@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Package,
   Printer,
@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   Loader2,
   X,
+  Truck,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -44,6 +46,41 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
     reason: '',
     order_id: '',
   });
+
+  const [dispatchConfigs, setDispatchConfigs] = useState([]);
+  const [dispatchForm, setDispatchForm] = useState({ inventory_item_id: '', quantity_per_dispatch: 1, description: '' });
+  const [dispatchSaving, setDispatchSaving] = useState(false);
+  const [dispatchFeedback, setDispatchFeedback] = useState({ type: '', message: '' });
+
+  useEffect(() => {
+    api.getDispatchConfig().then(setDispatchConfigs).catch(() => {});
+  }, []);
+
+  const handleAddDispatchConfig = async (e) => {
+    e.preventDefault();
+    if (!dispatchForm.inventory_item_id) return;
+    setDispatchSaving(true);
+    setDispatchFeedback({ type: '', message: '' });
+    try {
+      const updated = await api.addDispatchConfig(dispatchForm);
+      setDispatchConfigs(updated);
+      setDispatchForm({ inventory_item_id: '', quantity_per_dispatch: 1, description: '' });
+      setDispatchFeedback({ type: 'success', message: 'Insumo agregado a la configuración de despacho.' });
+    } catch (err) {
+      setDispatchFeedback({ type: 'error', message: err.message || 'No se pudo guardar.' });
+    } finally {
+      setDispatchSaving(false);
+    }
+  };
+
+  const handleDeleteDispatchConfig = async (id) => {
+    try {
+      const updated = await api.deleteDispatchConfig(id);
+      setDispatchConfigs(updated);
+    } catch (err) {
+      setDispatchFeedback({ type: 'error', message: err.message || 'No se pudo eliminar.' });
+    }
+  };
 
   const stock = rows;
   const totalValue = stock.reduce((sum, item) => sum + ((item.stock || 0) * (item.cost_cents || 0)), 0);
@@ -261,6 +298,111 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
             </div>
           </div>
         </div>
+
+        {/* Panel: Configuración de insumos por despacho */}
+        <div className="mt-8 bg-white rounded-[32px] border border-zinc-100 shadow-sm p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-3 rounded-2xl bg-zinc-50 text-violet-500">
+              <Truck size={22} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-zinc-950">Insumos por despacho</h3>
+              <p className="text-sm text-zinc-500 font-medium">Se descuentan automáticamente al marcar una orden como despachada.</p>
+            </div>
+          </div>
+
+          {dispatchFeedback.message && (
+            <div className={`mb-4 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${dispatchFeedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+              {dispatchFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+              <span>{dispatchFeedback.message}</span>
+            </div>
+          )}
+
+          {dispatchConfigs.length > 0 ? (
+            <table className="w-full text-left mb-6">
+              <thead>
+                <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] uppercase tracking-widest font-black">
+                  <th className="px-4 py-3">Item</th>
+                  <th className="px-4 py-3">SKU</th>
+                  <th className="px-4 py-3">Cantidad por despacho</th>
+                  <th className="px-4 py-3">Descripción</th>
+                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50">
+                {dispatchConfigs.map((config) => (
+                  <tr key={config.id} className="hover:bg-zinc-50/30">
+                    <td className="px-4 py-4 font-bold text-zinc-950">{config.inventory_items?.item || '—'}</td>
+                    <td className="px-4 py-4 text-xs font-bold text-sky-600">{config.inventory_items?.sku || '—'}</td>
+                    <td className="px-4 py-4 font-black text-zinc-950">{config.quantity_per_dispatch}</td>
+                    <td className="px-4 py-4 text-sm text-zinc-500">{config.description || '—'}</td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase ${config.active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                        {config.active ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <button onClick={() => handleDeleteDispatchConfig(config.id)} className="p-2 text-zinc-400 hover:text-rose-500 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-zinc-200 p-5 text-sm font-medium text-zinc-500 mb-6">
+              No hay insumos configurados. Agrega los materiales que se consumen en cada despacho.
+            </div>
+          )}
+
+          <form onSubmit={handleAddDispatchConfig} className="grid sm:grid-cols-4 gap-3 items-end">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-400 mb-1.5">Item de inventario</label>
+              <select
+                value={dispatchForm.inventory_item_id}
+                onChange={(e) => setDispatchForm(prev => ({ ...prev, inventory_item_id: e.target.value }))}
+                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-violet-500/20"
+                required
+              >
+                <option value="">Seleccionar item</option>
+                {rows.map((item) => (
+                  <option key={item.id} value={item.id}>{item.item} ({item.stock} {item.unit})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-400 mb-1.5">Cantidad por despacho</label>
+              <input
+                type="number"
+                min="1"
+                value={dispatchForm.quantity_per_dispatch}
+                onChange={(e) => setDispatchForm(prev => ({ ...prev, quantity_per_dispatch: e.target.value }))}
+                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-widest text-zinc-400 mb-1.5">Descripción (opcional)</label>
+              <input
+                type="text"
+                value={dispatchForm.description}
+                onChange={(e) => setDispatchForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Ej: Caja de envío estándar"
+                className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={dispatchSaving || !dispatchForm.inventory_item_id}
+              className="flex items-center justify-center gap-2 py-3 px-5 rounded-2xl bg-violet-500 text-white font-black text-sm shadow-lg shadow-violet-200 disabled:opacity-50"
+            >
+              {dispatchSaving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+              Agregar
+            </button>
+          </form>
+        </div>
+
       </div>
 
       {isModalOpen && (

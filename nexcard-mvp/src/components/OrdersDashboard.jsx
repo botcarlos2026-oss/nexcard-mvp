@@ -318,11 +318,15 @@ const OrdersDashboard = ({ orders = [] }) => {
     setShippingBusy(true);
     setFeedback({ type: '', message: '' });
     try {
-      const response = await api.updateShipping(selectedOrder.id, draftShipping);
+      const response = await api.dispatchOrder(selectedOrder.id, draftShipping);
       setRows(response.orders || []);
-      setFeedback({ type: 'success', message: `Envío registrado para #${selectedOrder.id.slice(0, 8).toUpperCase()} — notificación enviada al cliente.` });
+      const decremented = response.itemsDecremented || [];
+      const decrMsg = decremented.length > 0
+        ? ` Insumos descontados: ${decremented.map(d => `${d.name} ×${d.quantity}`).join(', ')}.`
+        : '';
+      setFeedback({ type: 'success', message: `Orden despachada #${selectedOrder.id.slice(0, 8).toUpperCase()} — notificación enviada al cliente.${decrMsg}` });
     } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No se pudo guardar el envío.' });
+      setFeedback({ type: 'error', message: error.message || 'No se pudo registrar el despacho.' });
     } finally {
       setShippingBusy(false);
     }

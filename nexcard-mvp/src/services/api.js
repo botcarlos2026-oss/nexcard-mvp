@@ -446,6 +446,111 @@ export const api = {
     return fetchOrders();
   },
 
+  dispatchOrder: async (orderId, { carrier, tracking_code }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    if (!carrier) throw new Error('Carrier requerido');
+    if (!tracking_code?.trim()) throw new Error('Código de seguimiento requerido');
+
+    const payload = {
+      carrier,
+      tracking_code: tracking_code.trim(),
+      fulfillment_status: 'shipped',
+      shipped_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
+    if (error) throw new Error(error.message);
+
+    // Historial
+    const { data: current } = await supabase
+      .from('orders').select('carrier, tracking_code, fulfillment_status').eq('id', orderId).single();
+    const historyEntries = Object.keys(payload)
+      .filter(key => current && String(current[key]) !== String(payload[key]))
+      .map(key => ({
+        order_id: orderId,
+        field: key,
+        old_value: String(current?.[key] || ''),
+        new_value: String(payload[key]),
+      }));
+    if (historyEntries.length > 0) {
+      await supabase.from('order_status_history').insert(historyEntries);
+    }
+
+    // Descontar insumos de dispatch_config activos
+    const decremented = [];
+    const { data: configs } = await supabase
+      .from('dispatch_config')
+      .select('*, inventory_items(*)')
+      .eq('active', true);
+
+    if (configs && configs.length > 0) {
+      for (const config of configs) {
+        const item = config.inventory_items;
+        if (!item) continue;
+        const newStock = Math.max(0, (item.stock || 0) - config.quantity_per_dispatch);
+        await supabase.from('inventory_items').update({ stock: newStock }).eq('id', item.id);
+        await supabase.from('inventory_movements').insert([{
+          inventory_item_id: item.id,
+          movement_type: 'out',
+          quantity: config.quantity_per_dispatch,
+          reason: `Despacho orden ${orderId}`,
+          order_id: orderId,
+        }]);
+        decremented.push({ name: item.item || item.sku, quantity: config.quantity_per_dispatch });
+      }
+    }
+
+    // Trigger email de notificación de envío
+    try {
+      await supabase.functions.invoke('send-shipping-notification', {
+        body: JSON.stringify({ order_id: orderId }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch {
+      // Email no crítico
+    }
+
+    const orders = await fetchOrders();
+    return { ...orders, itemsDecremented: decremented };
+  },
+
+  getDispatchConfig: async () => {
+    if (!hasSupabase) return [];
+    const { data, error } = await supabase
+      .from('dispatch_config')
+      .select('*, inventory_items(*)')
+      .order('created_at', { ascending: true });
+    if (error) throw new Error(error.message);
+    return data || [];
+  },
+
+  addDispatchConfig: async ({ inventory_item_id, quantity_per_dispatch, description }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('dispatch_config').insert([{
+      inventory_item_id,
+      quantity_per_dispatch: Number(quantity_per_dispatch),
+      description: description || null,
+      active: true,
+    }]);
+    if (error) throw new Error(error.message);
+    const { data } = await supabase
+      .from('dispatch_config')
+      .select('*, inventory_items(*)')
+      .order('created_at', { ascending: true });
+    return data || [];
+  },
+
+  deleteDispatchConfig: async (id) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('dispatch_config').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    const { data } = await supabase
+      .from('dispatch_config')
+      .select('*, inventory_items(*)')
+      .order('created_at', { ascending: true });
+    return data || [];
+  },
+
   linkOrderCard: async (orderId, cardId) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
     const { error } = await supabase
