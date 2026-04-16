@@ -19,8 +19,9 @@ export default function UnsubscribePage() {
     try {
       const { error: dbError } = await supabase
         .from('email_unsubscribe')
-        .upsert({ email: emailParam.toLowerCase().trim() }, { onConflict: 'email' });
-      if (dbError) throw dbError;
+        .insert({ email: emailParam.toLowerCase().trim() });
+      // 23505 = unique_violation: email ya estaba dado de baja → éxito igual
+      if (dbError && dbError.code !== '23505') throw dbError;
       setConfirmed(true);
     } catch (err) {
       setError('Ocurrió un error al procesar tu solicitud. Intenta nuevamente.');
