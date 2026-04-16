@@ -16,8 +16,13 @@ import {
   Download,
   Truck,
   ExternalLink,
+  Wifi,
+  QrCode,
 } from 'lucide-react';
 import { api } from '../services/api';
+import QRCode from 'qrcode';
+import CardPreview from './CardPreview';
+import { generateCardSVG } from '../utils/cardTemplates';
 
 const currency = (cents) => {
   return new Intl.NumberFormat('es-CL', {
@@ -66,6 +71,10 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [draftOrder, setDraftOrder] = useState(null);
   const [linkingCardId, setLinkingCardId] = useState('');
+  const [nfcSlug, setNfcSlug] = useState('');
+  const [nfcSlugLoading, setNfcSlugLoading] = useState(false);
+  const [nfcBusy, setNfcBusy] = useState(false);
+  const [nfcQrDataUrl, setNfcQrDataUrl] = useState(null);
   const [draftShipping, setDraftShipping] = useState({ carrier: '', tracking_code: '' });
   const [shippingBusy, setShippingBusy] = useState(false);
   const [orderHistory, setOrderHistory] = useState({});
@@ -216,6 +225,12 @@ const OrdersDashboard = ({ orders = [] }) => {
       tracking_code: selectedOrder.tracking_code || '',
     });
     setLinkingCardId('');
+    setNfcSlug('');
+    setNfcQrDataUrl(null);
+    // Auto-cargar slug si hay cards vinculadas
+    if (selectedOrder.related_cards?.length > 0) {
+      loadSlugForOrder(selectedOrder);
+    }
   }, [selectedOrderId, selectedOrder?.id]);
 
   const updateOrderField = async (orderId, payload, successMessage) => {
@@ -247,10 +262,54 @@ const OrdersDashboard = ({ orders = [] }) => {
       setRows(response.orders || []);
       setFeedback({ type: 'success', message: `Tarjeta vinculada formalmente a la orden ${selectedOrder.id}.` });
       setLinkingCardId('');
+      // Auto-cargar slug del cliente tras vincular
+      loadSlugForOrder(response.orders?.find(o => o.id === selectedOrder.id) || selectedOrder);
     } catch (error) {
       setFeedback({ type: 'error', message: error.message || 'No fue posible vincular la tarjeta a la orden.' });
     } finally {
       setBusyOrderId(null);
+    }
+  };
+
+  const loadSlugForOrder = async (order) => {
+    setNfcSlugLoading(true);
+    try {
+      const slug = await api.getProfileSlugForOrder(order.id, order.customer_email);
+      if (slug) setNfcSlug(slug);
+    } catch (_) {
+      // slug queda vacío, el admin lo ingresa manualmente
+    } finally {
+      setNfcSlugLoading(false);
+    }
+  };
+
+  const confirmNfcProgramming = async () => {
+    if (!selectedOrder || !nfcSlug) return;
+    const linkedCard = selectedOrder.related_cards?.find(c => c.order_id === selectedOrder.id) || selectedOrder.related_cards?.[0];
+    if (!linkedCard) {
+      setFeedback({ type: 'error', message: 'Vincula primero una card a la orden.' });
+      return;
+    }
+    const nfc_url = `https://nexcard.cl/${nfcSlug}`;
+    setNfcBusy(true);
+    setFeedback({ type: '', message: '' });
+    try {
+      const response = await api.updateCardNFC(linkedCard.id, { nfc_url });
+      setRows(response.orders || []);
+      // Generar QR de verificación (en memoria, sin descarga automática)
+      const qrDataUrl = await QRCode.toDataURL(nfc_url, {
+        errorCorrectionLevel: 'H',
+        type: 'image/png',
+        quality: 1,
+        margin: 1,
+        width: 256,
+      });
+      setNfcQrDataUrl(qrDataUrl);
+      setFeedback({ type: 'success', message: `NFC programado: ${nfc_url}` });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message || 'Error al programar NFC.' });
+    } finally {
+      setNfcBusy(false);
     }
   };
 
@@ -607,17 +666,32 @@ const OrdersDashboard = ({ orders = [] }) => {
                     </div>
                     <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4">
                       <p className="text-xs font-black uppercase tracking-wide text-zinc-400">Activación</p>
-                      <p className="mt-2 text-sm font-black text-zinc-900">{selectedOrder.activation_ready ? `Lista (${selectedOrder.activation_ready_count})` : selectedOrder.active_cards_count > 0 ? `Con activas (${selectedOrder.active_cards_count})` : 'Pendiente'}</p>
+                      {(() => {
+                        const nfcCard = selectedOrder.related_cards?.find(c => c.nfc_url);
+                        if (nfcCard) {
+                          return (
+                            <p className="mt-2 text-sm font-black text-emerald-600" title={nfcCard.nfc_url}>
+                              Lista — NFC
+                            </p>
+                          );
+                        }
+                        return (
+                          <p className="mt-2 text-sm font-black text-zinc-900">
+                            {selectedOrder.activation_ready ? `Lista (${selectedOrder.activation_ready_count})` : selectedOrder.active_cards_count > 0 ? `Con activas (${selectedOrder.active_cards_count})` : 'Pendiente'}
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-zinc-100 bg-white p-4 space-y-4">
-                  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-1">Vincular card a la orden</p>
-                      <p className="text-sm font-medium text-zinc-500">Deja trazabilidad real order → card sin depender del match por perfil.</p>
-                    </div>
+                {/* FLUJO NFC: Paso A → Vincular card */}
+                <div className="rounded-2xl border border-zinc-100 bg-white p-4 space-y-5">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Programación NFC</p>
+
+                  {/* Paso A — Vincular card */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Paso A — Vincular card física</p>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="text"
@@ -637,7 +711,85 @@ const OrdersDashboard = ({ orders = [] }) => {
                         Vincular
                       </button>
                     </div>
+                    {selectedOrder.related_cards?.length > 0 && (
+                      <p className="text-xs text-emerald-600 font-bold">
+                        Card vinculada: {selectedOrder.related_cards[0].card_code || selectedOrder.related_cards[0].id}
+                      </p>
+                    )}
                   </div>
+
+                  {/* Paso B — Configurar NFC (solo si hay card vinculada) */}
+                  {selectedOrder.related_cards?.length > 0 && (() => {
+                    const linkedCard = selectedOrder.related_cards.find(c => c.order_id === selectedOrder.id) || selectedOrder.related_cards[0];
+                    const alreadyProgrammed = linkedCard?.nfc_url;
+                    if (alreadyProgrammed) return null;
+                    return (
+                      <div className="space-y-3 border-t border-zinc-100 pt-4">
+                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Paso B — Configurar URL del NFC</p>
+                        <p className="text-xs text-zinc-400">
+                          URL que se programará en el chip:{' '}
+                          <span className="font-bold text-zinc-700">
+                            https://nexcard.cl/{nfcSlug || '<slug>'}
+                          </span>
+                        </p>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="text-sm font-bold text-zinc-500 shrink-0">nexcard.cl/</span>
+                            <input
+                              type="text"
+                              value={nfcSlug}
+                              onChange={(e) => setNfcSlug(e.target.value)}
+                              placeholder={nfcSlugLoading ? 'Buscando slug...' : 'slug-del-cliente'}
+                              disabled={nfcBusy || nfcSlugLoading}
+                              className="flex-1 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-violet-500/20"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={confirmNfcProgramming}
+                            disabled={nfcBusy || !nfcSlug}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 disabled:opacity-60"
+                          >
+                            {nfcBusy ? <Loader2 size={16} className="animate-spin" /> : <Wifi size={16} />}
+                            Confirmar NFC
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Paso C — Estado NFC programado */}
+                  {selectedOrder.related_cards?.length > 0 && (() => {
+                    const linkedCard = selectedOrder.related_cards.find(c => c.order_id === selectedOrder.id) || selectedOrder.related_cards[0];
+                    if (!linkedCard?.nfc_url && !nfcQrDataUrl) return null;
+                    const programmedUrl = linkedCard?.nfc_url || `https://nexcard.cl/${nfcSlug}`;
+                    return (
+                      <div className="space-y-3 border-t border-zinc-100 pt-4">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700">
+                            <CheckCircle2 size={12} />
+                            NFC PROGRAMADO
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500">
+                          URL: <a href={programmedUrl} target="_blank" rel="noreferrer" className="font-bold text-violet-600 underline">{programmedUrl}</a>
+                        </p>
+                        {linkedCard?.programmed_at && (
+                          <p className="text-xs text-zinc-400">Programado: {formatDate(linkedCard.programmed_at)}</p>
+                        )}
+                        {nfcQrDataUrl && (
+                          <div className="flex flex-col items-start gap-2">
+                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide flex items-center gap-1.5">
+                              <QrCode size={12} />
+                              QR de verificación
+                            </p>
+                            <img src={nfcQrDataUrl} alt="QR NFC" className="w-32 h-32 rounded-xl border border-zinc-200" />
+                            <p className="text-[11px] text-zinc-400">Escanea con tu teléfono para verificar</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div>
@@ -903,6 +1055,40 @@ const OrdersDashboard = ({ orders = [] }) => {
                         <p className="text-zinc-300 text-sm leading-relaxed">{selectedOrder.card_customization.notes}</p>
                       </div>
                     )}
+
+                    <div className="pt-2">
+                      <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-3">Vista previa de la tarjeta</p>
+                      <CardPreview
+                        template={selectedOrder.card_customization.template || 'minimal'}
+                        name={selectedOrder.card_customization.full_name || selectedOrder.customer_name || 'Tu Nombre'}
+                        jobTitle={selectedOrder.card_customization.job_title || 'Tu Cargo'}
+                        company={selectedOrder.card_customization.company || ''}
+                        primaryColor={selectedOrder.card_customization.primary_color || '#10B981'}
+                        size="full"
+                      />
+                      <button
+                        type="button"
+                        className="mt-3 w-full text-sm font-semibold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg py-2 px-4 transition-colors"
+                        onClick={() => {
+                          const svg = generateCardSVG(
+                            selectedOrder.card_customization.template || 'minimal',
+                            {
+                              name: selectedOrder.card_customization.full_name || selectedOrder.customer_name || 'Tu Nombre',
+                              jobTitle: selectedOrder.card_customization.job_title || 'Tu Cargo',
+                              company: selectedOrder.card_customization.company || '',
+                              primaryColor: selectedOrder.card_customization.primary_color || '#10B981',
+                            }
+                          );
+                          const win = window.open('', '_blank');
+                          win.document.write(`<!DOCTYPE html><html><head><style>@page{size:85.6mm 54mm;margin:0;}body{margin:0;display:flex;align-items:center;justify-content:center;width:85.6mm;height:54mm;}svg{width:85.6mm;height:54mm;}</style></head><body>${svg}</body></html>`);
+                          win.document.close();
+                          win.focus();
+                          win.print();
+                        }}
+                      >
+                        Imprimir diseño
+                      </button>
+                    </div>
                   </div>
                 )}
 

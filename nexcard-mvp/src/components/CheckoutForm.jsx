@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../store/cartStore';
 import { api } from '../services/api';
 import { ArrowLeft, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import CardPreview from './CardPreview';
 
 export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const { items, getTotalCents, clearCart } = useCart();
@@ -306,33 +307,51 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className={labelClass}>Plantilla base</label>
-                  <select
-                    name="template"
-                    value={customization.template}
-                    onChange={handleCustomizationChange}
-                    className={inputClass}
-                  >
-                    <option value="minimal">Minimalista (blanco y negro)</option>
-                    <option value="dark">Dark premium (fondo negro)</option>
-                    <option value="corporate">Corporativo (colores empresa)</option>
-                    <option value="colorful">Colorido (verde NexCard)</option>
-                  </select>
+              <div className="mb-4">
+                <label className={labelClass}>Plantilla base</label>
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  {[
+                    { id: 'minimal', label: 'Minimalista' },
+                    { id: 'dark', label: 'Dark premium' },
+                    { id: 'corporate', label: 'Corporativo' },
+                    { id: 'colorful', label: 'Colorido' },
+                  ].map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setCustomization({ ...customization, template: id })}
+                      className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all"
+                      style={{
+                        border: customization.template === id ? '2px solid #10B981' : '2px solid transparent',
+                        boxShadow: customization.template === id ? '0 0 0 1px #10B98133' : 'none',
+                        background: 'transparent',
+                      }}
+                    >
+                      <CardPreview
+                        template={id}
+                        name={customization.full_name || 'Tu Nombre'}
+                        jobTitle={customization.job_title || 'Tu Cargo'}
+                        company={customization.company}
+                        primaryColor={customization.primary_color}
+                        size="thumb"
+                      />
+                      <span className="text-zinc-400" style={{ fontSize: 11 }}>{label}</span>
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <label className={labelClass}>Color principal</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      name="primary_color"
-                      value={customization.primary_color}
-                      onChange={handleCustomizationChange}
-                      className="h-11 w-14 rounded-lg cursor-pointer bg-zinc-800 border border-zinc-700 p-1"
-                    />
-                    <span className="text-sm text-zinc-400 font-mono">{customization.primary_color}</span>
-                  </div>
+              </div>
+
+              <div className="mb-4">
+                <label className={labelClass}>Color principal</label>
+                <div className="flex items-center gap-3 mt-1">
+                  <input
+                    type="color"
+                    name="primary_color"
+                    value={customization.primary_color}
+                    onChange={handleCustomizationChange}
+                    className="h-11 w-14 rounded-lg cursor-pointer bg-zinc-800 border border-zinc-700 p-1"
+                  />
+                  <span className="text-sm text-zinc-400 font-mono">{customization.primary_color}</span>
                 </div>
               </div>
 
