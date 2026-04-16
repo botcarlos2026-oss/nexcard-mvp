@@ -456,6 +456,42 @@ export const api = {
     return fetchOrders();
   },
 
+  updateCardNFC: async (cardId, { nfc_url }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase
+      .from('cards')
+      .update({
+        nfc_url,
+        programmed_at: new Date().toISOString(),
+        status: 'programmed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', cardId);
+    if (error) throw new Error(error.message);
+    return fetchOrders();
+  },
+
+  getProfileSlugForOrder: async (orderId, customerEmail) => {
+    if (!hasSupabase) return null;
+    // Buscar por order_id primero, luego por email del cliente
+    const { data: byOrder } = await supabase
+      .from('profiles')
+      .select('slug, id')
+      .eq('order_id', orderId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (byOrder?.slug) return byOrder.slug;
+
+    if (!customerEmail) return null;
+    const { data: byEmail } = await supabase
+      .from('profiles')
+      .select('slug, id')
+      .eq('email', customerEmail)
+      .is('deleted_at', null)
+      .maybeSingle();
+    return byEmail?.slug || null;
+  },
+
   getAdminCards: async () => {
     if (!hasSupabase) return { cards: [], profiles: [] };
     return fetchAdminCards();
@@ -559,4 +595,54 @@ export const api = {
   updateLandingAdminContent: async () => null,
   uploadAvatar: () => Promise.resolve({}),
   trackClick: async () => Promise.resolve({}),
+
+  getReviewCards: async () => {
+    if (!hasSupabase) return [];
+    const { data, error } = await supabase
+      .from('review_cards')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data || [];
+  },
+
+  createReviewCard: async (payload) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase
+      .from('review_cards')
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  updateReviewCard: async (id, payload) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase
+      .from('review_cards')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  incrementReviewScan: async (slug) => {
+    if (!hasSupabase) return;
+    await supabase.rpc('increment_review_scan', { target_slug: slug }).catch(() => {
+      // fallback: direct update if RPC not available
+      supabase
+        .from('review_cards')
+        .select('scan_count')
+        .eq('slug', slug)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            supabase.from('review_cards').update({ scan_count: (data.scan_count || 0) + 1 }).eq('slug', slug);
+          }
+        });
+    });
+  },
 };

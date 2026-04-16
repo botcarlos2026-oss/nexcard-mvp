@@ -113,6 +113,7 @@ const AdminDashboard = ({ dashboard }) => {
             <a href="/admin/profiles" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Profiles</a>
             <a href="/admin/inventory" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Inventario</a>
             <a href="/admin/emails" className="px-4 py-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl font-bold text-sm">Emails</a>
+            <a href="/admin/review-cards" className="px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl font-bold text-sm">Review Cards</a>
           </div>
         </div>
 

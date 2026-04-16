@@ -11,6 +11,8 @@ import AdminProfilesDashboard from './components/AdminProfilesDashboard';
 import OrdersDashboard from './components/OrdersDashboard';
 import CRMDashboard from './components/CRMDashboard';
 import NexReviewDashboard from './components/NexReviewDashboard';
+import ReviewCardsDashboard from './components/ReviewCardsDashboard';
+import ReviewCardRedirect from './components/ReviewCardRedirect';
 import EmailDashboard from './components/EmailDashboard';
 import UnsubscribePage from './components/UnsubscribePage';
 import TrackingPage from './components/TrackingPage';
@@ -140,7 +142,7 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails') {
+        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards') {
           if (!hasSupabase || !supabase) {
             throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
@@ -183,6 +185,8 @@ function App() {
             setProfilesAdminData(profiles.profiles || []);
           } else if (path === '/admin/emails') {
             // EmailDashboard carga sus propios datos via supabase directo
+          } else if (path === '/admin/review-cards') {
+            // ReviewCardsDashboard carga sus propios datos
           } else {
             // /admin/orders y /admin/crm comparten la misma fuente de datos
             const orders = await api.getOrders();
@@ -206,6 +210,7 @@ function App() {
 
         if (path === '/login' || path === '/setup' || path === '/privacidad' || path === '/preview' || path === '/terminos'
             || path === '/baja'
+            || path.startsWith('/r/')
             || path.startsWith('/seguimiento/') || path.startsWith('/confirmar/')) {
           setLoading(false);
           return;
@@ -294,6 +299,11 @@ function App() {
   if (path === '/admin/nexreview') return <NexReviewDashboard profiles={profilesAdminData} />;
   if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
   if (path === '/admin/emails') return <EmailDashboard />;
+  if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
+
+  if (path.startsWith('/r/')) {
+    return <ReviewCardRedirect slug={path.replace('/r/', '').replace(/\/$/, '')} />;
+  }
   if (path === '/baja') return <UnsubscribePage />;
 
   if (path === '/admin/crm') return (
