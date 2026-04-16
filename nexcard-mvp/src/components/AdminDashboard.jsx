@@ -61,6 +61,10 @@ const AdminDashboard = ({ dashboard }) => {
   const [globalResults, setGlobalResults] = useState(null);
   const [searching, setSearching] = useState(false);
 
+  const users = dashboard?.users || [];
+  const statsSource = dashboard?.stats || {};
+  const recentOrders = dashboard?.recentOrders || [];
+
   const handleGlobalSearch = async (term) => {
     if (!term.trim()) { setGlobalResults(null); return; }
     setSearching(true);
@@ -85,15 +89,10 @@ const AdminDashboard = ({ dashboard }) => {
     }
   };
 
-  const users = dashboard?.users || [];
-  const statsSource = dashboard?.stats || {};
-  const recentOrders = dashboard?.recentOrders || [];
-
   const stats = useMemo(() => ([
     { label: 'Ingresos cobrados', value: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.totalRevenue || 0), icon: DollarSign, color: 'text-emerald-500' },
     { label: 'Perfiles activos', value: `${statsSource.totalProfiles || 0}`, icon: Users, color: 'text-blue-500' },
     { label: 'Pedidos abiertos', value: `${statsSource.pendingOrders || 0}`, icon: Package, color: 'text-amber-500' },
-    { label: 'Total órdenes', value: `${statsSource.totalOrders || 0}`, icon: Package, color: 'text-blue-400' },
   ]), [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -109,8 +108,11 @@ const AdminDashboard = ({ dashboard }) => {
           <div className="flex gap-3 flex-wrap">
             <a href="/admin/cards" className="px-4 py-3 bg-zinc-950 text-white rounded-2xl font-bold text-sm">Ver Cards</a>
             <a href="/admin/orders" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Órdenes</a>
+            <a href="/admin/crm" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">CRM</a>
+            <a href="/admin/nexreview" className="px-4 py-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl font-bold text-sm">NexReview</a>
             <a href="/admin/profiles" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Profiles</a>
             <a href="/admin/inventory" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Inventario</a>
+            <a href="/admin/emails" className="px-4 py-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl font-bold text-sm">Emails</a>
           </div>
         </div>
 

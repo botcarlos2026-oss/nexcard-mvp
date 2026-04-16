@@ -9,6 +9,12 @@ import InventoryDashboard from './components/InventoryDashboard';
 import AdminCardsDashboard from './components/AdminCardsDashboard';
 import AdminProfilesDashboard from './components/AdminProfilesDashboard';
 import OrdersDashboard from './components/OrdersDashboard';
+import CRMDashboard from './components/CRMDashboard';
+import NexReviewDashboard from './components/NexReviewDashboard';
+import EmailDashboard from './components/EmailDashboard';
+import UnsubscribePage from './components/UnsubscribePage';
+import TrackingPage from './components/TrackingPage';
+import DeliveryConfirmation from './components/DeliveryConfirmation';
 import UserEditor from './components/UserEditor';
 import SetupWizard from './components/SetupWizard';
 import AuthPage from './components/AuthPage';
@@ -134,7 +140,7 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders') {
+        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails') {
           if (!hasSupabase || !supabase) {
             throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
@@ -167,17 +173,18 @@ function App() {
               movements: inventory.movements || [],
             });
           } else if (path === '/admin/cards') {
-            console.log('Loading cards...');
             const cards = await api.getAdminCards();
-            console.log('Cards result:', cards);
             setCardsData({
               cards: cards.cards || [],
               profiles: cards.profiles || [],
             });
-          } else if (path === '/admin/profiles') {
+          } else if (path === '/admin/profiles' || path === '/admin/nexreview') {
             const profiles = await api.getAdminProfiles();
             setProfilesAdminData(profiles.profiles || []);
+          } else if (path === '/admin/emails') {
+            // EmailDashboard carga sus propios datos via supabase directo
           } else {
+            // /admin/orders y /admin/crm comparten la misma fuente de datos
             const orders = await api.getOrders();
             setOrdersAdminData(orders.orders || []);
           }
@@ -197,7 +204,9 @@ function App() {
           return;
         }
 
-        if (path === '/login' || path === '/setup' || path === '/privacidad' || path === '/preview' || path === '/terminos') {
+        if (path === '/login' || path === '/setup' || path === '/privacidad' || path === '/preview' || path === '/terminos'
+            || path === '/baja'
+            || path.startsWith('/seguimiento/') || path.startsWith('/confirmar/')) {
           setLoading(false);
           return;
         }
@@ -282,7 +291,20 @@ function App() {
   if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />;
   if (path === '/admin/cards') return <AdminCardsDashboard cards={cardsData.cards} profiles={cardsData.profiles} />;
   if (path === '/admin/profiles') return <AdminProfilesDashboard profiles={profilesAdminData} />;
+  if (path === '/admin/nexreview') return <NexReviewDashboard profiles={profilesAdminData} />;
   if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
+  if (path === '/admin/emails') return <EmailDashboard />;
+  if (path === '/baja') return <UnsubscribePage />;
+
+  if (path === '/admin/crm') return (
+    <CRMDashboard
+      orders={ordersAdminData}
+      onUpdateOrder={async (orderId, payload) => {
+        const result = await api.updateOrder(orderId, payload);
+        setOrdersAdminData(result.orders || []);
+      }}
+    />
+  );
 
   if (path === '/edit') {
     if (!user) return null;
@@ -294,6 +316,17 @@ function App() {
       handleSave({ ...data, ...wizardData });
       navigate('/edit');
     }} />;
+  }
+
+  // Public tracking routes — no auth required
+  if (path.startsWith('/seguimiento/')) {
+    const orderId = path.replace('/seguimiento/', '').replace(/\/$/, '');
+    return <TrackingPage orderId={orderId} />;
+  }
+
+  if (path.startsWith('/confirmar/')) {
+    const parts = path.replace('/confirmar/', '').split('/');
+    return <DeliveryConfirmation orderId={parts[0]} token={parts[1]} />;
   }
 
   if (path === '/') return <ComingSoon />;
