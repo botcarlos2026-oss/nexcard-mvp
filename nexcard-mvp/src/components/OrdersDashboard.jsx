@@ -14,6 +14,8 @@ import {
   Bell,
   RefreshCw,
   Download,
+  Truck,
+  ExternalLink,
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -40,6 +42,13 @@ const statusTone = {
 
 const formatLabel = (value) => (value ? String(value).replace(/_/g, ' ') : '—');
 
+const FULFILLMENT_NEXT = {
+  new: 'in_production',
+  in_production: 'ready',
+  ready: 'shipped',
+  shipped: 'delivered',
+};
+
 const formatDate = (value) => {
   if (!value) return '—';
   const date = new Date(value);
@@ -57,6 +66,8 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [draftOrder, setDraftOrder] = useState(null);
   const [linkingCardId, setLinkingCardId] = useState('');
+  const [draftShipping, setDraftShipping] = useState({ carrier: '', tracking_code: '' });
+  const [shippingBusy, setShippingBusy] = useState(false);
   const [orderHistory, setOrderHistory] = useState({});
 
   const loadOrderHistory = async (orderId) => {
@@ -200,6 +211,10 @@ const OrdersDashboard = ({ orders = [] }) => {
       delivery_address: selectedOrder.delivery_address || '',
       notes: selectedOrder.notes || '',
     });
+    setDraftShipping({
+      carrier: selectedOrder.carrier || '',
+      tracking_code: selectedOrder.tracking_code || '',
+    });
     setLinkingCardId('');
   }, [selectedOrderId, selectedOrder?.id]);
 
@@ -236,6 +251,21 @@ const OrdersDashboard = ({ orders = [] }) => {
       setFeedback({ type: 'error', message: error.message || 'No fue posible vincular la tarjeta a la orden.' });
     } finally {
       setBusyOrderId(null);
+    }
+  };
+
+  const saveShipping = async () => {
+    if (!selectedOrder) return;
+    setShippingBusy(true);
+    setFeedback({ type: '', message: '' });
+    try {
+      const response = await api.updateShipping(selectedOrder.id, draftShipping);
+      setRows(response.orders || []);
+      setFeedback({ type: 'success', message: `Envío registrado para #${selectedOrder.id.slice(0, 8).toUpperCase()} — notificación enviada al cliente.` });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message || 'No se pudo guardar el envío.' });
+    } finally {
+      setShippingBusy(false);
     }
   };
 
@@ -444,9 +474,21 @@ const OrdersDashboard = ({ orders = [] }) => {
                         </div>
                       </td>
                       <td className="px-8 py-5">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone[order.fulfillment_status] || 'bg-zinc-100 text-zinc-700'}`}>
-                          {formatLabel(order.fulfillment_status)}
-                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone[order.fulfillment_status] || 'bg-zinc-100 text-zinc-700'}`}>
+                            {formatLabel(order.fulfillment_status)}
+                          </span>
+                          {FULFILLMENT_NEXT[order.fulfillment_status] && (
+                            <button
+                              type="button"
+                              onClick={() => updateOrderField(order.id, { fulfillment_status: FULFILLMENT_NEXT[order.fulfillment_status] }, `Orden ${order.id} avanzada a ${formatLabel(FULFILLMENT_NEXT[order.fulfillment_status])}.`)}
+                              disabled={busyOrderId === order.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                            >
+                              → {formatLabel(FULFILLMENT_NEXT[order.fulfillment_status])}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-8 py-5">
                         <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${order.activation_ready ? 'bg-emerald-100 text-emerald-700' : order.active_cards_count > 0 ? 'bg-sky-100 text-sky-700' : 'bg-zinc-100 text-zinc-600'}`}>
@@ -738,6 +780,131 @@ const OrdersDashboard = ({ orders = [] }) => {
                     Guardar datos operativos
                   </button>
                 </div>
+
+                {/* Shipping tracking section */}
+                <div className="rounded-2xl border border-zinc-100 bg-white p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Truck size={16} className="text-violet-500" />
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Envío y seguimiento</p>
+                  </div>
+
+                  {selectedOrder.tracking_code && (
+                    <div className="rounded-xl bg-violet-50 border border-violet-100 p-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-violet-500 mb-0.5">
+                          {selectedOrder.carrier === 'blueexpress' ? 'BlueExpress' :
+                           selectedOrder.carrier === 'chilexpress' ? 'Chilexpress' :
+                           selectedOrder.carrier || 'Courier'}
+                        </p>
+                        <p className="font-black text-sm text-zinc-900 font-mono">{selectedOrder.tracking_code}</p>
+                      </div>
+                      <a
+                        href={`/seguimiento/${selectedOrder.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-500 text-white text-xs font-black"
+                      >
+                        <ExternalLink size={12} />
+                        Ver seguimiento
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-1.5">Courier</label>
+                      <select
+                        value={draftShipping.carrier}
+                        onChange={(e) => setDraftShipping(prev => ({ ...prev, carrier: e.target.value }))}
+                        disabled={shippingBusy}
+                        className="w-full appearance-none rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-violet-500/20"
+                      >
+                        <option value="">Seleccionar courier</option>
+                        <option value="blueexpress">BlueExpress</option>
+                        <option value="chilexpress">Chilexpress</option>
+                        <option value="starken">Starken</option>
+                        <option value="correos">Correos de Chile</option>
+                        <option value="dhl">DHL</option>
+                        <option value="fedex">FedEx</option>
+                        <option value="manual">Otro / Manual</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-1.5">Código de seguimiento</label>
+                      <input
+                        type="text"
+                        value={draftShipping.tracking_code}
+                        onChange={(e) => setDraftShipping(prev => ({ ...prev, tracking_code: e.target.value }))}
+                        disabled={shippingBusy}
+                        placeholder="BX123456789CL"
+                        className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-700 outline-none focus:ring-2 focus:ring-violet-500/20 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={saveShipping}
+                    disabled={shippingBusy || !draftShipping.carrier || !draftShipping.tracking_code.trim()}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-violet-500 text-white font-black text-sm shadow-lg shadow-violet-200 disabled:opacity-50"
+                  >
+                    {shippingBusy ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
+                    Registrar envío y notificar cliente
+                  </button>
+                  <p className="text-xs font-medium text-zinc-400 text-center">
+                    Cambia estado a <strong>Shipped</strong> y envía email con link de seguimiento al cliente.
+                  </p>
+                </div>
+
+                {/* Personalización de tarjeta */}
+                {selectedOrder.card_customization && (
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Personalización solicitada</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {selectedOrder.card_customization.full_name && (
+                        <div>
+                          <p className="text-xs text-zinc-500 font-semibold mb-0.5">Nombre</p>
+                          <p className="text-white font-medium">{selectedOrder.card_customization.full_name}</p>
+                        </div>
+                      )}
+                      {selectedOrder.card_customization.job_title && (
+                        <div>
+                          <p className="text-xs text-zinc-500 font-semibold mb-0.5">Cargo</p>
+                          <p className="text-white font-medium">{selectedOrder.card_customization.job_title}</p>
+                        </div>
+                      )}
+                      {selectedOrder.card_customization.company && (
+                        <div>
+                          <p className="text-xs text-zinc-500 font-semibold mb-0.5">Empresa</p>
+                          <p className="text-white font-medium">{selectedOrder.card_customization.company}</p>
+                        </div>
+                      )}
+                      {selectedOrder.card_customization.template && (
+                        <div>
+                          <p className="text-xs text-zinc-500 font-semibold mb-0.5">Plantilla</p>
+                          <p className="text-white font-medium capitalize">{
+                            { minimal: 'Minimalista', dark: 'Dark premium', corporate: 'Corporativo', colorful: 'Colorido' }[selectedOrder.card_customization.template] || selectedOrder.card_customization.template
+                          }</p>
+                        </div>
+                      )}
+                      {selectedOrder.card_customization.primary_color && (
+                        <div>
+                          <p className="text-xs text-zinc-500 font-semibold mb-0.5">Color principal</p>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-full border border-zinc-700" style={{ backgroundColor: selectedOrder.card_customization.primary_color }} />
+                            <span className="text-white font-mono text-xs">{selectedOrder.card_customization.primary_color}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {selectedOrder.card_customization.notes && (
+                      <div>
+                        <p className="text-xs text-zinc-500 font-semibold mb-0.5">Notas</p>
+                        <p className="text-zinc-300 text-sm leading-relaxed">{selectedOrder.card_customization.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 flex items-start gap-3">
                   {busyOrderId === selectedOrder.id ? <Loader2 size={18} className="mt-0.5 animate-spin" /> : <AlertCircle size={18} className="mt-0.5" />}

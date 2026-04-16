@@ -61,6 +61,7 @@ async function supabaseCreateOrder(payload) {
     fulfillment_status: 'new',
     amount_cents: payload.amount_cents,
     currency: payload.currency || 'CLP',
+    card_customization: payload.card_customization || null,
   };
 
   const { data: orderData, error: orderError } = await supabase
@@ -81,9 +82,7 @@ async function supabaseCreateOrder(payload) {
     currency: payload.currency || 'CLP',
   }));
 
-  console.log('Inserting order_items:', JSON.stringify(orderItems));
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-  if (itemsError) console.error('order_items error:', JSON.stringify(itemsError));
   if (itemsError) {
     await supabase.from('orders').delete().eq('id', orderId);
     throw new Error('Error al guardar los items. La operación fue revertida.');
@@ -93,6 +92,7 @@ async function supabaseCreateOrder(payload) {
   try {
     const emailPayload = {
       order: orderData,
+      card_customization: payload.card_customization || null,
       items: payload.items.map(item => ({
         product_id: item.product_id,
         product_name: item.product_name || item.product_id,
@@ -104,12 +104,100 @@ async function supabaseCreateOrder(payload) {
       body: JSON.stringify(emailPayload),
       headers: { 'Content-Type': 'application/json' },
     });
-    if (fnError) console.warn('Email function error:', fnError);
-  } catch (emailErr) {
-    console.warn('Email no enviado:', emailErr);
+  } catch {
+    // Email no crítico, continuar sin bloquear
   }
 
   return orderData;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers privados
+// ---------------------------------------------------------------------------
+
+async function fetchAdminProfiles() {
+  const [profilesRes, versionsRes, eventsRes] = await Promise.all([
+    supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+    supabase
+      .from('profile_versions')
+      .select('profile_id, version')
+      .order('version', { ascending: false }),
+    supabase
+      .from('audit_log')
+      .select('entity_id, action, created_at')
+      .eq('entity_type', 'profile')
+      .order('created_at', { ascending: false })
+      .limit(500),
+  ]);
+
+  const versions = versionsRes.data || [];
+  const events = eventsRes.data || [];
+
+  // Max version por profile
+  const latestVersionMap = versions.reduce((acc, v) => {
+    if (!acc[v.profile_id] || v.version > acc[v.profile_id]) {
+      acc[v.profile_id] = v.version;
+    }
+    return acc;
+  }, {});
+
+  // Último evento por profile
+  const lastEventMap = events.reduce((acc, e) => {
+    if (!acc[e.entity_id]) acc[e.entity_id] = e;
+    return acc;
+  }, {});
+
+  const profiles = (profilesRes.data || []).map((p) => ({
+    ...p,
+    latest_version: latestVersionMap[p.id] || null,
+    last_event: lastEventMap[p.id] || null,
+  }));
+
+  return { profiles };
+}
+
+async function fetchAdminCards() {
+  const [cardsRes, profilesRes, eventsRes] = await Promise.all([
+    supabase.from('cards').select('*').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('*').is('deleted_at', null),
+    supabase
+      .from('card_events')
+      .select('card_id, event_type, created_at')
+      .order('created_at', { ascending: false })
+      .limit(500),
+  ]);
+
+  const profiles = profilesRes.data || [];
+  const events = eventsRes.data || [];
+  const profileMap = Object.fromEntries(profiles.map((p) => [p.id, p]));
+
+  const eventsByCard = events.reduce((acc, e) => {
+    if (!acc[e.card_id]) acc[e.card_id] = [];
+    acc[e.card_id].push(e);
+    return acc;
+  }, {});
+
+  const cards = (cardsRes.data || []).map((card) => {
+    const profile = profileMap[card.profile_id];
+    return {
+      ...card,
+      profile_name: profile?.full_name || profile?.name || profile?.slug || null,
+      profile_slug: profile?.slug || null,
+      last_event: eventsByCard[card.id]?.[0] || null,
+      events: eventsByCard[card.id] || [],
+    };
+  });
+
+  return { cards, profiles };
+}
+
+async function fetchOrders() {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*), payments(*)')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return { orders: data || [] };
 }
 
 export const api = {
@@ -152,8 +240,8 @@ export const api = {
           .eq('locale', 'es-CL')
           .single();
         if (!error && data?.content) return data.content;
-      } catch (e) {
-        console.warn('Supabase landing content error:', e.message);
+      } catch {
+        // fallback al request REST
       }
     }
     return request('/content/landing');
@@ -283,9 +371,7 @@ export const api = {
 
   getOrders: async () => {
     if (!hasSupabase) return { orders: [] };
-    const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
-    return { orders: data || [] };
+    return fetchOrders();
   },
 
   updateOrder: async (orderId, payload) => {
@@ -312,33 +398,163 @@ export const api = {
       await supabase.from('order_status_history').insert(historyEntries);
     }
 
-    const { data } = await supabase
-      .from('orders')
-      .select('*, order_items(*)')
-      .order('created_at', { ascending: false });
-    return { orders: data || [] };
+    return fetchOrders();
   },
 
-  linkOrderCard: async () => ({ orders: [] }),
+  updateShipping: async (orderId, { carrier, tracking_code }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    if (!carrier) throw new Error('Carrier requerido');
+    if (!tracking_code?.trim()) throw new Error('Código de seguimiento requerido');
+
+    const payload = {
+      carrier,
+      tracking_code: tracking_code.trim(),
+      fulfillment_status: 'shipped',
+      shipped_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
+    if (error) throw new Error(error.message);
+
+    // Historial
+    const { data: current } = await supabase
+      .from('orders').select('carrier, tracking_code, fulfillment_status').eq('id', orderId).single();
+
+    const historyEntries = Object.keys(payload)
+      .filter(key => current && String(current[key]) !== String(payload[key]))
+      .map(key => ({
+        order_id: orderId,
+        field: key,
+        old_value: String(current?.[key] || ''),
+        new_value: String(payload[key]),
+      }));
+
+    if (historyEntries.length > 0) {
+      await supabase.from('order_status_history').insert(historyEntries);
+    }
+
+    // Trigger email de notificación de envío
+    try {
+      await supabase.functions.invoke('send-shipping-notification', {
+        body: JSON.stringify({ order_id: orderId }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch {
+      // Email no crítico
+    }
+
+    return fetchOrders();
+  },
+
+  linkOrderCard: async (orderId, cardId) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase
+      .from('cards')
+      .update({ order_id: orderId, updated_at: new Date().toISOString() })
+      .eq('id', cardId);
+    if (error) throw new Error(error.message);
+    return fetchOrders();
+  },
 
   getAdminCards: async () => {
-    const { data: cards } = await supabase.from('cards').select('*');
-    const { data: profiles } = await supabase.from('profiles').select('*');
-    return { cards: cards || [], profiles: profiles || [] };
+    if (!hasSupabase) return { cards: [], profiles: [] };
+    return fetchAdminCards();
   },
 
   getAdminProfiles: async () => {
-    const { data: profiles } = await supabase.from('profiles').select('*');
-    return { profiles: profiles || [] };
+    if (!hasSupabase) return { profiles: [] };
+    return fetchAdminProfiles();
   },
 
-  assignCard: async () => ({ cards: [], profiles: [] }),
-  reassignCard: async () => ({ cards: [], profiles: [] }),
-  activateCard: async () => ({ cards: [] }),
-  revokeCard: async () => ({ cards: [] }),
-  archiveCard: async () => ({ cards: [] }),
-  archiveProfile: async () => ({ profiles: [] }),
-  restoreProfileVersion: async () => ({ profiles: [] }),
+  assignCard: async (cardId, profileId) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase
+      .from('cards')
+      .update({
+        profile_id: profileId,
+        status: 'assigned',
+        activation_status: 'assigned',
+        assigned_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', cardId);
+    if (error) throw new Error(error.message);
+    await supabase.from('card_events').insert({ card_id: cardId, event_type: 'assigned', context: { profile_id: profileId } }).catch(() => {});
+    return fetchAdminCards();
+  },
+
+  reassignCard: async (cardId, profileId) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase
+      .from('cards')
+      .update({
+        profile_id: profileId,
+        assigned_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', cardId);
+    if (error) throw new Error(error.message);
+    await supabase.from('card_events').insert({ card_id: cardId, event_type: 'reassigned', context: { profile_id: profileId } }).catch(() => {});
+    return fetchAdminCards();
+  },
+
+  activateCard: async (cardId) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase
+      .from('cards')
+      .update({
+        status: 'active',
+        activation_status: 'activated',
+        activated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', cardId);
+    if (error) throw new Error(error.message);
+    await supabase.from('card_events').insert({ card_id: cardId, event_type: 'activated' }).catch(() => {});
+    return fetchAdminCards();
+  },
+
+  revokeCard: async (cardId) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data: { session } } = await supabase.auth.getSession();
+    const actorId = session?.user?.id;
+    const { error } = await supabase.rpc('revoke_card', { target_card_id: cardId, actor_id: actorId });
+    if (error) throw new Error(error.message);
+    return fetchAdminCards();
+  },
+
+  archiveCard: async (cardId) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data: { session } } = await supabase.auth.getSession();
+    const actorId = session?.user?.id;
+    const { error } = await supabase.rpc('soft_delete_card', { target_card_id: cardId, actor_id: actorId });
+    if (error) throw new Error(error.message);
+    return fetchAdminCards();
+  },
+  archiveProfile: async (profileId) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data: { session } } = await supabase.auth.getSession();
+    const actorId = session?.user?.id;
+    const { error } = await supabase.rpc('soft_delete_profile', {
+      target_profile_id: profileId,
+      actor_id: actorId,
+    });
+    if (error) throw new Error(error.message);
+    return fetchAdminProfiles();
+  },
+
+  restoreProfileVersion: async (profileId, version) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data: { session } } = await supabase.auth.getSession();
+    const actorId = session?.user?.id;
+    const { error } = await supabase.rpc('restore_profile_version', {
+      target_profile_id: profileId,
+      target_version: version,
+      actor_id: actorId,
+    });
+    if (error) throw new Error(error.message);
+    return fetchAdminProfiles();
+  },
   getLandingAdminContent: async () => null,
   updateLandingAdminContent: async () => null,
   uploadAvatar: () => Promise.resolve({}),

@@ -17,6 +17,20 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     acceptTerms: false,
   });
 
+  const [customization, setCustomization] = useState({
+    full_name: '',
+    job_title: '',
+    company: '',
+    template: 'minimal',
+    primary_color: '#10B981',
+    notes: '',
+  });
+
+  const handleCustomizationChange = (e) => {
+    const { name, value } = e.target;
+    setCustomization((prev) => ({ ...prev, [name]: value }));
+  };
+
   const totalCents = getTotalCents();
   const totalCLP = totalCents.toLocaleString('es-CL');
 
@@ -76,6 +90,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     setError('');
 
     try {
+      // Construir customization solo si hay algún campo llenado
+      const hasCustomization = customization.full_name.trim() || customization.job_title.trim() ||
+        customization.company.trim() || customization.notes.trim() ||
+        customization.template !== 'minimal' || customization.primary_color !== '#10B981';
+
       const orderPayload = {
         customer_name: formData.customerName.trim(),
         customer_email: formData.customerEmail.trim().toLowerCase(),
@@ -86,6 +105,14 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         fulfillment_status: 'new',
         amount_cents: totalCents,
         currency: 'CLP',
+        card_customization: hasCustomization ? {
+          full_name: customization.full_name.trim() || formData.customerName.trim(),
+          job_title: customization.job_title.trim(),
+          company: customization.company.trim(),
+          template: customization.template,
+          primary_color: customization.primary_color,
+          notes: customization.notes.trim(),
+        } : null,
         items: items.map((item) => ({
           product_id: item.product_id,
           product_name: item.product_name,
@@ -232,6 +259,91 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   placeholder="Calle Principal 123, Depto 4B, Santiago, Región Metropolitana"
                   rows="3"
                   autoComplete="street-address"
+                  className={inputClass + ' resize-none'}
+                />
+              </div>
+            </div>
+
+            {/* Personalización de tarjeta */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <h2 className="text-lg font-bold mb-1">Personaliza tu tarjeta</h2>
+              <p className="text-xs text-zinc-500 mb-5">Opcional — si no completas esto te contactaremos para definir el diseño.</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className={labelClass}>Nombre para la tarjeta</label>
+                  <input
+                    type="text"
+                    name="full_name"
+                    value={customization.full_name}
+                    onChange={handleCustomizationChange}
+                    placeholder={formData.customerName || 'Tu nombre completo'}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Cargo / Profesión</label>
+                  <input
+                    type="text"
+                    name="job_title"
+                    value={customization.job_title}
+                    onChange={handleCustomizationChange}
+                    placeholder="CEO & Founder, Diseñador UX..."
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className={labelClass}>Empresa <span className="text-zinc-600 font-normal">(opcional)</span></label>
+                <input
+                  type="text"
+                  name="company"
+                  value={customization.company}
+                  onChange={handleCustomizationChange}
+                  placeholder="NexCard"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className={labelClass}>Plantilla base</label>
+                  <select
+                    name="template"
+                    value={customization.template}
+                    onChange={handleCustomizationChange}
+                    className={inputClass}
+                  >
+                    <option value="minimal">Minimalista (blanco y negro)</option>
+                    <option value="dark">Dark premium (fondo negro)</option>
+                    <option value="corporate">Corporativo (colores empresa)</option>
+                    <option value="colorful">Colorido (verde NexCard)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Color principal</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      name="primary_color"
+                      value={customization.primary_color}
+                      onChange={handleCustomizationChange}
+                      className="h-11 w-14 rounded-lg cursor-pointer bg-zinc-800 border border-zinc-700 p-1"
+                    />
+                    <span className="text-sm text-zinc-400 font-mono">{customization.primary_color}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Notas adicionales <span className="text-zinc-600 font-normal">(opcional)</span></label>
+                <textarea
+                  name="notes"
+                  value={customization.notes}
+                  onChange={handleCustomizationChange}
+                  rows="2"
+                  placeholder="Ej: Agregar logo de empresa, usar foto de LinkedIn..."
                   className={inputClass + ' resize-none'}
                 />
               </div>
