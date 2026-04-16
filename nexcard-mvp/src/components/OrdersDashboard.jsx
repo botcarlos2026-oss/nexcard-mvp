@@ -77,6 +77,14 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [nfcQrDataUrl, setNfcQrDataUrl] = useState(null);
   const [draftShipping, setDraftShipping] = useState({ carrier: '', tracking_code: '' });
   const [shippingBusy, setShippingBusy] = useState(false);
+  const DISPATCH_CHECKLIST = [
+    'NFC programado con el link del cliente',
+    'Diseño impreso y verificado',
+    'QR funciona (escaneado con teléfono)',
+    'Tarjeta embalada en caja',
+    'Dirección de despacho confirmada',
+  ];
+  const [checklistDone, setChecklistDone] = useState(Array(5).fill(false));
   const [orderHistory, setOrderHistory] = useState({});
 
   const loadOrderHistory = async (orderId) => {
@@ -227,6 +235,7 @@ const OrdersDashboard = ({ orders = [] }) => {
     setLinkingCardId('');
     setNfcSlug('');
     setNfcQrDataUrl(null);
+    setChecklistDone(Array(5).fill(false));
     // Auto-cargar slug si hay cards vinculadas
     if (selectedOrder.related_cards?.length > 0) {
       loadSlugForOrder(selectedOrder);
@@ -998,15 +1007,63 @@ const OrdersDashboard = ({ orders = [] }) => {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={saveShipping}
-                    disabled={shippingBusy || !draftShipping.carrier || !draftShipping.tracking_code.trim()}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-violet-500 text-white font-black text-sm shadow-lg shadow-violet-200 disabled:opacity-50"
-                  >
-                    {shippingBusy ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
-                    Registrar envío y notificar cliente
-                  </button>
+                  {/* Checklist pre-despacho */}
+                  {(() => {
+                    const completedCount = checklistDone.filter(Boolean).length;
+                    const allDone = completedCount === DISPATCH_CHECKLIST.length;
+                    const canDispatch = allDone && draftShipping.tracking_code.trim().length > 0;
+                    return (
+                      <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-3 space-y-3">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Checklist pre-despacho</p>
+                        <div className="space-y-2">
+                          {DISPATCH_CHECKLIST.map((item, i) => (
+                            <label key={i} className="flex items-center gap-2.5 cursor-pointer group">
+                              <input
+                                type="checkbox"
+                                checked={checklistDone[i]}
+                                onChange={() => setChecklistDone(prev => prev.map((v, idx) => idx === i ? !v : v))}
+                                className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
+                              />
+                              <span className={`text-[13px] font-medium transition-colors ${checklistDone[i] ? 'line-through text-zinc-500' : 'text-zinc-300'}`}>
+                                {item}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                        {/* Barra de progreso */}
+                        <div className="space-y-1.5">
+                          <div className="w-full h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${allDone ? 'bg-emerald-500' : 'bg-zinc-600'}`}
+                              style={{ width: `${(completedCount / DISPATCH_CHECKLIST.length) * 100}%` }}
+                            />
+                          </div>
+                          <p className={`text-[11px] font-bold transition-colors ${allDone ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                            {allDone ? 'Listo para despachar' : `${completedCount} de ${DISPATCH_CHECKLIST.length} verificaciones completadas`}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="relative group/dispatch">
+                    <button
+                      type="button"
+                      onClick={saveShipping}
+                      disabled={shippingBusy || !draftShipping.carrier || !draftShipping.tracking_code.trim() || !checklistDone.every(Boolean)}
+                      className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-white font-black text-sm shadow-lg transition-colors ${checklistDone.every(Boolean) && draftShipping.tracking_code.trim() ? 'bg-emerald-500 shadow-emerald-200' : 'bg-zinc-600 opacity-50 cursor-not-allowed'} disabled:opacity-50`}
+                    >
+                      {shippingBusy ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
+                      Registrar envío y notificar cliente
+                    </button>
+                    {(!checklistDone.every(Boolean) || !draftShipping.tracking_code.trim()) && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dispatch:block z-10">
+                        <div className="bg-zinc-800 text-zinc-200 text-[11px] font-medium px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
+                          Completa el checklist y número de seguimiento
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs font-medium text-zinc-400 text-center">
                     Cambia estado a <strong>Shipped</strong> y envía email con link de seguimiento al cliente.
                   </p>
