@@ -30,7 +30,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     <div className="min-h-screen bg-zinc-950 text-white">
 
       <nav className="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-        <span className="text-xl font-black tracking-tight">Nex<span className="text-emerald-400">Card</span></span>
+        <span className="text-xl font-black tracking-tight font-heading">Nex<span className="text-emerald-400">Card</span></span>
         <div className="flex items-center gap-3">
           <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-1.5">Iniciar sesión</a>
           <button onClick={onCheckoutStart} className="text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition-colors">Comprar</button>
@@ -350,7 +350,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
       <footer className="border-t border-zinc-800/60 py-10 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <span className="text-lg font-black">Nex<span className="text-emerald-400">Card</span></span>
+          <span className="text-lg font-black font-heading">Nex<span className="text-emerald-400">Card</span></span>
           <div className="flex items-center gap-4 text-sm text-zinc-500">
             <span>© 2026 NexCard</span>
             <span>·</span>

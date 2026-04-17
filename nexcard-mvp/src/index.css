@@ -2,16 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Easing curves (Emil Kowalski) ─────────────────────────── */
+/* ─── Design tokens ──────────────────────────────────────────── */
 :root {
+  /* Typography */
+  --font-heading: 'Syne', sans-serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  /* Easing curves (Emil Kowalski) */
   --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Durations */
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 300ms;
+
+  /* Color — brand */
+  --color-brand:      #10B981;
+  --color-brand-hover:#059669;
+  --color-brand-dim:  rgba(16, 185, 129, 0.12);
+
+  /* Color — surfaces */
+  --color-surface-0:  #09090B;
+  --color-surface-1:  #18181B;
+  --color-surface-2:  #27272A;
+  --color-surface-3:  #3F3F46;
+
+  /* Color — text */
+  --color-text-1: #FAFAFA;
+  --color-text-2: #A1A1AA;
+  --color-text-3: #71717A;
 }
 
 @layer base {
   body {
+    font-family: var(--font-body);
     -webkit-tap-highlight-color: transparent;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
   }
 }
 

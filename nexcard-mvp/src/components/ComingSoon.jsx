@@ -48,7 +48,7 @@ export default function ComingSoon() {
 
         {/* Logo */}
         <div className="cs-element mb-10">
-          <span className="text-4xl font-black tracking-tight">
+          <span className="text-4xl font-black tracking-tight font-heading">
             Nex<span className="text-emerald-400">Card</span>
           </span>
         </div>
