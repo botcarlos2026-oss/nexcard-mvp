@@ -51,6 +51,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
   const [dispatchForm, setDispatchForm] = useState({ inventory_item_id: '', quantity_per_dispatch: 1, description: '' });
   const [dispatchSaving, setDispatchSaving] = useState(false);
   const [dispatchFeedback, setDispatchFeedback] = useState({ type: '', message: '' });
+  const [editingMinStock, setEditingMinStock] = useState({}); // { [itemId]: draftValue }
 
   useEffect(() => {
     api.getDispatchConfig().then(setDispatchConfigs).catch(() => {});
@@ -80,6 +81,19 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
     } catch (err) {
       setDispatchFeedback({ type: 'error', message: err.message || 'No se pudo eliminar.' });
     }
+  };
+
+  const handleSaveMinStock = async (itemId) => {
+    const raw = editingMinStock[itemId];
+    if (raw === undefined) return;
+    const value = Math.max(0, parseInt(raw, 10) || 0);
+    try {
+      const { items: updated } = await api.updateInventoryItem(itemId, { min_stock: value });
+      setRows(updated);
+    } catch {
+      // silencioso
+    }
+    setEditingMinStock(prev => { const n = { ...prev }; delete n[itemId]; return n; });
   };
 
   const stock = rows;
@@ -187,20 +201,23 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                   <th className="px-8 py-4">Categoría</th>
                   <th className="px-8 py-4">SKU</th>
                   <th className="px-8 py-4">Stock Actual</th>
+                  <th className="px-8 py-4">Stock mín.</th>
                   <th className="px-8 py-4">Costo Unitario</th>
                   <th className="px-8 py-4">Estado</th>
                   <th className="px-8 py-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-50">
-                {stock.map((item) => (
-                  <tr key={item.id} className="hover:bg-zinc-50/20 transition-all">
+                {stock.map((item) => {
+                  const isLow = (item.min_stock || 0) > 0 && (item.stock || 0) <= (item.min_stock || 0);
+                  return (
+                  <tr key={item.id} className={`transition-all ${isLow ? 'bg-amber-50' : 'hover:bg-zinc-50/20'}`}>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-zinc-100 rounded-xl text-zinc-400">
+                        <div className={`p-2 rounded-xl ${isLow ? 'bg-amber-100 text-amber-600' : 'bg-zinc-100 text-zinc-400'}`}>
                           <Package size={20} />
                         </div>
-                        <span className="font-bold text-zinc-950">{item.item}</span>
+                        <span className={`font-bold ${isLow ? 'text-amber-700' : 'text-zinc-950'}`}>{item.item}</span>
                       </div>
                     </td>
                     <td className="px-8 py-5">
@@ -210,14 +227,42 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                       <span className="text-xs font-bold text-sky-600">{item.sku || 'Sin SKU'}</span>
                     </td>
                     <td className="px-8 py-5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-lg">{item.stock}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-black text-lg ${isLow ? 'text-amber-700' : ''}`}>{item.stock}</span>
                         <span className="text-xs font-bold text-zinc-400">{item.unit}</span>
+                        {isLow && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black uppercase">
+                            <AlertTriangle size={10} /> Bajo stock
+                          </span>
+                        )}
                       </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      {editingMinStock[item.id] !== undefined ? (
+                        <input
+                          type="number"
+                          min="0"
+                          value={editingMinStock[item.id]}
+                          onChange={e => setEditingMinStock(prev => ({ ...prev, [item.id]: e.target.value }))}
+                          onBlur={() => handleSaveMinStock(item.id)}
+                          onKeyDown={e => e.key === 'Enter' && handleSaveMinStock(item.id)}
+                          autoFocus
+                          className="w-20 rounded-lg border border-amber-300 bg-white px-2 py-1 text-sm font-bold text-zinc-900 outline-none focus:ring-2 focus:ring-amber-400"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditingMinStock(prev => ({ ...prev, [item.id]: String(item.min_stock || 0) }))}
+                          className={`text-sm font-bold px-3 py-1 rounded-lg border border-dashed transition-colors ${(item.min_stock || 0) > 0 ? 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100' : 'border-zinc-200 text-zinc-400 hover:border-zinc-400 hover:text-zinc-600'}`}
+                          title="Click para editar stock mínimo"
+                        >
+                          {(item.min_stock || 0) > 0 ? item.min_stock : '—'}
+                        </button>
+                      )}
                     </td>
                     <td className="px-8 py-5 font-bold text-zinc-700">{currency.format(item.cost_cents || 0)}</td>
                     <td className="px-8 py-5">
-                      {(item.stock || 0) <= (item.min_stock || 0) ? (
+                      {isLow ? (
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-rose-50 text-rose-600 text-[10px] font-black uppercase">
                           <AlertTriangle size={12} /> Stock Crítico
                         </div>
@@ -233,7 +278,8 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

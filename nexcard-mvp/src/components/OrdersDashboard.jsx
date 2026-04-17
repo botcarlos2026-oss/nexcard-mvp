@@ -102,6 +102,9 @@ const OrdersDashboard = ({ orders = [] }) => {
       console.warn('History error:', err);
     }
   };
+  const [refundByOrder, setRefundByOrder] = useState({});
+  const [refundForm, setRefundForm] = useState({ reason: 'Producto defectuoso', amount_cents: '', notes: '' });
+  const [refundBusy, setRefundBusy] = useState(false);
   const [dateFilter, setDateFilter] = useState('all');
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [lastChecked, setLastChecked] = useState(new Date());
@@ -236,9 +239,16 @@ const OrdersDashboard = ({ orders = [] }) => {
     setNfcSlug('');
     setNfcQrDataUrl(null);
     setChecklistDone(Array(5).fill(false));
+    setRefundForm({ reason: 'Producto defectuoso', amount_cents: selectedOrder.amount_cents || '', notes: '' });
     // Auto-cargar slug si hay cards vinculadas
     if (selectedOrder.related_cards?.length > 0) {
       loadSlugForOrder(selectedOrder);
+    }
+    // Cargar refund existente para esta orden
+    if (!refundByOrder[selectedOrder.id]) {
+      api.getRefundForOrder(selectedOrder.id).then(r => {
+        if (r) setRefundByOrder(prev => ({ ...prev, [selectedOrder.id]: r }));
+      }).catch(() => {});
     }
   }, [selectedOrderId, selectedOrder?.id]);
 
@@ -338,6 +348,33 @@ const OrdersDashboard = ({ orders = [] }) => {
       setFeedback({ type: 'error', message: error.message || 'No se pudo registrar el despacho.' });
     } finally {
       setShippingBusy(false);
+    }
+  };
+
+  const processRefund = async () => {
+    if (!selectedOrder) return;
+    const amount = Number(refundForm.amount_cents);
+    if (!amount || amount <= 0) {
+      setFeedback({ type: 'error', message: 'El monto del reembolso debe ser mayor a 0.' });
+      return;
+    }
+    setRefundBusy(true);
+    setFeedback({ type: '', message: '' });
+    try {
+      const result = await api.createRefund({
+        orderId: selectedOrder.id,
+        reason: refundForm.reason,
+        amount_cents: amount,
+        notes: refundForm.notes,
+      });
+      setRefundByOrder(prev => ({ ...prev, [selectedOrder.id]: result.refund }));
+      const updatedOrders = await api.getOrders();
+      setRows(updatedOrders.orders || []);
+      setFeedback({ type: 'success', message: `Reembolso procesado. ID MP: ${result.mp_refund_id}` });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message || 'No se pudo procesar el reembolso.' });
+    } finally {
+      setRefundBusy(false);
     }
   };
 
@@ -495,6 +532,7 @@ const OrdersDashboard = ({ orders = [] }) => {
               <table className="w-full min-w-[980px] text-left">
                 <thead>
                   <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] uppercase tracking-widest font-black">
+                    <th className="px-8 py-4">Folio</th>
                     <th className="px-8 py-4">Orden</th>
                     <th className="px-8 py-4">Cliente</th>
                     <th className="px-8 py-4">Monto</th>
@@ -509,6 +547,11 @@ const OrdersDashboard = ({ orders = [] }) => {
                 <tbody className="divide-y divide-zinc-50">
                   {filteredOrders.map((order) => (
                     <tr key={order.id} className="hover:bg-zinc-50/30 transition-colors">
+                      <td className="px-8 py-5">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black tracking-wide ${order.folio ? 'bg-zinc-100 text-zinc-700' : 'text-zinc-400'}`}>
+                          {order.folio || '—'}
+                        </span>
+                      </td>
                       <td className="px-8 py-5">
                         <div>
                           <p className="font-black text-sm">{order.id}</p>
@@ -597,6 +640,12 @@ const OrdersDashboard = ({ orders = [] }) => {
             <h2 className="font-black text-xl mb-4">Detalle de orden</h2>
             {selectedOrder ? (
               <div className="space-y-5">
+                <div className="rounded-2xl bg-zinc-950 border border-zinc-800 p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-1">Folio de producción</p>
+                  <p className="font-black text-[18px] text-white">{selectedOrder.folio || '—'}</p>
+                  <p className="text-[11px] text-zinc-400 font-mono mt-1">{selectedOrder.id}</p>
+                </div>
+
                 <div className="rounded-2xl bg-zinc-50 border border-zinc-100 p-4">
                   <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Cliente</p>
                   <p className="font-black text-zinc-950">{selectedOrder.customerLabel}</p>
@@ -1152,6 +1201,113 @@ const OrdersDashboard = ({ orders = [] }) => {
                     </div>
                   </div>
                 )}
+
+                {/* Gestión de devolución */}
+                {(() => {
+                  const existingRefund = refundByOrder[selectedOrder.id];
+                  const canRefund = selectedOrder.payment_status === 'paid' && selectedOrder.fulfillment_status !== 'delivered' && !existingRefund;
+                  const isRefunded = selectedOrder.payment_status === 'refunded';
+
+                  if (existingRefund || isRefunded) {
+                    const refund = existingRefund;
+                    const statusColor = {
+                      pending: 'text-amber-400 bg-amber-900/30 border-amber-700',
+                      processed: 'text-emerald-400 bg-emerald-900/30 border-emerald-700',
+                      rejected: 'text-rose-400 bg-rose-900/30 border-rose-700',
+                      approved: 'text-blue-400 bg-blue-900/30 border-blue-700',
+                    };
+                    return (
+                      <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4 space-y-3">
+                        <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Devolución registrada</p>
+                        {refund ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-zinc-400 font-medium">Estado</span>
+                              <span className={`text-xs font-black px-2 py-1 rounded-lg border ${statusColor[refund.status] || 'text-zinc-400 bg-zinc-800 border-zinc-700'}`}>
+                                {refund.status === 'processed' ? 'Procesado' : refund.status === 'pending' ? 'Pendiente' : refund.status === 'rejected' ? 'Rechazado' : refund.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-zinc-400 font-medium">Monto</span>
+                              <span className="text-sm text-white font-black">{currency(refund.amount_cents)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-zinc-400 font-medium">Motivo</span>
+                              <span className="text-sm text-zinc-200 font-medium">{refund.reason}</span>
+                            </div>
+                            {refund.mp_refund_id && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-zinc-400 font-medium">ID MP</span>
+                                <span className="text-xs text-zinc-400 font-mono">{refund.mp_refund_id}</span>
+                              </div>
+                            )}
+                            {refund.notes && (
+                              <p className="text-xs text-zinc-500 italic mt-1">{refund.notes}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-zinc-500">Orden marcada como reembolsada.</p>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (!canRefund) return null;
+
+                  return (
+                    <div className="rounded-2xl border border-rose-800 bg-zinc-900 p-4 space-y-4">
+                      <p className="text-xs font-black uppercase tracking-widest text-rose-400">Gestión de devolución</p>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs font-bold text-zinc-400 block mb-1">Motivo</label>
+                          <select
+                            value={refundForm.reason}
+                            onChange={e => setRefundForm(f => ({ ...f, reason: e.target.value }))}
+                            className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm rounded-xl px-3 py-2 outline-none focus:border-rose-500"
+                          >
+                            <option>Producto defectuoso</option>
+                            <option>No llegó</option>
+                            <option>No cumple expectativas</option>
+                            <option>Error en pedido</option>
+                            <option>Otro</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-zinc-400 block mb-1">Monto a reembolsar (CLP)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max={selectedOrder.amount_cents}
+                            value={refundForm.amount_cents}
+                            onChange={e => setRefundForm(f => ({ ...f, amount_cents: e.target.value }))}
+                            className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm rounded-xl px-3 py-2 outline-none focus:border-rose-500"
+                            placeholder={`Máx. ${selectedOrder.amount_cents}`}
+                          />
+                          <p className="text-xs text-zinc-600 mt-1">Reembolso parcial posible — edita el monto si aplica</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-zinc-400 block mb-1">Notas internas (opcional)</label>
+                          <textarea
+                            rows={2}
+                            value={refundForm.notes}
+                            onChange={e => setRefundForm(f => ({ ...f, notes: e.target.value }))}
+                            className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm rounded-xl px-3 py-2 outline-none focus:border-rose-500 resize-none"
+                            placeholder="Observaciones para el equipo..."
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={processRefund}
+                          disabled={refundBusy || !refundForm.amount_cents}
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-sm shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {refundBusy ? <Loader2 size={16} className="animate-spin" /> : null}
+                          {refundBusy ? 'Procesando reembolso...' : 'Procesar devolución'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 flex items-start gap-3">
                   {busyOrderId === selectedOrder.id ? <Loader2 size={18} className="mt-0.5 animate-spin" /> : <AlertCircle size={18} className="mt-0.5" />}

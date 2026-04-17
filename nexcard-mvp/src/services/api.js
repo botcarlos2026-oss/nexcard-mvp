@@ -500,6 +500,26 @@ export const api = {
       }
     }
 
+    // Verificar stock bajo mínimo tras descuento y enviar alerta si aplica
+    try {
+      const { data: allItems } = await supabase
+        .from('inventory_items')
+        .select('id, sku, item, stock, min_stock, stock_alert_sent_at')
+        .gt('min_stock', 0);
+      const lowItems = (allItems || []).filter(i => (i.stock || 0) <= (i.min_stock || 0));
+      if (lowItems.length > 0) {
+        await supabase.functions.invoke('send-low-stock-alert', {
+          body: JSON.stringify({ items: lowItems.map(i => ({ name: i.item || i.sku, sku: i.sku, stock: i.stock, min_stock: i.min_stock })) }),
+          headers: { 'Content-Type': 'application/json' },
+        });
+        await supabase.from('inventory_items')
+          .update({ stock_alert_sent_at: new Date().toISOString() })
+          .in('id', lowItems.map(i => i.id));
+      }
+    } catch {
+      // Alerta no crítica, no bloquear despacho
+    }
+
     // Trigger email de notificación de envío
     try {
       await supabase.functions.invoke('send-shipping-notification', {
@@ -749,5 +769,68 @@ export const api = {
           }
         });
     });
+  },
+
+  updateInventoryItem: async (itemId, payload) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('inventory_items').update(payload).eq('id', itemId);
+    if (error) throw new Error(error.message);
+    const { data: items } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: true });
+    return { items: items || [] };
+  },
+
+  checkLowStock: async () => {
+    if (!hasSupabase) return { lowStockItems: [] };
+    const { data } = await supabase
+      .from('inventory_items')
+      .select('sku, name, item, stock, min_stock')
+      .gt('min_stock', 0);
+    const lowStockItems = (data || []).filter(i => (i.stock || 0) <= (i.min_stock || 0));
+    return { lowStockItems };
+  },
+
+  getRefundForOrder: async (orderId) => {
+    if (!hasSupabase) return null;
+    const { data, error } = await supabase
+      .from('refunds')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('requested_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data || null;
+  },
+
+  createRefund: async ({ orderId, reason, amount_cents, notes }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+
+    // Insertar refund en estado pending
+    const { data: refund, error: insertError } = await supabase
+      .from('refunds')
+      .insert([{ order_id: orderId, reason, amount_cents, notes: notes || null, status: 'pending' }])
+      .select()
+      .single();
+    if (insertError) throw new Error(insertError.message);
+
+    // Invocar Edge Function process-refund
+    const { data: fnData, error: fnError } = await supabase.functions.invoke('process-refund', {
+      body: JSON.stringify({ orderId, amount_cents, reason, refundId: refund.id }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (fnError) throw new Error(fnError.message || 'Error al procesar reembolso en MP');
+    if (!fnData?.success) throw new Error(fnData?.error || 'Mercado Pago rechazó el reembolso');
+
+    return { refund: { ...refund, status: 'processed', mp_refund_id: fnData.mp_refund_id }, mp_refund_id: fnData.mp_refund_id };
+  },
+
+  getPendingRefundsCount: async () => {
+    if (!hasSupabase) return 0;
+    const { count } = await supabase
+      .from('refunds')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    return count || 0;
   },
 };

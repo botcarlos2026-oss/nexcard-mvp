@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Users,
   TrendingUp,
@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   BarChart2,
   Search,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
 import { api } from '../services/api';
@@ -60,6 +62,14 @@ const AdminDashboard = ({ dashboard }) => {
   const [globalSearch, setGlobalSearch] = useState('');
   const [globalResults, setGlobalResults] = useState(null);
   const [searching, setSearching] = useState(false);
+  const [lowStockItems, setLowStockItems] = useState([]);
+  const [lowStockDismissed, setLowStockDismissed] = useState(false);
+  const [pendingRefundsCount, setPendingRefundsCount] = useState(0);
+
+  useEffect(() => {
+    api.checkLowStock().then(({ lowStockItems: items }) => setLowStockItems(items)).catch(() => {});
+    api.getPendingRefundsCount().then(setPendingRefundsCount).catch(() => {});
+  }, []);
 
   const users = dashboard?.users || [];
   const statsSource = dashboard?.stats || {};
@@ -93,12 +103,32 @@ const AdminDashboard = ({ dashboard }) => {
     { label: 'Ingresos cobrados', value: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.totalRevenue || 0), icon: DollarSign, color: 'text-emerald-500' },
     { label: 'Perfiles activos', value: `${statsSource.totalProfiles || 0}`, icon: Users, color: 'text-blue-500' },
     { label: 'Pedidos abiertos', value: `${statsSource.pendingOrders || 0}`, icon: Package, color: 'text-amber-500' },
-  ]), [statsSource]);
+    { label: 'Devoluciones pendientes', value: `${pendingRefundsCount}`, icon: ShoppingCart, color: pendingRefundsCount > 0 ? 'text-rose-500' : 'text-zinc-400', badge: pendingRefundsCount > 0, href: '/admin/orders' },
+  ]), [statsSource, pendingRefundsCount]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 p-8">
+      {!lowStockDismissed && lowStockItems.length > 0 && (
+        <div className="max-w-7xl mx-auto mb-6">
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <AlertTriangle size={18} className="text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-black text-amber-800 text-sm">
+                Stock bajo en {lowStockItems.length} {lowStockItems.length === 1 ? 'producto' : 'productos'}:{' '}
+                <span className="font-medium">{lowStockItems.map(i => i.item || i.name || i.sku).join(', ')}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <a href="/admin/inventory" className="text-xs font-black text-amber-700 underline underline-offset-2 hover:text-amber-900">Ver inventario</a>
+              <button type="button" onClick={() => setLowStockDismissed(true)} className="text-amber-500 hover:text-amber-800 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto mb-10">
         <div className="flex justify-between items-center mb-6">
           <div>
@@ -183,18 +213,26 @@ const AdminDashboard = ({ dashboard }) => {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 mb-10">
-        {stats.map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-3 rounded-2xl bg-zinc-50 ${stat.color}`}>
-                <stat.icon size={24} />
+      <div className="grid md:grid-cols-4 gap-6 mb-10">
+        {stats.map((stat, i) => {
+          const inner = (
+            <div key={i} className={`bg-white p-6 rounded-3xl border shadow-sm transition-colors ${stat.badge ? 'border-rose-200 hover:border-rose-300' : 'border-zinc-100'} ${stat.href ? 'cursor-pointer' : ''}`}>
+              <div className="flex justify-between items-start mb-4">
+                <div className={`p-3 rounded-2xl bg-zinc-50 ${stat.color}`}>
+                  <stat.icon size={24} />
+                </div>
+                {stat.badge && (
+                  <span className="text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white px-2 py-1 rounded-full">Revisar</span>
+                )}
               </div>
+              <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{stat.label}</p>
+              <h3 className={`text-3xl font-black mt-1 ${stat.badge ? 'text-rose-600' : ''}`}>{stat.value}</h3>
             </div>
-            <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{stat.label}</p>
-            <h3 className="text-3xl font-black mt-1">{stat.value}</h3>
-          </div>
-        ))}
+          );
+          return stat.href
+            ? <a key={i} href={stat.href}>{inner}</a>
+            : <React.Fragment key={i}>{inner}</React.Fragment>;
+        })}
       </div>
 
       {/* Gráfico ventas por día */}
