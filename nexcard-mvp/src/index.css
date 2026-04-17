@@ -73,7 +73,8 @@
 
 /* ─── Button press feedback ──────────────────────────────────── */
 .btn-press {
-  transition: transform 160ms var(--ease-out);
+  transition: transform var(--dur-fast) var(--ease-out),
+              opacity   var(--dur-fast) var(--ease-out);
 }
 .btn-press:active {
   transform: scale(0.97);
@@ -103,19 +104,44 @@
 
 /* ─── Pricing card hover lift ────────────────────────────────── */
 .pricing-card {
-  transition: transform 200ms var(--ease-out),
-              box-shadow 200ms var(--ease-out),
-              border-color 200ms var(--ease-out);
+  transition: transform   var(--dur-base) var(--ease-out),
+              box-shadow  var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
   .pricing-card:hover {
     transform: translateY(-4px);
+    border-color: var(--color-brand);
   }
 }
 
 /* ─── Tab content fade ───────────────────────────────────────── */
 .tab-content {
-  animation: fadeIn 150ms var(--ease-out);
+  animation: fadeIn var(--dur-fast) var(--ease-out);
+}
+
+/* ─── Component tokens — usar en código nuevo ───────────────── */
+@layer components {
+  .btn-primary {
+    background-color: var(--color-brand);
+    color: var(--color-text-1);
+    transition: background-color var(--dur-fast) var(--ease-out),
+                transform         var(--dur-fast) var(--ease-out),
+                opacity           var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover { background-color: var(--color-brand-hover); }
+  }
+  .btn-primary:active { transform: scale(0.97); }
+
+  .surface-0 { background-color: var(--color-surface-0); }
+  .surface-1 { background-color: var(--color-surface-1); }
+  .surface-2 { background-color: var(--color-surface-2); }
+
+  .text-body-1 { color: var(--color-text-1); }
+  .text-body-2 { color: var(--color-text-2); }
+  .text-body-3 { color: var(--color-text-3); }
+  .text-brand  { color: var(--color-brand); }
 }
 
 /* ─── Coming Soon stagger entrada ────────────────────────────── */
@@ -143,7 +169,7 @@
     transition: none;
   }
   .pricing-card {
-    transition: border-color 200ms var(--ease-out);
+    transition: border-color var(--dur-base) var(--ease-out);
   }
   .spinner {
     animation: spinLoader 600ms linear infinite;
