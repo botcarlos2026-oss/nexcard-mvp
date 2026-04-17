@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone } from 'lucide-react';
 
 const FEATURES = [
@@ -26,6 +26,21 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
   const formatPrice = (n) => n.toLocaleString('es-CL');
 
+  useEffect(() => {
+    const cards = document.querySelectorAll('.pricing-reveal');
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      }),
+      { threshold: 0.1 }
+    );
+    cards.forEach((c) => observer.observe(c));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
 
@@ -33,7 +48,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         <span className="text-xl font-black tracking-tight font-heading">Nex<span className="text-emerald-400">Card</span></span>
         <div className="flex items-center gap-3">
           <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-1.5">Iniciar sesión</a>
-          <button onClick={onCheckoutStart} className="text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition-colors">Comprar</button>
+          <button onClick={onCheckoutStart} className="btn-press text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition-colors">Comprar</button>
         </div>
       </nav>
 
@@ -42,7 +57,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-emerald-500/8 rounded-full blur-3xl translate-x-1/2 -translate-y-1/4" />
           <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/6 rounded-full blur-3xl -translate-x-1/3 translate-y-1/4" />
         </div>
-        <div className="relative max-w-5xl mx-auto px-6 py-24 md:py-36 text-center">
+        <div className="hero-content relative max-w-5xl mx-auto px-6 py-24 md:py-36 text-center">
           <div className="inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
             <Smartphone size={12} />
             Tarjeta NFC · Compatible con iPhone y Android
@@ -79,7 +94,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               />
               <button
                 onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)}
-                className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap"
+                className="btn-press text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap"
               >
                 Ver perfil →
               </button>
@@ -164,9 +179,9 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <h2 className="text-3xl md:text-4xl font-black mb-4">Planes y precios</h2>
             <p className="text-zinc-400 max-w-xl mx-auto">A mayor volumen, mejor precio por unidad. Elige el pack que se adapta a tu equipo.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="pricing-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {PRICING.map((plan) => (
-              <div key={plan.sku} className={`pricing-card relative rounded-xl p-6 flex flex-col ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800'}`}>
+              <div key={plan.sku} className={`pricing-card pricing-reveal relative rounded-xl p-6 flex flex-col ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800'}`}>
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.badge}</span>
@@ -279,7 +294,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <p className="text-zinc-400 text-sm">A mayor volumen, mejor precio por unidad</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
+          <div className="pricing-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
             {[
               { name: 'Starter', units: 1, price: 5990, perUnit: 5990, highlight: false, features: ['1 tarjeta NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado'] },
               { name: 'Negocio', units: 3, price: 14990, perUnit: 4997, highlight: false, features: ['3 tarjetas NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado', 'Ahorra $2.980'] },
@@ -288,7 +303,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             ].map((plan) => (
               <div
                 key={plan.name}
-                className={`pricing-card relative rounded-xl p-6 flex flex-col ${
+                className={`pricing-card pricing-reveal relative rounded-xl p-6 flex flex-col ${
                   plan.highlight
                     ? 'bg-blue-950 border-2 border-blue-500 shadow-lg shadow-blue-900/30'
                     : 'bg-zinc-900 border border-zinc-800'

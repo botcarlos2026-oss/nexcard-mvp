@@ -77,7 +77,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         <p className="text-zinc-400 mb-6 text-sm">No puedes iniciar un checkout sin productos</p>
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
+          className="btn-press flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
         >
           <ArrowLeft size={18} />
           Volver al carrito

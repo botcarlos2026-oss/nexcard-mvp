@@ -13,6 +13,7 @@
   --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* Durations */
   --dur-fast: 150ms;
@@ -70,6 +71,33 @@
 .animate-in {
   animation: fadeInDown 0.4s var(--ease-out) forwards;
 }
+
+/* ─── Hero stagger (LandingPage) ─────────────────────────────── */
+.hero-content > * {
+  animation: fadeInUp 400ms var(--ease-out) both;
+}
+.hero-content > *:nth-child(1) { animation-delay:   0ms; }
+.hero-content > *:nth-child(2) { animation-delay:  80ms; }
+.hero-content > *:nth-child(3) { animation-delay: 160ms; }
+.hero-content > *:nth-child(4) { animation-delay: 240ms; }
+.hero-content > *:nth-child(5) { animation-delay: 320ms; }
+.hero-content > *:nth-child(6) { animation-delay: 400ms; }
+
+/* ─── Pricing cards scroll reveal ───────────────────────────── */
+.pricing-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity   var(--dur-slow) var(--ease-out),
+              transform var(--dur-slow) var(--ease-out);
+}
+.pricing-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.pricing-grid .pricing-reveal:nth-child(1) { transition-delay:   0ms; }
+.pricing-grid .pricing-reveal:nth-child(2) { transition-delay:  60ms; }
+.pricing-grid .pricing-reveal:nth-child(3) { transition-delay: 120ms; }
+.pricing-grid .pricing-reveal:nth-child(4) { transition-delay: 180ms; }
 
 /* ─── Button press feedback ──────────────────────────────────── */
 .btn-press {
@@ -164,6 +192,15 @@
     animation: none;
     opacity: 1;
     transform: none;
+  }
+  .hero-content > * {
+    animation: none;
+    opacity: 1;
+  }
+  .pricing-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
   .btn-press {
     transition: none;
