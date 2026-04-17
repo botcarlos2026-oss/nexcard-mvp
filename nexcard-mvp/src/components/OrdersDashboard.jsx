@@ -747,6 +747,45 @@ const OrdersDashboard = ({ orders = [] }) => {
                   </div>
                 </div>
 
+                {/* Boleta SII */}
+                <div className="rounded-2xl border border-zinc-100 bg-white p-4">
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-3">Boleta SII</p>
+                  {selectedOrder.bsale_document_id ? (
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-black uppercase tracking-wide">
+                        ✓ EMITIDA
+                      </span>
+                      <span className="text-xs text-zinc-500">Doc #{selectedOrder.bsale_document_id}</span>
+                      {selectedOrder.bsale_document_url && (
+                        <a
+                          href={selectedOrder.bsale_document_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-sky-600 hover:underline font-bold"
+                        >
+                          Ver PDF →
+                        </a>
+                      )}
+                    </div>
+                  ) : selectedOrder.requires_invoice ? (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-700 px-3 py-1 text-xs font-black uppercase tracking-wide w-fit">
+                        ⏳ PENDIENTE
+                      </span>
+                      {selectedOrder.invoice_rut && (
+                        <p className="text-xs text-zinc-500">RUT: {selectedOrder.invoice_rut} · {selectedOrder.invoice_razon_social}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex rounded-full bg-zinc-100 text-zinc-500 px-3 py-1 text-xs font-black uppercase tracking-wide">
+                        No emitida
+                      </span>
+                      <span className="text-xs text-zinc-400">(integración Bsale pendiente)</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* FLUJO NFC: Paso A → Vincular card */}
                 <div className="rounded-2xl border border-zinc-100 bg-white p-4 space-y-5">
                   <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Programación NFC</p>

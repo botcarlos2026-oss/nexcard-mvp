@@ -18,6 +18,26 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     acceptTerms: false,
   });
 
+  const [invoiceData, setInvoiceData] = useState({
+    requiresInvoice: false,
+    invoiceRut: '',
+    invoiceRazonSocial: '',
+  });
+  const [rutError, setRutError] = useState('');
+
+  const validateRutFormat = (rut) => {
+    return /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/.test(rut.trim());
+  };
+
+  const handleInvoiceChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setRutError('');
+    setInvoiceData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
   const [customization, setCustomization] = useState({
     full_name: '',
     job_title: '',
@@ -73,6 +93,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     if (!formData.customerAddress.trim()) return 'Por favor ingresa tu dirección de despacho';
     if (formData.customerAddress.trim().length < 10) return 'La dirección parece muy corta, incluye calle y número';
     if (!formData.acceptTerms) return 'Debes aceptar los términos y condiciones para continuar';
+    if (invoiceData.requiresInvoice) {
+      if (!invoiceData.invoiceRut.trim()) return 'Ingresa el RUT de la empresa';
+      if (!validateRutFormat(invoiceData.invoiceRut)) return 'RUT inválido. Formato: XX.XXX.XXX-X';
+      if (!invoiceData.invoiceRazonSocial.trim()) return 'Ingresa la razón social de la empresa';
+    }
     return null;
   };
 
@@ -120,6 +145,9 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           quantity: item.quantity,
           unit_price_cents: item.unit_price_cents,
         })),
+        requires_invoice: invoiceData.requiresInvoice,
+        invoice_rut: invoiceData.requiresInvoice ? invoiceData.invoiceRut.trim() : null,
+        invoice_razon_social: invoiceData.requiresInvoice ? invoiceData.invoiceRazonSocial.trim() : null,
       };
       const result = await api.createOrder(orderPayload);
 
@@ -417,6 +445,57 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* Boleta / Factura empresa */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="requiresInvoice"
+                  checked={invoiceData.requiresInvoice}
+                  onChange={handleInvoiceChange}
+                  className="accent-emerald-500"
+                />
+                <span className="text-sm font-semibold text-zinc-300">
+                  Necesito boleta a nombre de empresa (factura)
+                </span>
+              </label>
+
+              {invoiceData.requiresInvoice && (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className={labelClass}>RUT empresa</label>
+                    <input
+                      type="text"
+                      name="invoiceRut"
+                      value={invoiceData.invoiceRut}
+                      onChange={handleInvoiceChange}
+                      onBlur={() => {
+                        if (invoiceData.invoiceRut && !validateRutFormat(invoiceData.invoiceRut)) {
+                          setRutError('Formato requerido: XX.XXX.XXX-X');
+                        }
+                      }}
+                      placeholder="76.543.210-K"
+                      className={inputClass}
+                    />
+                    {rutError && (
+                      <p className="text-xs text-red-400 mt-1">{rutError}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={labelClass}>Razón social</label>
+                    <input
+                      type="text"
+                      name="invoiceRazonSocial"
+                      value={invoiceData.invoiceRazonSocial}
+                      onChange={handleInvoiceChange}
+                      placeholder="Empresa S.A."
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Términos */}

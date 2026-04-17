@@ -22,6 +22,7 @@ serve(async (req) => {
     }
 
     const { order, items, card_customization } = JSON.parse(text);
+    const folio = order?.folio || null;
 
     log('info', 'request_received', { order_id: order?.id });
 
@@ -53,8 +54,10 @@ serve(async (req) => {
       <h2 style="color:#09090B;font-size:22px;margin:0 0 8px">¡Orden confirmada! 🎉</h2>
       <p style="color:#6b7280;margin:0 0 24px">Hola ${order.customer_name || 'Cliente'}, recibimos tu pedido correctamente.</p>
       <div style="background:#f9fafb;border-radius:12px;padding:20px;margin-bottom:24px">
+        ${folio ? `<p style="margin:0 0 2px;font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase">Folio de producción</p>
+        <p style="margin:0 0 12px;font-size:20px;font-weight:900;color:#09090B">${folio}</p>` : ''}
         <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase">Número de orden</p>
-        <p style="margin:0;font-size:14px;font-weight:700;color:#09090B;font-family:monospace">${order.id}</p>
+        <p style="margin:0;font-size:12px;font-weight:700;color:#6b7280;font-family:monospace">${order.id}</p>
       </div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
         <thead>
@@ -111,7 +114,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'NexCard <hola@nexcard.cl>',
         to: [order.customer_email],
-        subject: `✅ Orden confirmada #${order.id?.slice(0, 8).toUpperCase()}`,
+        subject: folio ? `✅ Orden confirmada ${folio}` : `✅ Orden confirmada #${order.id?.slice(0, 8).toUpperCase()}`,
         html: emailHTML,
       }),
     });
@@ -149,6 +152,24 @@ serve(async (req) => {
       log('warn', 'resend_internal_email_failed', { order_id: order.id, status: internalResponse.status, resend_error: internalData });
     } else {
       log('info', 'internal_notification_sent', { order_id: order.id, resend_id: internalData?.id });
+    }
+
+    // Emitir boleta/factura Bsale (NO-OP hasta configurar BSALE_ACCESS_TOKEN)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (supabaseUrl && supabaseKey) {
+        await fetch(`${supabaseUrl}/functions/v1/emit-bsale-document`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ orderId: order.id, order }),
+        });
+      }
+    } catch (bsaleErr) {
+      log('warn', 'bsale_emission_skipped', { order_id: order.id, reason: bsaleErr.message });
     }
 
     return new Response(
