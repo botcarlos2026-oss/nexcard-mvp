@@ -104,34 +104,36 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         </div>
       </section>
 
-      <section className="border-t border-zinc-800/60 py-20 px-6">
+      <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-black mb-4">Todo lo que necesitas para networking profesional</h2>
             <p className="text-zinc-400 max-w-xl mx-auto">Una sola tarjeta reemplaza cientos de tarjetas de papel y siempre está actualizada.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {FEATURES.map((f, i) => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-6 transition-colors">
-                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-lg flex items-center justify-center mb-4">{f.icon}</div>
-                <h3 className="font-bold mb-2">{f.title}</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">{f.description}</p>
+              <div key={i} className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-7 transition-colors flex gap-5 items-start">
+                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-lg flex items-center justify-center shrink-0">{f.icon}</div>
+                <div>
+                  <h3 className="font-bold mb-1.5">{f.title}</h3>
+                  <p className="text-zinc-400 text-sm leading-relaxed">{f.description}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-t border-zinc-800/60 py-20 px-6 bg-zinc-900/30">
+      <section className="border-t border-zinc-800/60 py-24 px-6 bg-zinc-900/30">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-black mb-4">Cómo funciona</h2>
-            <p className="text-zinc-400">De tu pedido a compartir tu contacto en menos de 48 horas</p>
+            <p className="text-zinc-400 max-w-xl mx-auto">De tu pedido a compartir tu contacto en menos de 48 horas</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
             {STEPS.map((step) => (
               <div key={step.num}>
-                <div className="text-4xl font-black text-emerald-400/20 mb-3">{step.num}</div>
+                <div className="text-5xl font-black text-emerald-400/15 mb-4 leading-none">{step.num}</div>
                 <h3 className="font-bold mb-2 text-base">{step.title}</h3>
                 <p className="text-zinc-400 text-sm leading-relaxed">{step.desc}</p>
               </div>
@@ -141,24 +143,24 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       </section>
 
       {/* Social Proof */}
-      <section className="border-t border-zinc-800/60 py-14 px-6">
+      <section className="border-t border-zinc-800/60 py-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-zinc-600 text-xs uppercase tracking-widest mb-10">Profesionales que ya dejaron el papel atrás</p>
-          <div className="grid grid-cols-3 gap-8 mb-12">
+          <p className="text-zinc-600 text-xs uppercase tracking-widest mb-12">Profesionales que ya dejaron el papel atrás</p>
+          <div className="grid grid-cols-3 gap-6 mb-14 max-w-lg mx-auto">
             <div>
-              <p className="text-4xl font-black text-emerald-400">+500</p>
-              <p className="text-zinc-500 text-sm mt-1">tarjetas activadas</p>
+              <p className="text-3xl font-bold text-emerald-400">+500</p>
+              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">tarjetas activadas</p>
             </div>
             <div>
-              <p className="text-4xl font-black text-emerald-400">48h</p>
-              <p className="text-zinc-500 text-sm mt-1">tiempo de entrega</p>
+              <p className="text-3xl font-bold text-emerald-400">48h</p>
+              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">tiempo de entrega</p>
             </div>
             <div>
-              <p className="text-4xl font-black text-emerald-400">100%</p>
-              <p className="text-zinc-500 text-sm mt-1">compatible iPhone y Android</p>
+              <p className="text-3xl font-bold text-emerald-400">100%</p>
+              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">compatible iPhone y Android</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {[
               { quote: 'Lo instalé en 5 minutos y mis clientes quedaron impresionados. Nunca más olvidé repartir tarjetas.', name: 'Rodrigo M.', role: 'Consultor independiente' },
               { quote: 'Equipamos a todo el equipo de ventas. Profesional, moderno y nada de papel desechable.', name: 'Valentina S.', role: 'Gerenta comercial' },
@@ -174,29 +176,29 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         </div>
       </section>
 
-      <section className="border-t border-zinc-800/60 py-20 px-6" id="precios">
+      <section className="border-t border-zinc-800/60 py-24 px-6" id="precios">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-black mb-4">Planes y precios</h2>
             <p className="text-zinc-400 max-w-xl mx-auto">A mayor volumen, mejor precio por unidad. Elige el pack que se adapta a tu equipo.</p>
           </div>
           <div className="pricing-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {PRICING.map((plan) => (
-              <div key={plan.sku} className={`pricing-card pricing-reveal relative rounded-xl p-6 flex flex-col ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800'}`}>
+              <div key={plan.sku} className={`pricing-card pricing-reveal relative rounded-xl p-7 flex flex-col ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800'}`}>
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.badge}</span>
                   </div>
                 )}
-                <div className="mb-5">
+                <div className="mb-6">
                   <h3 className="font-black text-lg mb-1">{plan.name}</h3>
                   <p className="text-zinc-400 text-xs leading-relaxed">{plan.description}</p>
                 </div>
-                <div className="mb-5">
+                <div className="mb-6">
                   <span className="text-3xl font-black text-emerald-400">${formatPrice(plan.price)}</span>
-                  <p className="text-zinc-500 text-xs mt-1">${formatPrice(plan.perUnit)} por tarjeta · {plan.cards} unidades</p>
+                  <p className="text-zinc-500 text-xs mt-1.5">${formatPrice(plan.perUnit)} por tarjeta · {plan.cards} unidades</p>
                 </div>
-                <ul className="space-y-2 mb-6 flex-1">
+                <ul className="space-y-2.5 mb-7 flex-1">
                   {plan.features.map((feat, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
                       <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />
@@ -213,7 +215,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         </div>
       </section>
 
-      <section className="border-t border-zinc-800/60 py-20 px-6">
+      <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-black mb-4">Listo para modernizar tu networking</h2>
           <p className="text-zinc-400 mb-8">Únete a los profesionales que ya dejaron las tarjetas de papel atrás.</p>
@@ -273,17 +275,19 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           {/* Cómo funciona */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 mb-16">
             <h3 className="text-2xl font-black text-center mb-10">¿Cómo funciona?</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {[
                 { num: '01', title: 'Cliente paga', desc: 'Selecciona tu pack y recibe tus tarjetas en casa.' },
                 { num: '02', title: 'Tú envías tu link', desc: 'Nos mandas tu URL de reseñas de Google. La programamos en todas tus tarjetas.' },
                 { num: '03', title: 'Ubica la tarjeta', desc: 'Pon la tarjeta en caja, mostrador o mesa. Con logo Google y QR impreso.' },
                 { num: '04', title: 'Clientes reseñan', desc: 'Tocan con su teléfono → directo a tu página de reseñas. En 15 segundos.' },
               ].map((step) => (
-                <div key={step.num} className="text-center">
-                  <div className="text-3xl font-black text-blue-400/30 mb-2">{step.num}</div>
-                  <h4 className="font-bold mb-1 text-sm">{step.title}</h4>
-                  <p className="text-zinc-400 text-xs leading-relaxed">{step.desc}</p>
+                <div key={step.num} className="flex gap-4 items-start">
+                  <div className="text-3xl font-black text-blue-400/30 leading-none shrink-0 w-10">{step.num}</div>
+                  <div>
+                    <h4 className="font-bold mb-1 text-sm">{step.title}</h4>
+                    <p className="text-zinc-400 text-xs leading-relaxed">{step.desc}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -304,7 +308,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             ].map((plan) => (
               <div
                 key={plan.name}
-                className={`pricing-card pricing-reveal relative rounded-xl p-6 flex flex-col ${
+                className={`pricing-card pricing-reveal relative rounded-xl p-7 flex flex-col ${
                   plan.highlight
                     ? 'bg-blue-950 border-2 border-blue-500 shadow-lg shadow-blue-900/30'
                     : 'bg-zinc-900 border border-zinc-800'
