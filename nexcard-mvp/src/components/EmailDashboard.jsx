@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Mail, Users, UserMinus, BarChart2, Send, Clock, Download, Eye, X } from 'lucide-react';
+import { Mail, Users, UserMinus, BarChart2, Send, Clock, Download, Eye, X, ShoppingCart } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
+import { api } from '../services/api';
 import { templateShipping, templateFollowup, templateUpsell, templateWaitlistLaunch } from '../utils/emailTemplates';
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
@@ -55,22 +56,27 @@ export default function EmailDashboard() {
   // Filters
   const [logTypeFilter, setLogTypeFilter] = useState('all');
 
+  const [abandonedCarts, setAbandonedCarts] = useState([]);
+  const [sendingReminder, setSendingReminder] = useState(null);
+
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [logRes, unsubRes, ordersRes, waitlistRes] = await Promise.all([
+      const [logRes, unsubRes, ordersRes, waitlistRes, cartsData] = await Promise.all([
         supabase.from('email_log').select('*').order('sent_at', { ascending: false }).limit(50),
         supabase.from('email_unsubscribe').select('email'),
         supabase.from('orders').select('customer_email').not('customer_email', 'is', null),
         supabase.from('waitlist').select('email').not('email', 'is', null),
+        api.getAbandonedCarts().catch(() => []),
       ]);
 
       const unsubEmails = new Set((unsubRes.data || []).map(u => u.email.toLowerCase()));
 
       setEmailLog(logRes.data || []);
       setUnsubscribes(unsubRes.data || []);
+      setAbandonedCarts(cartsData || []);
 
       const uniqueClients = [...new Set((ordersRes.data || []).map(o => o.customer_email?.toLowerCase()).filter(Boolean))];
       setClientEmails(uniqueClients.filter(e => !unsubEmails.has(e)));
@@ -186,6 +192,7 @@ export default function EmailDashboard() {
     { id: 'recipients', label: 'Destinatarios', icon: Users },
     { id: 'campaign', label: 'Enviar campaña', icon: Send },
     { id: 'history', label: 'Historial', icon: Clock },
+    { id: 'abandoned', label: 'Carritos abandonados', icon: ShoppingCart },
   ];
 
   if (loading) {
@@ -473,6 +480,134 @@ export default function EmailDashboard() {
           </div>
         )}
       </div>
+
+      {/* ==================== CARRITOS ABANDONADOS ==================== */}
+      {activeTab === 'abandoned' && (() => {
+        const abandoned = abandonedCarts.filter(c => c.status === 'abandoned' || c.status === 'email_sent');
+        const converted = abandonedCarts.filter(c => c.status === 'converted');
+        const total = abandoned.length + converted.length;
+        const recoveryRate = total > 0 ? Math.round((converted.length / total) * 100) : 0;
+        const recoveredRevenue = converted.reduce((sum, c) => sum + (c.total_cents || 0), 0);
+
+        const handleSendReminder = async (cart) => {
+          if (sendingReminder) return;
+          setSendingReminder(cart.id);
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+            const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/send-abandoned-cart`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+                'apikey': SUPABASE_ANON_KEY,
+              },
+              body: JSON.stringify({ cartId: cart.id }),
+            });
+            const data = await res.json();
+            if (data.success || data.skipped) load();
+          } catch {
+            // silencioso
+          } finally {
+            setSendingReminder(null);
+          }
+        };
+
+        const statusBadge = (status) => {
+          const map = {
+            abandoned: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pendiente' },
+            email_sent: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Email enviado' },
+            converted: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Recuperado' },
+            ignored: { bg: 'bg-zinc-100', text: 'text-zinc-500', label: 'Ignorado' },
+          };
+          const s = map[status] || map.ignored;
+          return <span className={`px-2 py-0.5 ${s.bg} ${s.text} rounded-lg text-xs font-bold`}>{s.label}</span>;
+        };
+
+        return (
+          <div>
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white rounded-2xl p-5 border border-zinc-100">
+                <p className="text-2xl font-black text-zinc-950">{abandoned.length}</p>
+                <p className="text-sm font-medium text-zinc-500">Carritos (7 días)</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-zinc-100">
+                <p className="text-2xl font-black text-emerald-600">{converted.length}</p>
+                <p className="text-sm font-medium text-zinc-500">Recuperados</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-zinc-100">
+                <p className="text-2xl font-black text-zinc-950">{recoveryRate}%</p>
+                <p className="text-sm font-medium text-zinc-500">Tasa recuperación</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-zinc-100">
+                <p className="text-2xl font-black text-emerald-600">${recoveredRevenue.toLocaleString('es-CL')}</p>
+                <p className="text-sm font-medium text-zinc-500">Revenue recuperado</p>
+              </div>
+            </div>
+
+            {/* Tabla */}
+            <div className="bg-white rounded-2xl border border-zinc-100 p-6">
+              {abandonedCarts.length === 0 ? (
+                <p className="text-zinc-400 text-sm py-4 text-center">Sin carritos abandonados en los últimos 7 días.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-100">
+                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Cliente</th>
+                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Items</th>
+                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Total</th>
+                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Hace</th>
+                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Estado</th>
+                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {abandonedCarts.map(cart => {
+                        const items = cart.items || [];
+                        const hoursAgo = Math.round((Date.now() - new Date(cart.created_at).getTime()) / 3600000);
+                        const timeLabel = hoursAgo < 24 ? `${hoursAgo}h` : `${Math.round(hoursAgo / 24)}d`;
+                        const canSend = cart.status === 'abandoned' && !cart.reminder_sent_at;
+                        return (
+                          <tr key={cart.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50">
+                            <td className="py-3 pr-4">
+                              <p className="font-medium text-zinc-900 truncate max-w-[150px]">{cart.customer_name || '—'}</p>
+                              <p className="text-xs text-zinc-400 truncate max-w-[150px]">{cart.email}</p>
+                            </td>
+                            <td className="py-3 pr-4 text-zinc-600 max-w-[180px]">
+                              <p className="truncate">{items.map(i => i.product_name).join(', ')}</p>
+                              <p className="text-xs text-zinc-400">{items.reduce((s, i) => s + i.quantity, 0)} unidad{items.reduce((s, i) => s + i.quantity, 0) !== 1 ? 'es' : ''}</p>
+                            </td>
+                            <td className="py-3 pr-4 font-black text-zinc-950">${cart.total_cents.toLocaleString('es-CL')}</td>
+                            <td className="py-3 pr-4 text-zinc-400 whitespace-nowrap">{timeLabel}</td>
+                            <td className="py-3 pr-4">{statusBadge(cart.status)}</td>
+                            <td className="py-3">
+                              {canSend ? (
+                                <button
+                                  onClick={() => handleSendReminder(cart)}
+                                  disabled={sendingReminder === cart.id}
+                                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-lg font-bold text-xs transition-colors whitespace-nowrap"
+                                >
+                                  {sendingReminder === cart.id ? 'Enviando...' : 'Enviar recordatorio'}
+                                </button>
+                              ) : (
+                                <span className="text-xs text-zinc-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Preview Modal */}
       {showPreview && (

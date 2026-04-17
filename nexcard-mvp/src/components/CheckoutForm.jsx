@@ -9,6 +9,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('mercado-pago');
+  const [abandonedCartId, setAbandonedCartId] = useState(null);
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -185,12 +186,14 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
             throw new Error('No se pudo iniciar el pago con Mercado Pago');
           }
 
+          if (abandonedCartId) api.markCartConverted(abandonedCartId);
           clearCart();
           // Redirigir a Mercado Pago
           window.location.href = data.init_point;
 
         } else {
           // Transbank — flujo pendiente
+          if (abandonedCartId) api.markCartConverted(abandonedCartId);
           clearCart();
           onOrderSuccess(result);
         }
@@ -285,6 +288,27 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   name="customerEmail"
                   value={formData.customerEmail}
                   onChange={handleChange}
+                  onBlur={async (e) => {
+                    const email = e.target.value.trim();
+                    if (!email.includes('@') || !email.includes('.')) return;
+                    if (items.length === 0) return;
+                    try {
+                      const result = await api.saveAbandonedCart({
+                        email,
+                        customerName: formData.customerName.trim() || null,
+                        items: items.map(i => ({
+                          product_id: i.product_id,
+                          product_name: i.product_name,
+                          quantity: i.quantity,
+                          unit_price_cents: i.unit_price_cents,
+                        })),
+                        totalCents,
+                      });
+                      if (result?.id) setAbandonedCartId(result.id);
+                    } catch {
+                      // silencioso — no bloquear checkout
+                    }
+                  }}
                   placeholder="juan@example.com"
                   autoComplete="email"
                   className={inputClass}
