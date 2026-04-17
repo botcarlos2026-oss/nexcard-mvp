@@ -21,6 +21,19 @@ import { generateVCard } from '../utils/vCardEngine';
 import { trackClick } from '../utils/analyticsEngine';
 
 const NexCardProfile = ({ data }) => {
+  // NexReview: si es tarjeta de reseñas, redirigir inmediatamente
+  if (data.card_type === 'review' && data.review_url) {
+    window.location.replace(data.review_url);
+    return (
+      <div className="min-h-screen bg-zinc-950 grid place-items-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white font-bold text-sm">Redirigiendo a reseñas…</p>
+        </div>
+      </div>
+    );
+  }
+
   const [copiedField, setCopiedField] = useState(null);
   const [isBankOpen, setIsBankOpen] = useState(false);
 
@@ -86,12 +99,21 @@ const NexCardProfile = ({ data }) => {
       {/* Profile Info Section */}
       <div className="max-w-md mx-auto px-6 pb-8 text-center -mt-16 relative z-10">
         <div className="relative inline-block group">
-          <img 
-            src={data.avatar_url || 'https://via.placeholder.com/150'} 
-            alt={data.full_name}
-            className="w-32 h-32 rounded-full border-4 object-cover relative z-10 shadow-lg"
-            style={{ borderColor: isDark ? '#09090b' : '#f9fafb' }}
-          />
+          {data.avatar_url ? (
+            <img
+              src={data.avatar_url}
+              alt={data.full_name}
+              className="w-32 h-32 rounded-full border-4 object-cover relative z-10 shadow-lg"
+              style={{ borderColor: isDark ? '#09090b' : '#f9fafb' }}
+            />
+          ) : (
+            <div
+              className="w-32 h-32 rounded-full border-4 flex items-center justify-center text-4xl font-black text-white relative z-10 shadow-lg"
+              style={{ backgroundColor: themeColor, borderColor: isDark ? '#09090b' : '#f9fafb' }}
+            >
+              {data.full_name?.charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
         
         <h1 className="mt-4 text-3xl font-bold tracking-tight">{data.full_name}</h1>
@@ -132,12 +154,12 @@ const NexCardProfile = ({ data }) => {
         {/* Social Grid */}
         <div className="grid grid-cols-4 gap-3">
           {(data.whatsapp_enabled !== false && data.whatsapp) && (
-            <a 
+            <a
               href={`https://wa.me/${data.whatsapp}`}
               onClick={() => handleLinkClick('whatsapp')}
               target="_blank"
               rel="noreferrer"
-              className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
+              className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-green-950 border-green-900' : 'bg-green-50 border-green-100'}`}
             >
               <Phone size={24} className="text-green-500" />
             </a>

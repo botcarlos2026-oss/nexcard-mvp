@@ -9,7 +9,7 @@ const FEATURES = [
 ];
 
 const PRICING = [
-  { sku: 'BASIC-5', name: 'Básico', cards: 5, price: 89990, perUnit: 17998, description: 'Ideal para equipos pequeños o para empezar', highlight: false, features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Soporte por email'] },
+  { sku: 'BASIC-5', name: 'Estándar', cards: 5, price: 89990, perUnit: 17998, description: 'Ideal para profesionales independientes', highlight: false, features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Activación guiada', 'Soporte por email'] },
   { sku: 'PREMIUM-5', name: 'Premium 5', cards: 5, price: 79990, perUnit: 15998, description: 'El más popular para emprendedores', highlight: false, features: ['5 tarjetas NFC premium', 'Perfil personalizado', 'Analítica básica', 'Soporte prioritario'] },
   { sku: 'PREMIUM-10', name: 'Premium 10', cards: 10, price: 149990, perUnit: 14999, description: 'Para equipos de ventas en crecimiento', highlight: true, badge: 'Más popular', features: ['10 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte prioritario', 'Dashboard de equipo'] },
   { sku: 'PREMIUM-20', name: 'Premium 20', cards: 20, price: 269990, perUnit: 13499, description: 'La mejor relación precio-volumen', highlight: false, features: ['20 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte dedicado', 'Dashboard de equipo', 'Onboarding asistido'] },
@@ -59,11 +59,32 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               Ver precios y packs
               <ArrowRight size={18} />
             </button>
-            <button onClick={onCheckoutStart} className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-all border border-zinc-700 text-base">
-              Ver precios
+            <button onClick={() => window.location.href = '/carlos'} className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-all border border-zinc-700 text-base">
+              Ver perfil demo
             </button>
           </div>
           <p className="mt-10 text-sm text-zinc-500">Despacho a todo Chile · Activación en minutos · Sin contratos</p>
+
+          {/* Buscador de perfil inline */}
+          <div className="mt-10 flex flex-col items-center gap-2">
+            <p className="text-zinc-500 text-xs">¿Ya tienes tu tarjeta? Busca tu perfil</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
+                placeholder="tu-slug"
+                className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-36 transition-colors"
+              />
+              <button
+                onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)}
+                className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap"
+              >
+                Ver perfil →
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -97,6 +118,40 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 <div className="text-4xl font-black text-emerald-400/20 mb-3">{step.num}</div>
                 <h3 className="font-bold mb-2 text-base">{step.title}</h3>
                 <p className="text-zinc-400 text-sm leading-relaxed">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof */}
+      <section className="border-t border-zinc-800/60 py-14 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-zinc-600 text-xs uppercase tracking-widest mb-10">Profesionales que ya dejaron el papel atrás</p>
+          <div className="grid grid-cols-3 gap-8 mb-12">
+            <div>
+              <p className="text-4xl font-black text-emerald-400">+500</p>
+              <p className="text-zinc-500 text-sm mt-1">tarjetas activadas</p>
+            </div>
+            <div>
+              <p className="text-4xl font-black text-emerald-400">48h</p>
+              <p className="text-zinc-500 text-sm mt-1">tiempo de entrega</p>
+            </div>
+            <div>
+              <p className="text-4xl font-black text-emerald-400">100%</p>
+              <p className="text-zinc-500 text-sm mt-1">compatible iPhone y Android</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { quote: 'Lo instalé en 5 minutos y mis clientes quedaron impresionados. Nunca más olvidé repartir tarjetas.', name: 'Rodrigo M.', role: 'Consultor independiente' },
+              { quote: 'Equipamos a todo el equipo de ventas. Profesional, moderno y nada de papel desechable.', name: 'Valentina S.', role: 'Gerenta comercial' },
+              { quote: 'El link de reseñas de Google triplicó nuestros comentarios en un mes. Muy recomendado.', name: 'Felipe A.', role: 'Dueño de café' },
+            ].map((t, i) => (
+              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-left">
+                <p className="text-zinc-300 text-sm leading-relaxed mb-4">"{t.quote}"</p>
+                <p className="text-white font-bold text-sm">{t.name}</p>
+                <p className="text-zinc-500 text-xs">{t.role}</p>
               </div>
             ))}
           </div>
@@ -299,25 +354,15 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           <div className="flex items-center gap-4 text-sm text-zinc-500">
             <span>© 2026 NexCard</span>
             <span>·</span>
-            <a href="/privacidad" className="hover:text-zinc-300 transition-colors">Términos</a>
+            <a href="/terminos" className="hover:text-zinc-300 transition-colors">Términos</a>
             <span>·</span>
             <a href="/privacidad" className="hover:text-zinc-300 transition-colors">Privacidad</a>
             <span>·</span>
-            <a href="/privacidad" className="hover:text-zinc-300 transition-colors">Contacto</a>
+            <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="hover:text-zinc-300 transition-colors">Contacto</a>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
-              placeholder="mi-perfil"
-              className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-32"
-            />
-            <button onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap">
-              Ver perfil
-            </button>
-          </div>
+          <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
+            💬 WhatsApp
+          </a>
         </div>
       </footer>
 

@@ -17,7 +17,12 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.PUBLIC_APP_URL || 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'x-user-id'],
+  credentials: false,
+}));
 app.use(express.json({ limit: '2mb' }));
 
 function ensureDb() {

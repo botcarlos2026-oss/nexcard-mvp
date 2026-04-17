@@ -217,15 +217,15 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
             <table className="w-full min-w-[1280px] text-left">
               <thead>
                 <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] uppercase tracking-widest font-black">
-                  <th className="px-8 py-4">Card</th>
-                  <th className="px-8 py-4">Status</th>
-                  <th className="px-8 py-4">Activation</th>
-                  <th className="px-8 py-4">Profile</th>
-                  <th className="px-8 py-4">Deleted</th>
-                  <th className="px-8 py-4">Flags</th>
-                  <th className="px-8 py-4">Timeline</th>
+                  <th className="px-8 py-4">Tarjeta</th>
+                  <th className="px-8 py-4">Estado</th>
+                  <th className="px-8 py-4">Activación</th>
+                  <th className="px-8 py-4">Perfil</th>
+                  <th className="px-8 py-4">Eliminada</th>
+                  <th className="px-8 py-4">Alertas</th>
+                  <th className="px-8 py-4">Historial</th>
                   <th className="px-8 py-4">Último evento</th>
-                  <th className="px-8 py-4 text-right">Actions</th>
+                  <th className="px-8 py-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-50">
@@ -309,19 +309,19 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                         <div className="flex justify-end items-center gap-2 flex-wrap">
                           <button type="button" onClick={() => openAssignModal(card)} disabled={assignDisabled} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : canReassign(card) ? <RefreshCw size={14} /> : <UserPlus size={14} />}
-                            {canReassign(card) ? 'Reassign' : 'Assign'}
+                            {canReassign(card) ? 'Reasignar' : 'Asignar'}
                           </button>
                           <button type="button" onClick={() => runCardAction(card, 'activate')} disabled={activateDisabled} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-                            Activate
+                            Activar
                           </button>
                           <button type="button" onClick={() => runCardAction(card, 'revoke')} disabled={revokeDisabled} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldBan size={14} />}
-                            Revoke
+                            Revocar
                           </button>
                           <button type="button" onClick={() => runCardAction(card, 'archive')} disabled={archiveDisabled} className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
-                            Archive
+                            Archivar
                           </button>
                         </div>
                       </td>

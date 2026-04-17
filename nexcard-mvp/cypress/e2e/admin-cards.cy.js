@@ -32,8 +32,8 @@ const assertCardRow = ({ token, expectedStatus, expectedDeleted, expectedCode })
 
 const assertActionGuardrails = ({ kind, token, expectedDeleted }) => {
   getCardRow(token).within(() => {
-    cy.contains('button', /^Revoke$/i).should(kind === 'revoked' || expectedDeleted === 'Sí' ? 'be.disabled' : 'not.be.disabled');
-    cy.contains('button', /^Archive$/i).should(expectedDeleted === 'Sí' ? 'be.disabled' : 'not.be.disabled');
+    cy.contains('button', /^Revocar$/i).should(kind === 'revoked' || expectedDeleted === 'Sí' ? 'be.disabled' : 'not.be.disabled');
+    cy.contains('button', /^Archivar$/i).should(expectedDeleted === 'Sí' ? 'be.disabled' : 'not.be.disabled');
   });
 };
 
@@ -48,7 +48,7 @@ describe('Admin cards lifecycle visibility', () => {
   it('loads /admin/cards and shows lifecycle columns', () => {
     cy.contains('h1', /Cards Control Center/i).should('exist');
 
-    ['Card', 'Status', 'Activation', 'Profile', 'Deleted', 'Actions'].forEach((column) => {
+    ['Tarjeta', 'Estado', 'Activación', 'Perfil', 'Eliminada', 'Alertas', 'Historial', 'Acciones'].forEach((column) => {
       cy.get('[data-cy=admin-cards-table]').should('contain.text', column);
     });
   });
