@@ -528,7 +528,7 @@ const OrdersDashboard = ({ orders = [] }) => {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}`} className="tab-content overflow-x-auto">
               <table className="w-full min-w-[980px] text-left">
                 <thead>
                   <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] uppercase tracking-widest font-black">

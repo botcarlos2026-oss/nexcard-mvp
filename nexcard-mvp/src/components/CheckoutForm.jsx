@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useCart } from '../store/cartStore';
 import { api } from '../services/api';
-import { ArrowLeft, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
 import CardPreview from './CardPreview';
 
 export default function CheckoutForm({ onOrderSuccess, onBack }) {
@@ -384,7 +384,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                       key={id}
                       type="button"
                       onClick={() => setCustomization({ ...customization, template: id })}
-                      className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all"
+                      className="template-option btn-press flex flex-col items-center gap-1.5 p-2 rounded-xl"
                       style={{
                         border: customization.template === id ? '2px solid #10B981' : '2px solid transparent',
                         boxShadow: customization.template === id ? '0 0 0 1px #10B98133' : 'none',
@@ -454,7 +454,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 ].map((method) => (
                   <label
                     key={method.value}
-                    className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${
+                    className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${
                       paymentMethod === method.value
                         ? 'border-emerald-500 bg-emerald-900/20'
                         : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
@@ -565,18 +565,18 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 type="button"
                 onClick={onBack}
                 disabled={loading}
-                className="flex-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-colors text-sm"
+                className="btn-press flex-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-colors text-sm"
               >
                 ← Volver
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-[2] bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
+                className="btn-press flex-[2] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
               >
                 {loading ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
+                    <span className="spinner" />
                     Procesando...
                   </>
                 ) : (

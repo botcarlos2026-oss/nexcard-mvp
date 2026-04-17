@@ -2,23 +2,119 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Easing curves (Emil Kowalski) ─────────────────────────── */
+:root {
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 @layer base {
   body {
     -webkit-tap-highlight-color: transparent;
   }
 }
 
-.animate-in {
-  animation: fadeInDown 0.4s ease-out forwards;
+/* ─── Keyframes ──────────────────────────────────────────────── */
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spinLoader {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Animate-in (usado en Tailwind via className) ───────────── */
+.animate-in {
+  animation: fadeInDown 0.4s var(--ease-out) forwards;
+}
+
+/* ─── Button press feedback ──────────────────────────────────── */
+.btn-press {
+  transition: transform 160ms var(--ease-out);
+}
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* ─── Spinner de loading ─────────────────────────────────────── */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spinLoader 600ms linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ─── Template selector: stagger entrada ─────────────────────── */
+.template-option {
+  animation: fadeInUp 250ms var(--ease-out) forwards;
+  opacity: 0;
+}
+.template-option:nth-child(1) { animation-delay:   0ms; }
+.template-option:nth-child(2) { animation-delay:  50ms; }
+.template-option:nth-child(3) { animation-delay: 100ms; }
+.template-option:nth-child(4) { animation-delay: 150ms; }
+
+/* ─── Pricing card hover lift ────────────────────────────────── */
+.pricing-card {
+  transition: transform 200ms var(--ease-out),
+              box-shadow 200ms var(--ease-out),
+              border-color 200ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pricing-card:hover {
+    transform: translateY(-4px);
   }
-  to {
+}
+
+/* ─── Tab content fade ───────────────────────────────────────── */
+.tab-content {
+  animation: fadeIn 150ms var(--ease-out);
+}
+
+/* ─── Coming Soon stagger entrada ────────────────────────────── */
+.cs-element {
+  animation: fadeInUp 400ms var(--ease-out) forwards;
+  opacity: 0;
+}
+.cs-element:nth-child(1) { animation-delay:   0ms; }
+.cs-element:nth-child(2) { animation-delay:  80ms; }
+.cs-element:nth-child(3) { animation-delay: 160ms; }
+.cs-element:nth-child(4) { animation-delay: 240ms; }
+.cs-element:nth-child(5) { animation-delay: 320ms; }
+
+/* ─── Prefers-reduced-motion ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .template-option,
+  .cs-element,
+  .tab-content {
+    animation: none;
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
+  }
+  .btn-press {
+    transition: none;
+  }
+  .pricing-card {
+    transition: border-color 200ms var(--ease-out);
+  }
+  .spinner {
+    animation: spinLoader 600ms linear infinite;
   }
 }

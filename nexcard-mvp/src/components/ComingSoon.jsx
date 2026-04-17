@@ -47,31 +47,31 @@ export default function ComingSoon() {
       <div className="relative z-10 max-w-lg w-full text-center">
 
         {/* Logo */}
-        <div className="mb-10">
+        <div className="cs-element mb-10">
           <span className="text-4xl font-black tracking-tight">
             Nex<span className="text-emerald-400">Card</span>
           </span>
         </div>
 
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
+        <div className="cs-element inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
           <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
           Próximamente · Abril 2026
         </div>
 
         {/* Headline */}
-        <h1 className="text-4xl sm:text-5xl font-black mb-6 leading-tight">
+        <h1 className="cs-element text-4xl sm:text-5xl font-black mb-6 leading-tight">
           Tu tarjeta de visita<br />
           <span className="text-emerald-400">del siglo XXI</span>
         </h1>
 
-        <p className="text-zinc-400 text-lg mb-10 leading-relaxed">
+        <p className="cs-element text-zinc-400 text-lg mb-10 leading-relaxed">
           Estamos trabajando para lanzar muy pronto. Deja tu email y te avisamos el día que abramos.
         </p>
 
         {/* Form */}
         {!submitted ? (
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+          <form onSubmit={handleSubmit} className="cs-element flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
             <div className="flex-1 flex flex-col gap-1">
               <input
                 type="email"
@@ -86,9 +86,9 @@ export default function ComingSoon() {
             <button
               type="submit"
               disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold px-6 py-3 rounded-xl transition-colors text-sm whitespace-nowrap"
+              className="btn-press bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold px-6 py-3 rounded-xl transition-colors text-sm whitespace-nowrap flex items-center justify-center gap-2"
             >
-              {loading ? 'Guardando...' : 'Notifícame'}
+              {loading ? <><span className="spinner" />Guardando...</> : 'Notifícame'}
             </button>
         <p className="text-zinc-600 text-xs mt-3 text-center max-w-md mx-auto">
           Al registrarte aceptas recibir novedades de NexCard. Puedes cancelar cuando quieras.{' '}

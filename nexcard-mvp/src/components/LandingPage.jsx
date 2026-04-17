@@ -55,11 +55,11 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             Comparte tu contacto completo con un solo toque. Sin apps, sin papel, sin quedarte sin tarjetas. Actualiza tu información cuando quieras.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={onCheckoutStart} className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/40 text-base">
+            <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-900/40 text-base">
               Ver precios y packs
               <ArrowRight size={18} />
             </button>
-            <button onClick={() => window.location.href = '/carlos'} className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-all border border-zinc-700 text-base">
+            <button onClick={() => window.location.href = '/carlos'} className="btn-press inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-colors border border-zinc-700 text-base">
               Ver perfil demo
             </button>
           </div>
@@ -166,7 +166,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {PRICING.map((plan) => (
-              <div key={plan.sku} className={`relative rounded-xl p-6 flex flex-col transition-all ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800 hover:border-zinc-700'}`}>
+              <div key={plan.sku} className={`pricing-card relative rounded-xl p-6 flex flex-col ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800'}`}>
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.badge}</span>
@@ -188,7 +188,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                     </li>
                   ))}
                 </ul>
-                <button onClick={onCheckoutStart} className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${plan.highlight ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'}`}>
+                <button onClick={onCheckoutStart} className={`btn-press w-full py-3 rounded-lg font-bold text-sm transition-colors ${plan.highlight ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'}`}>
                   Comprar pack
                 </button>
               </div>
@@ -201,7 +201,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-black mb-4">Listo para modernizar tu networking</h2>
           <p className="text-zinc-400 mb-8">Únete a los profesionales que ya dejaron las tarjetas de papel atrás.</p>
-          <button onClick={onCheckoutStart} className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/40 text-base">
+          <button onClick={onCheckoutStart} className="btn-press inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-900/40 text-base">
             Ver packs y precios
             <ArrowRight size={18} />
           </button>
@@ -288,10 +288,10 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             ].map((plan) => (
               <div
                 key={plan.name}
-                className={`relative rounded-xl p-6 flex flex-col transition-all ${
+                className={`pricing-card relative rounded-xl p-6 flex flex-col ${
                   plan.highlight
                     ? 'bg-blue-950 border-2 border-blue-500 shadow-lg shadow-blue-900/30'
-                    : 'bg-zinc-900 border border-zinc-800 hover:border-zinc-700'
+                    : 'bg-zinc-900 border border-zinc-800'
                 }`}
               >
                 {plan.badge && (
@@ -319,7 +319,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 </ul>
                 <button
                   onClick={onCheckoutStart}
-                  className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${
+                  className={`btn-press w-full py-3 rounded-lg font-bold text-sm transition-colors ${
                     plan.highlight
                       ? 'bg-blue-500 hover:bg-blue-400 text-white'
                       : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'
