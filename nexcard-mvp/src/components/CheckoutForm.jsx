@@ -26,7 +26,19 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const [rutError, setRutError] = useState('');
 
   const validateRutFormat = (rut) => {
-    return /^\d{1,2}\.\d{3}\.\d{3}-[\dkK]$/.test(rut.trim());
+    const clean = rut.trim().replace(/\./g, '').replace('-', '');
+    if (!/^\d{7,8}[\dkK]$/.test(clean)) return false;
+    const digits = clean.slice(0, -1);
+    const dv = clean.slice(-1).toUpperCase();
+    let sum = 0;
+    let mul = 2;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      sum += parseInt(digits[i]) * mul;
+      mul = mul === 7 ? 2 : mul + 1;
+    }
+    const remainder = 11 - (sum % 11);
+    const expected = remainder === 11 ? '0' : remainder === 10 ? 'K' : String(remainder);
+    return dv === expected;
   };
 
   const handleInvoiceChange = (e) => {
@@ -95,7 +107,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     if (!formData.acceptTerms) return 'Debes aceptar los términos y condiciones para continuar';
     if (invoiceData.requiresInvoice) {
       if (!invoiceData.invoiceRut.trim()) return 'Ingresa el RUT de la empresa';
-      if (!validateRutFormat(invoiceData.invoiceRut)) return 'RUT inválido. Formato: XX.XXX.XXX-X';
+      if (!validateRutFormat(invoiceData.invoiceRut)) return 'RUT inválido. Verifica el formato y dígito verificador (ej: 12.345.678-9)';
       if (!invoiceData.invoiceRazonSocial.trim()) return 'Ingresa la razón social de la empresa';
     }
     return null;
@@ -390,6 +402,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   value={customization.notes}
                   onChange={handleCustomizationChange}
                   rows="2"
+                  maxLength={500}
                   placeholder="Ej: Agregar logo de empresa, usar foto de LinkedIn..."
                   className={inputClass + ' resize-none'}
                 />

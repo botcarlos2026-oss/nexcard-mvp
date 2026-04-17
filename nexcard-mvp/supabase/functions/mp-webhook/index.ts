@@ -70,6 +70,35 @@ serve(async (req) => {
 
     const mappedStatus = paymentStatusMap[status] ?? 'pending';
 
+    // Idempotencia: verificar estado actual antes de actualizar
+    const { data: currentOrder, error: fetchError } = await supabase
+      .from('orders')
+      .select('payment_status, mp_payment_id')
+      .eq('id', orderId)
+      .single();
+
+    if (fetchError) {
+      log('error', 'supabase_fetch_failed', { order_id: orderId, error: fetchError.message });
+      return new Response('error', { status: 500 });
+    }
+
+    if (!currentOrder) {
+      log('warn', 'order_not_found', { order_id: orderId });
+      return new Response('ok', { status: 200 });
+    }
+
+    // Si la orden ya está pagada, ignorar webhook duplicado
+    if (currentOrder.payment_status === 'paid' && mappedStatus === 'paid') {
+      log('info', 'webhook_duplicate_ignored', { order_id: orderId, mp_payment_id: String(bodyId) });
+      return new Response('ok', { status: 200 });
+    }
+
+    // Si ya tenemos este mp_payment_id registrado, ignorar duplicado
+    if (currentOrder.mp_payment_id && currentOrder.mp_payment_id === String(bodyId)) {
+      log('info', 'webhook_payment_id_duplicate_ignored', { order_id: orderId, mp_payment_id: String(bodyId) });
+      return new Response('ok', { status: 200 });
+    }
+
     const { error } = await supabase
       .from('orders')
       .update({

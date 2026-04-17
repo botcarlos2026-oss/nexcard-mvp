@@ -122,34 +122,50 @@ export default function EmailDashboard() {
     let sent = 0;
     let skipped = 0;
     let errors = 0;
+    let rateLimited = 0;
 
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
 
+    const sendOne = async (email, attempt = 1) => {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-campaign-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ to: email, subject, html: body, email_type: 'campaign' }),
+      });
+      // Rate limit: esperar y reintentar hasta 3 veces con backoff
+      if (res.status === 429 && attempt <= 3) {
+        const backoff = attempt * 2000;
+        await new Promise(r => setTimeout(r, backoff));
+        return sendOne(email, attempt + 1);
+      }
+      return res;
+    };
+
     for (const email of recipients) {
       try {
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-campaign-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
-            'apikey': SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({ to: email, subject, html: body, email_type: 'campaign' }),
-        });
-        const data = await res.json();
-        if (data.success) sent++;
-        else if (data.skipped_reason) skipped++;
-        else errors++;
+        const res = await sendOne(email);
+        if (res.status === 429) {
+          rateLimited++;
+        } else {
+          const data = await res.json();
+          if (data.success) sent++;
+          else if (data.skipped_reason) skipped++;
+          else errors++;
+        }
       } catch {
         errors++;
       }
-      // Delay 100ms entre envíos
+      // Delay 100ms entre envíos para no superar rate limit de Resend
       await new Promise(r => setTimeout(r, 100));
     }
 
     setSending(false);
-    setSendResult({ sent, skipped, errors });
+    setSendResult({ sent, skipped, errors, rateLimited });
     load();
   };
 
@@ -393,7 +409,7 @@ export default function EmailDashboard() {
               {sendResult && (
                 <div className={`rounded-2xl p-4 text-sm font-medium ${sendResult.error ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
                   {sendResult.error ? sendResult.error : (
-                    <>Campaña enviada: <strong>{sendResult.sent}</strong> enviados · <strong>{sendResult.skipped}</strong> bajas · <strong>{sendResult.errors}</strong> errores</>
+                    <>Campaña enviada: <strong>{sendResult.sent}</strong> enviados · <strong>{sendResult.skipped}</strong> bajas · <strong>{sendResult.errors}</strong> errores{sendResult.rateLimited > 0 && <> · <strong>{sendResult.rateLimited}</strong> límite de tasa (reintentos agotados)</>}</>
                   )}
                 </div>
               )}
