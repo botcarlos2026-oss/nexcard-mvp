@@ -486,13 +486,13 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
             {/* Boleta / Factura empresa */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-              <label className="flex items-center gap-3 cursor-pointer">
+              <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
                 <input
                   type="checkbox"
                   name="requiresInvoice"
                   checked={invoiceData.requiresInvoice}
                   onChange={handleInvoiceChange}
-                  className="accent-emerald-500"
+                  className="accent-emerald-500 w-5 h-5 shrink-0"
                 />
                 <span className="text-sm font-semibold text-zinc-300">
                   Necesito boleta a nombre de empresa (factura)
@@ -537,13 +537,13 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
             {/* Términos */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-              <label className="flex items-start gap-3 cursor-pointer">
+              <label className="flex items-start gap-3 cursor-pointer min-h-[44px]">
                 <input
                   type="checkbox"
                   name="acceptTerms"
                   checked={formData.acceptTerms}
                   onChange={handleChange}
-                  className="mt-0.5 accent-emerald-500"
+                  className="mt-0.5 accent-emerald-500 w-5 h-5 shrink-0"
                 />
                 <span className="text-sm text-zinc-300 leading-relaxed">
                   Acepto los{' '}

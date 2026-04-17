@@ -47,8 +47,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       <nav className="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
         <span className="text-xl font-black tracking-tight font-heading">Nex<span className="text-emerald-400">Card</span></span>
         <div className="flex items-center gap-3">
-          <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-1.5">Iniciar sesión</a>
-          <button onClick={onCheckoutStart} className="btn-press text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg transition-colors">Comprar</button>
+          <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-3 min-h-[44px] inline-flex items-center">Iniciar sesión</a>
+          <button onClick={onCheckoutStart} className="btn-press text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-3 min-h-[44px] rounded-lg transition-colors">Comprar</button>
         </div>
       </nav>
 
@@ -88,13 +88,14 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 type="text"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
+                onKeyDown={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
                 placeholder="tu-slug"
-                className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-36 transition-colors"
+                aria-label="Buscar perfil por slug"
+                className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-36 transition-colors min-h-[44px]"
               />
               <button
                 onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)}
-                className="btn-press text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap"
+                className="btn-press text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap min-h-[44px] inline-flex items-center"
               >
                 Ver perfil →
               </button>
@@ -369,13 +370,13 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           <div className="flex items-center gap-4 text-sm text-zinc-500">
             <span>© 2026 NexCard</span>
             <span>·</span>
-            <a href="/terminos" className="hover:text-zinc-300 transition-colors">Términos</a>
+            <a href="/terminos" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Términos</a>
             <span>·</span>
-            <a href="/privacidad" className="hover:text-zinc-300 transition-colors">Privacidad</a>
+            <a href="/privacidad" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Privacidad</a>
             <span>·</span>
-            <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="hover:text-zinc-300 transition-colors">Contacto</a>
+            <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Contacto</a>
           </div>
-          <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
+          <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">
             💬 WhatsApp
           </a>
         </div>
