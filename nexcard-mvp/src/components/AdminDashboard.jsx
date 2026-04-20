@@ -16,6 +16,11 @@ import {
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
 import { api } from '../services/api';
+import AdminShell from './AdminShell';
+import AdminCard from './ui/AdminCard';
+import AdminStat from './ui/AdminStat';
+import { Table, THead, TH, TR, TD } from './ui/AdminTable';
+import AdminBadge from './ui/AdminBadge';
 
 const SalesChart = ({ orders }) => {
   const days = useMemo(() => {
@@ -48,7 +53,7 @@ const SalesChart = ({ orders }) => {
               className="w-full rounded-t-lg bg-emerald-500 absolute bottom-0 transition-all"
               style={{ height: `${Math.max((day.revenue / maxRevenue) * 80, day.revenue > 0 ? 4 : 0)}px` }}
             />
-            {day.revenue === 0 && <div className="w-full h-1 bg-zinc-100 absolute bottom-0 rounded" />}
+            {day.revenue === 0 && <div className="w-full h-1 bg-zinc-700 absolute bottom-0 rounded" />}
           </div>
           <span className="text-[10px] font-bold text-zinc-400 text-center leading-tight">{day.label}</span>
         </div>
@@ -100,134 +105,112 @@ const AdminDashboard = ({ dashboard }) => {
   };
 
   const stats = useMemo(() => ([
-    { label: 'Ingresos cobrados', value: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.totalRevenue || 0), icon: DollarSign, color: 'text-emerald-500' },
-    { label: 'Perfiles activos', value: `${statsSource.totalProfiles || 0}`, icon: Users, color: 'text-blue-500' },
-    { label: 'Pedidos abiertos', value: `${statsSource.pendingOrders || 0}`, icon: Package, color: 'text-amber-500' },
-    { label: 'Devoluciones pendientes', value: `${pendingRefundsCount}`, icon: ShoppingCart, color: pendingRefundsCount > 0 ? 'text-rose-500' : 'text-zinc-400', badge: pendingRefundsCount > 0, href: '/admin/orders' },
+    { label: 'Ingresos cobrados', value: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.totalRevenue || 0), accent: 'emerald' },
+    { label: 'Perfiles activos', value: `${statsSource.totalProfiles || 0}`, accent: null },
+    { label: 'Pedidos abiertos', value: `${statsSource.pendingOrders || 0}`, accent: 'amber' },
+    { label: 'Devoluciones pendientes', value: `${pendingRefundsCount}`, accent: pendingRefundsCount > 0 ? 'red' : null, hint: pendingRefundsCount > 0 ? 'Requiere revisión' : null, href: '/admin/orders' },
   ]), [statsSource, pendingRefundsCount]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 p-8">
+    <AdminShell active="dashboard" title="NexCard Control Center" subtitle="Conversión, perfiles, pedidos y salud operativa desde un solo panel">
       {!lowStockDismissed && lowStockItems.length > 0 && (
-        <div className="max-w-7xl mx-auto mb-6">
-          <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-            <AlertTriangle size={18} className="text-amber-600 mt-0.5 shrink-0" />
+        <div className="mb-6">
+          <div className="flex items-start gap-3 rounded-xl border border-amber-800 bg-amber-950/40 px-5 py-4">
+            <AlertTriangle size={18} className="text-amber-400 mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="font-black text-amber-800 text-sm">
+              <p className="font-bold text-amber-300 text-sm">
                 Stock bajo en {lowStockItems.length} {lowStockItems.length === 1 ? 'producto' : 'productos'}:{' '}
                 <span className="font-medium">{lowStockItems.map(i => i.item || i.name || i.sku).join(', ')}</span>
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <a href="/admin/inventory" className="text-xs font-black text-amber-700 underline underline-offset-2 hover:text-amber-900">Ver inventario</a>
-              <button type="button" onClick={() => setLowStockDismissed(true)} className="text-amber-500 hover:text-amber-800 transition-colors">
+              <a href="/admin/inventory" className="text-xs font-bold text-amber-400 underline underline-offset-2 hover:text-amber-200">Ver inventario</a>
+              <button type="button" onClick={() => setLowStockDismissed(true)} className="text-amber-500 hover:text-amber-300 transition-colors">
                 <X size={16} />
               </button>
             </div>
           </div>
         </div>
       )}
-      <div className="max-w-7xl mx-auto mb-10">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-zinc-950">NexCard Control Center</h1>
-            <p className="text-zinc-500 font-medium">Conversión, perfiles, pedidos y salud operativa desde un solo panel</p>
-          </div>
-          <div className="flex gap-3 flex-wrap">
-            <a href="/admin/cards" className="px-4 py-3 bg-zinc-950 text-white rounded-2xl font-bold text-sm">Ver Cards</a>
-            <a href="/admin/orders" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Órdenes</a>
-            <a href="/admin/crm" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">CRM</a>
-            <a href="/admin/nexreview" className="px-4 py-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl font-bold text-sm">NexReview</a>
-            <a href="/admin/profiles" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Profiles</a>
-            <a href="/admin/inventory" className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm">Inventario</a>
-            <a href="/admin/emails" className="px-4 py-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl font-bold text-sm">Emails</a>
-            <a href="/admin/review-cards" className="px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl font-bold text-sm">Review Cards</a>
-          </div>
-        </div>
 
-        {/* Búsqueda global */}
-        <div className="relative">
-          <div className="flex items-center gap-3 bg-white border border-zinc-200 rounded-2xl px-4 py-3 shadow-sm">
-            <Search size={18} className="text-zinc-400 shrink-0" />
-            <input
-              type="text"
-              value={globalSearch}
-              onChange={(e) => {
-                setGlobalSearch(e.target.value);
-                handleGlobalSearch(e.target.value);
-              }}
-              placeholder="Buscar órdenes, clientes, perfiles..."
-              className="flex-1 outline-none text-sm font-medium text-zinc-700 placeholder-zinc-400 bg-transparent"
-            />
-            {searching && <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin shrink-0" />}
-            {globalSearch && !searching && (
-              <button onClick={() => { setGlobalSearch(''); setGlobalResults(null); }} className="text-zinc-400 hover:text-zinc-700">✕</button>
-            )}
-          </div>
-
-          {globalResults && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-100 rounded-2xl shadow-xl z-50 overflow-hidden">
-              {globalResults.orders.length === 0 && globalResults.profiles.length === 0 ? (
-                <div className="px-5 py-4 text-sm text-zinc-400 font-medium">Sin resultados para "{globalSearch}"</div>
-              ) : (
-                <>
-                  {globalResults.orders.length > 0 && (
-                    <div>
-                      <p className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-50">Órdenes</p>
-                      {globalResults.orders.map(o => (
-                        <a key={o.id} href="/admin/orders" className="flex items-center justify-between px-5 py-3 hover:bg-zinc-50 transition-colors border-b border-zinc-50 last:border-0">
-                          <div>
-                            <p className="font-bold text-sm text-zinc-900">{o.customer_name || 'Sin nombre'}</p>
-                            <p className="text-xs text-zinc-400">{o.customer_email}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-black text-sm">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(o.amount_cents || 0)}</p>
-                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${o.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{o.payment_status}</span>
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                  {globalResults.profiles.length > 0 && (
-                    <div>
-                      <p className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 bg-zinc-50">Perfiles</p>
-                      {globalResults.profiles.map(p => (
-                        <a key={p.id} href={`/${p.slug}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-50 transition-colors border-b border-zinc-50 last:border-0">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black" style={{ backgroundColor: p.color || '#10B981' }}>
-                            {p.name?.[0]?.toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-bold text-sm text-zinc-900">{p.name}</p>
-                            <p className="text-xs text-zinc-400">/{p.slug}</p>
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+      {/* Búsqueda global */}
+      <div className="relative mb-8">
+        <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
+          <Search size={18} className="text-zinc-500 shrink-0" />
+          <input
+            type="text"
+            value={globalSearch}
+            onChange={(e) => {
+              setGlobalSearch(e.target.value);
+              handleGlobalSearch(e.target.value);
+            }}
+            placeholder="Buscar órdenes, clientes, perfiles..."
+            className="flex-1 outline-none text-sm font-medium text-zinc-300 placeholder-zinc-500 bg-transparent"
+          />
+          {searching && <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin shrink-0" />}
+          {globalSearch && !searching && (
+            <button onClick={() => { setGlobalSearch(''); setGlobalResults(null); }} className="text-zinc-500 hover:text-zinc-300">✕</button>
           )}
         </div>
+
+        {globalResults && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl z-50 overflow-hidden">
+            {globalResults.orders.length === 0 && globalResults.profiles.length === 0 ? (
+              <div className="px-5 py-4 text-sm text-zinc-400 font-medium">Sin resultados para "{globalSearch}"</div>
+            ) : (
+              <>
+                {globalResults.orders.length > 0 && (
+                  <div>
+                    <p className="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 bg-zinc-800/50">Órdenes</p>
+                    {globalResults.orders.map(o => (
+                      <a key={o.id} href="/admin/orders" className="flex items-center justify-between px-5 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800 last:border-0">
+                        <div>
+                          <p className="font-bold text-sm text-white">{o.customer_name || 'Sin nombre'}</p>
+                          <p className="text-xs text-zinc-400">{o.customer_email}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-sm text-white">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(o.amount_cents || 0)}</p>
+                          <AdminBadge variant={o.payment_status === 'paid' ? 'success' : 'warning'}>{o.payment_status}</AdminBadge>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {globalResults.profiles.length > 0 && (
+                  <div>
+                    <p className="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 bg-zinc-800/50">Perfiles</p>
+                    {globalResults.profiles.map(p => (
+                      <a key={p.id} href={`/${p.slug}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800 last:border-0">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: p.color || '#10B981' }}>
+                          {p.name?.[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm text-white">{p.name}</p>
+                          <p className="text-xs text-zinc-400">/{p.slug}</p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="grid md:grid-cols-4 gap-6 mb-10">
+      {/* Stats */}
+      <div className="grid md:grid-cols-4 gap-4 mb-8">
         {stats.map((stat, i) => {
           const inner = (
-            <div key={i} className={`bg-white p-6 rounded-3xl border shadow-sm transition-colors ${stat.badge ? 'border-rose-200 hover:border-rose-300' : 'border-zinc-100'} ${stat.href ? 'cursor-pointer' : ''}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-2xl bg-zinc-50 ${stat.color}`}>
-                  <stat.icon size={24} />
-                </div>
-                {stat.badge && (
-                  <span className="text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white px-2 py-1 rounded-full">Revisar</span>
-                )}
-              </div>
-              <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{stat.label}</p>
-              <h3 className={`text-3xl font-black mt-1 ${stat.badge ? 'text-rose-600' : ''}`}>{stat.value}</h3>
-            </div>
+            <AdminStat
+              key={i}
+              label={stat.label}
+              value={stat.value}
+              hint={stat.hint}
+              accent={stat.accent}
+            />
           );
           return stat.href
             ? <a key={i} href={stat.href}>{inner}</a>
@@ -236,162 +219,158 @@ const AdminDashboard = ({ dashboard }) => {
       </div>
 
       {/* Gráfico ventas por día */}
-      <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm p-6 mb-6">
+      <AdminCard className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="font-black text-xl">Ventas últimos 7 días</h2>
-            <p className="text-sm text-zinc-500 font-medium">Ingresos diarios en CLP</p>
+            <h2 className="font-bold text-lg text-white">Ventas últimos 7 días</h2>
+            <p className="text-sm text-zinc-400 font-medium">Ingresos diarios en CLP</p>
           </div>
           <BarChart2 size={20} className="text-emerald-500" />
         </div>
         <SalesChart orders={recentOrders} />
-      </div>
+      </AdminCard>
 
       {/* Métricas conversión */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
-        <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm p-6">
-          <div className="p-3 rounded-2xl bg-zinc-50 inline-flex mb-4 text-blue-500">
-            <ShoppingCart size={24} />
-          </div>
-          <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Total órdenes</p>
-          <h3 className="text-3xl font-black mt-1">{statsSource.totalOrders || 0}</h3>
-        </div>
-        <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm p-6">
-          <div className="p-3 rounded-2xl bg-zinc-50 inline-flex mb-4 text-emerald-500">
-            <CheckCircle2 size={24} />
-          </div>
-          <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Tasa de pago</p>
-          <h3 className="text-3xl font-black mt-1">
-            {statsSource.totalOrders > 0
-              ? Math.round(((statsSource.paidOrders || 0) / statsSource.totalOrders) * 100)
-              : 0}%
-          </h3>
-        </div>
-        <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm p-6">
-          <div className="p-3 rounded-2xl bg-zinc-50 inline-flex mb-4 text-amber-500">
-            <TrendingUp size={24} />
-          </div>
-          <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Ticket promedio</p>
-          <h3 className="text-3xl font-black mt-1">
-            {statsSource.totalOrders > 0
-              ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format((statsSource.totalRevenue || 0) / statsSource.totalOrders)
-              : '$0'}
-          </h3>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <AdminStat
+          label="Total órdenes"
+          value={statsSource.totalOrders || 0}
+        />
+        <AdminStat
+          label="Tasa de pago"
+          value={`${statsSource.totalOrders > 0
+            ? Math.round(((statsSource.paidOrders || 0) / statsSource.totalOrders) * 100)
+            : 0}%`}
+          accent="emerald"
+        />
+        <AdminStat
+          label="Ticket promedio"
+          value={statsSource.totalOrders > 0
+            ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format((statsSource.totalRevenue || 0) / statsSource.totalOrders)
+            : '$0'}
+          accent="amber"
+        />
       </div>
 
       <div className="grid lg:grid-cols-[1.6fr,1fr] gap-6">
-        <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm overflow-hidden" data-cy="admin-inventory">
-          <div className="p-6 border-b border-zinc-100 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        {/* Tabla perfiles */}
+        <AdminCard className="!p-0 overflow-hidden" data-cy="admin-inventory">
+          <div className="p-5 border-b border-zinc-800 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="font-black text-xl">Perfiles y rendimiento</h2>
-              <p className="text-sm text-zinc-500 font-medium">Base preparada para personas, pymes y cuentas empresa</p>
+              <h2 className="font-bold text-lg text-white">Perfiles y rendimiento</h2>
+              <p className="text-sm text-zinc-400 font-medium">Base preparada para personas, pymes y cuentas empresa</p>
             </div>
             <input
               type="text"
               placeholder="Filtrar por nombre..."
-              className="w-full md:w-80 px-5 py-3 bg-zinc-50 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="w-full md:w-72 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="overflow-x-auto" data-cy="admin-users-table">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] uppercase tracking-widest font-black">
-                  <th className="px-8 py-4">Usuario</th>
-                  <th className="px-8 py-4 text-center">Taps</th>
-                  <th className="px-8 py-4 text-center">WhatsApp</th>
-                  <th className="px-8 py-4 text-center">vCard</th>
-                  <th className="px-8 py-4 text-center">Tipo</th>
-                  <th className="px-8 py-4 text-right">Acciones</th>
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-800/50 border-b border-zinc-800">
+                <tr className="text-xs uppercase tracking-wide text-zinc-500">
+                  <TH>Usuario</TH>
+                  <TH className="text-center">Taps</TH>
+                  <TH className="text-center">WhatsApp</TH>
+                  <TH className="text-center">vCard</TH>
+                  <TH className="text-center">Tipo</TH>
+                  <TH className="text-right">Acciones</TH>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-50">
+              <tbody className="divide-y divide-zinc-800/60">
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-zinc-50/30 transition-colors group">
-                    <td className="px-8 py-5">
+                  <tr key={user.id} className="hover:bg-zinc-800/30 transition-colors group">
+                    <TD>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full shadow-inner" style={{ backgroundColor: user.color }}></div>
+                        <div className="w-8 h-8 rounded-full shadow-inner shrink-0" style={{ backgroundColor: user.color }}></div>
                         <div>
-                          <span className="font-bold text-sm block">{user.name}</span>
-                          <span className="text-xs text-zinc-400 font-bold uppercase">{user.status}</span>
+                          <span className="font-bold text-sm text-white block">{user.name}</span>
+                          <AdminBadge variant={user.status === 'active' ? 'success' : 'default'}>{user.status}</AdminBadge>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-8 py-5 text-center font-black">{user.taps}</td>
-                    <td className="px-8 py-5 text-center font-bold text-zinc-600">{user.wa_clicks}</td>
-                    <td className="px-8 py-5 text-center font-bold text-zinc-600">{user.vcard_clicks}</td>
-                    <td className="px-8 py-5 text-center">
-                      <span className="px-3 py-1 bg-zinc-100 text-zinc-600 rounded-full text-xs font-black uppercase">{user.account_type}</span>
-                    </td>
-                    <td className="px-8 py-5 text-right">
+                    </TD>
+                    <TD className="text-center font-bold text-white">{user.taps}</TD>
+                    <TD className="text-center text-zinc-300">{user.wa_clicks}</TD>
+                    <TD className="text-center text-zinc-300">{user.vcard_clicks}</TD>
+                    <TD className="text-center">
+                      <AdminBadge>{user.account_type}</AdminBadge>
+                    </TD>
+                    <TD className="text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <a
                           href={`/${user.slug}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-2 hover:bg-white rounded-lg border border-transparent hover:border-zinc-200 transition-all text-zinc-400 hover:text-emerald-500"
+                          className="p-2 hover:bg-zinc-700 rounded-lg transition-all text-zinc-400 hover:text-emerald-400"
                           title="Ver Perfil"
                         >
                           <Eye size={18} />
                         </a>
                         <button
                           onClick={() => generateQRCode(user.slug, { color: user.color })}
-                          className="p-2 hover:bg-white rounded-lg border border-transparent hover:border-zinc-200 transition-all text-zinc-400 hover:text-blue-500"
+                          className="p-2 hover:bg-zinc-700 rounded-lg transition-all text-zinc-400 hover:text-blue-400"
                           title="Descargar QR"
                         >
                           <QrCode size={18} />
                         </button>
                       </div>
-                    </td>
+                    </TD>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </AdminCard>
 
         <div className="space-y-6">
-          <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm p-6">
-            <h3 className="font-black text-lg mb-4">Últimos pedidos</h3>
-            <div className="space-y-4">
+          {/* Últimos pedidos */}
+          <AdminCard>
+            <h3 className="font-bold text-lg text-white mb-4">Últimos pedidos</h3>
+            <div className="space-y-3">
               {recentOrders.map(order => (
-                <div key={order.id} className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100">
+                <div key={order.id} className="p-4 rounded-xl bg-zinc-800 border border-zinc-700">
                   <div className="flex justify-between gap-4 items-start">
                     <div>
-                      <p className="font-black text-sm">{order.customer_name}</p>
-                      <p className="text-xs text-zinc-500 font-medium">{order.payment_method} · {order.payment_status}</p>
+                      <p className="font-bold text-sm text-white">{order.customer_name}</p>
+                      <p className="text-xs text-zinc-400 font-medium mt-0.5">{order.payment_method} · {order.payment_status}</p>
                     </div>
-                    <span className="text-sm font-black text-zinc-950">{order.amount_cents ? Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(order.amount_cents || 0) : '-'}</span>
+                    <span className="text-sm font-bold text-white shrink-0">{order.amount_cents ? Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(order.amount_cents || 0) : '-'}</span>
                   </div>
-                  <div className="mt-3 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-zinc-400">
-                    <span>{order.id}</span>
-                    <span>{order.fulfillment_status}</span>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{order.id}</span>
+                    <AdminBadge variant={
+                      order.fulfillment_status === 'delivered' ? 'success' :
+                      order.fulfillment_status === 'shipped' ? 'info' :
+                      order.fulfillment_status === 'in_production' ? 'info' :
+                      order.fulfillment_status === 'cancelled' ? 'danger' : 'warning'
+                    }>{order.fulfillment_status}</AdminBadge>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </AdminCard>
 
-          <div className="bg-zinc-950 text-white rounded-[32px] p-6 shadow-sm">
-            <p className="text-xs uppercase tracking-widest font-black text-zinc-500 mb-3">Diagnóstico</p>
+          <AdminCard className="bg-zinc-900">
+            <p className="text-xs uppercase tracking-widest font-bold text-zinc-500 mb-3">Diagnóstico</p>
             <p className="text-sm font-medium leading-relaxed text-zinc-300">
               Base lista para migrar admin e integraciones de pago. Siguiente cuello de botella: auth/roles efectivos, CMS admin y órdenes conectadas a producción.
             </p>
             <div className="mt-5 grid grid-cols-2 gap-4 text-sm font-bold">
-              <div className="bg-white/5 rounded-2xl p-4">
+              <div className="bg-white/5 rounded-xl p-4">
                 <MousePointer2 className="mb-2 text-emerald-400" size={18} />
-                Más control del funnel
+                <span className="text-zinc-300">Más control del funnel</span>
               </div>
-              <div className="bg-white/5 rounded-2xl p-4">
+              <div className="bg-white/5 rounded-xl p-4">
                 <TrendingUp className="mb-2 text-blue-400" size={18} />
-                Escala sin rehacer panel
+                <span className="text-zinc-300">Escala sin rehacer panel</span>
               </div>
             </div>
-          </div>
+          </AdminCard>
         </div>
       </div>
-    </div>
+    </AdminShell>
   );
 };
 
