@@ -1,430 +1,371 @@
-import React, { useMemo, useState } from 'react';
-import {
-  ChevronDown,
-  ChevronRight,
-  ArrowRight,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  Package,
-  Clock3,
-  Lock,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  FileText,
-  CreditCard,
-  Printer,
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { api } from '../services/api';
 
-const currency = (amount) =>
-  new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  }).format(amount);
+const CLP = (n) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n || 0);
 
-const statusTone = {
-  paid: 'bg-emerald-100 text-emerald-700',
-  pending: 'bg-amber-100 text-amber-700',
-  failed: 'bg-rose-100 text-rose-700',
-  refunded: 'bg-zinc-200 text-zinc-700',
-  new: 'bg-amber-100 text-amber-700',
-  in_production: 'bg-indigo-100 text-indigo-700',
-  ready: 'bg-sky-100 text-sky-700',
-  shipped: 'bg-violet-100 text-violet-700',
-  delivered: 'bg-emerald-100 text-emerald-700',
-  cancelled: 'bg-rose-100 text-rose-700',
-};
-
-const COLUMNS = [
-  { key: 'new', label: 'Nueva' },
-  { key: 'in_production', label: 'En producción' },
-  { key: 'ready', label: 'Lista' },
-  { key: 'shipped', label: 'Enviada' },
-  { key: 'delivered', label: 'Entregada' },
+const STAGES = [
+  { key: 'nuevo_lead',      label: 'Nuevo Lead',   color: 'bg-zinc-100 text-zinc-600',     dot: 'bg-zinc-400' },
+  { key: 'contactado',      label: 'Contactado',   color: 'bg-blue-100 text-blue-700',      dot: 'bg-blue-400' },
+  { key: 'propuesta',       label: 'Propuesta',    color: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-400' },
+  { key: 'negociacion',     label: 'Negociación',  color: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-400' },
+  { key: 'cerrado_ganado',  label: 'Ganado',       color: 'bg-emerald-100 text-emerald-700',dot: 'bg-emerald-400' },
+  { key: 'cerrado_perdido', label: 'Perdido',      color: 'bg-rose-100 text-rose-700',      dot: 'bg-rose-400' },
 ];
 
-const FULFILLMENT_NEXT = {
-  new: 'in_production',
-  in_production: 'ready',
-  ready: 'shipped',
-  shipped: 'delivered',
+const stageMap = Object.fromEntries(STAGES.map(s => [s.key, s]));
+
+const daysSince = (iso) => {
+  if (!iso) return 0;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 };
 
-const NEXT_LABEL = {
-  new: 'En producción',
-  in_production: 'Lista',
-  ready: 'Enviada',
-  shipped: 'Entregada',
-};
+const ActivityIcon = { call: '📞', email: '📧', meeting: '🤝', note: '📝', whatsapp: '💬' };
 
-const formatLabel = (value) => (value ? String(value).replace(/_/g, ' ') : '—');
+export default function CRMDashboard() {
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [actForm, setActForm] = useState({ type: 'note', title: '', description: '' });
+  const [actLoading, setActLoading] = useState(false);
+  const [newDeal, setNewDeal] = useState(null);
+  const [dragId, setDragId] = useState(null);
 
-const formatDate = (value) => {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short' }).format(date);
-};
+  const loadDeals = useCallback(async () => {
+    try {
+      const result = await api.getCRMDeals();
+      setDeals(result.deals || []);
+    } catch { /* silencioso */ }
+    finally { setLoading(false); }
+  }, []);
 
-const Badge = ({ value }) => {
-  const tone = statusTone[value] || 'bg-zinc-100 text-zinc-600';
+  useEffect(() => { loadDeals(); }, [loadDeals]);
+
+  useEffect(() => {
+    if (!selected) return;
+    api.getCRMActivities(selected.id).then(r => setActivities(r.activities || [])).catch(() => {});
+  }, [selected?.id]);
+
+  const handleDrop = async (stageKey, e) => {
+    e.preventDefault();
+    if (!dragId || dragId === stageKey) return;
+    const deal = deals.find(d => d.id === dragId);
+    if (!deal || deal.stage === stageKey) return;
+    setDeals(prev => prev.map(d => d.id === dragId ? { ...d, stage: stageKey } : d));
+    try { await api.updateCRMDeal(dragId, { stage: stageKey }); } catch { loadDeals(); }
+    setDragId(null);
+  };
+
+  const metrics = {
+    pipeline: deals.filter(d => !['cerrado_ganado','cerrado_perdido'].includes(d.stage)).reduce((s, d) => s + (d.amount_cents || 0), 0),
+    active: deals.filter(d => !['cerrado_ganado','cerrado_perdido'].includes(d.stage)).length,
+    wonMonth: deals.filter(d => {
+      if (d.stage !== 'cerrado_ganado') return false;
+      const m = new Date(); return new Date(d.updated_at).getMonth() === m.getMonth();
+    }).length,
+  };
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${tone}`}>
-      {formatLabel(value)}
-    </span>
-  );
-};
+    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900">
 
-const ProductionSheet = ({ order }) => {
-  const items = order.order_items || order.items || [];
-  return (
-    <div className="mt-3 border-t border-zinc-100 pt-3 flex flex-col gap-2.5">
-      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-        <Printer size={11} /> Ficha de producción
-      </p>
-      <div className="space-y-1.5 text-xs">
-        {order.customer_name && (
-          <div className="flex items-center gap-2 text-zinc-700">
-            <User size={11} className="text-zinc-400 shrink-0" />
-            <span className="font-bold">{order.customer_name}</span>
-          </div>
-        )}
-        {order.customer_email && (
-          <div className="flex items-center gap-2 text-zinc-500">
-            <Mail size={11} className="text-zinc-400 shrink-0" />
-            <span className="truncate">{order.customer_email}</span>
-          </div>
-        )}
-        {order.customer_phone && (
-          <div className="flex items-center gap-2 text-zinc-500">
-            <Phone size={11} className="text-zinc-400 shrink-0" />
-            <span>{order.customer_phone}</span>
-          </div>
-        )}
-        {order.delivery_address && (
-          <div className="flex items-start gap-2 text-zinc-500">
-            <MapPin size={11} className="text-zinc-400 shrink-0 mt-0.5" />
-            <span className="leading-tight">{order.delivery_address}</span>
-          </div>
-        )}
+      {/* Nav */}
+      <div className="bg-white border-b border-zinc-200 px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+        <h1 className="text-xl font-black tracking-tight">CRM · Pipeline</h1>
+        <div className="flex gap-2 flex-wrap text-sm">
+          {[['Dashboard','/admin'],['Órdenes','/admin/orders'],['Cards','/admin/cards'],['Perfiles','/admin/profiles']].map(([l,h]) => (
+            <a key={h} href={h} className="px-3 py-2 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-colors">{l}</a>
+          ))}
+          <a href="/admin/crm" className="px-3 py-2 bg-zinc-900 text-white rounded-xl font-bold">CRM</a>
+        </div>
       </div>
-      {items.length > 0 && (
-        <div className="bg-zinc-50 rounded-xl p-2.5 space-y-1">
-          {items.map((item, i) => (
-            <div key={i} className="flex items-center justify-between text-xs">
-              <span className="font-bold text-zinc-800 truncate max-w-[130px]">
-                {item.product_name || item.product_id || 'Producto'}
-              </span>
-              <span className="text-zinc-500 font-bold shrink-0 ml-2">x{item.quantity}</span>
+
+      <div className="p-6 max-w-[1600px] mx-auto flex flex-col gap-6">
+
+        {/* Métricas */}
+        <div className="grid grid-cols-3 gap-4 max-w-xl">
+          {[
+            { label: 'Pipeline total', value: CLP(metrics.pipeline) },
+            { label: 'Deals activos', value: metrics.active },
+            { label: 'Ganados este mes', value: metrics.wonMonth },
+          ].map(m => (
+            <div key={m.label} className="bg-white border border-zinc-100 rounded-2xl p-4 shadow-sm">
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide">{m.label}</p>
+              <p className="text-xl font-black text-zinc-950 mt-1">{m.value}</p>
             </div>
           ))}
         </div>
-      )}
-      {order.notes && (
-        <div className="flex items-start gap-2 text-xs text-zinc-500 bg-amber-50 rounded-xl p-2.5">
-          <FileText size={11} className="text-amber-500 shrink-0 mt-0.5" />
-          <span className="leading-tight">{order.notes}</span>
-        </div>
-      )}
-      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest">
-        <CreditCard size={11} className="text-zinc-400" />
-        <span className="text-zinc-400">ID orden:</span>
-        <span className="text-zinc-600 font-mono">{String(order.id).slice(0, 8).toUpperCase()}</span>
-      </div>
-    </div>
-  );
-};
 
-const OrderCard = ({ order, onAdvance, busy }) => {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const nextStatus = FULFILLMENT_NEXT[order.fulfillment_status];
-  const customerName = order.customer_name || order.customer_full_name || 'Cliente sin nombre';
-  const amount = order.amount_cents || 0;
-
-  // Gate: can't move to production without confirmed payment
-  const blockedByPayment = nextStatus === 'in_production' && order.payment_status !== 'paid';
-  const isInProduction = order.fulfillment_status === 'in_production';
-
-  return (
-    <div className={`bg-white rounded-[24px] border shadow-sm p-4 flex flex-col gap-3 ${isInProduction ? 'border-indigo-200' : 'border-zinc-100'}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-black text-zinc-900 text-sm leading-tight truncate">{customerName}</p>
-          {order.customer_email && (
-            <p className="text-zinc-400 text-xs mt-0.5 truncate">{order.customer_email}</p>
-          )}
-        </div>
-        <p className="font-black text-zinc-950 text-sm whitespace-nowrap">{currency(amount)}</p>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <Badge value={order.payment_status} />
-        <span className="text-zinc-300 text-xs">•</span>
-        <span className="text-zinc-400 text-xs">{formatDate(order.created_at)}</span>
-      </div>
-
-      {/* Production sheet toggle */}
-      {isInProduction && (
-        <button
-          onClick={() => setSheetOpen(v => !v)}
-          className="flex items-center justify-between w-full text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-        >
-          <span className="flex items-center gap-1.5">
-            <Printer size={12} />
-            {sheetOpen ? 'Ocultar ficha' : 'Ver ficha de producción'}
-          </span>
-          <ChevronDown size={12} className={`transition-transform ${sheetOpen ? 'rotate-180' : ''}`} />
-        </button>
-      )}
-
-      {isInProduction && sheetOpen && <ProductionSheet order={order} />}
-
-      {/* Advance button */}
-      {nextStatus && (
-        blockedByPayment ? (
-          <div className="flex items-center gap-2 w-full py-2 px-3 rounded-xl border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700">
-            <Lock size={12} />
-            Pago pendiente — no se puede producir
-          </div>
-        ) : (
+        {/* Botón nuevo deal */}
+        <div>
           <button
-            onClick={() => onAdvance(order.id, nextStatus)}
-            disabled={busy}
-            className="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => setNewDeal({ name: '', amount_cents: '', stage: 'nuevo_lead', contact_name: '', contact_email: '', contact_phone: '', contact_company: '', notes: '' })}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-colors"
           >
-            {busy ? <Loader2 size={12} className="animate-spin" /> : <ArrowRight size={12} />}
-            {NEXT_LABEL[order.fulfillment_status]}
+            + Nuevo deal
           </button>
-        )
+        </div>
+
+        {loading ? (
+          <div className="text-zinc-400 text-sm">Cargando...</div>
+        ) : (
+          /* Kanban */
+          <div className="overflow-x-auto pb-4">
+            <div className="flex gap-4 min-w-max">
+              {STAGES.map(stage => {
+                const col = deals.filter(d => d.stage === stage.key);
+                return (
+                  <div
+                    key={stage.key}
+                    className="w-64 bg-white border border-zinc-100 rounded-2xl shadow-sm flex flex-col overflow-hidden"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => handleDrop(stage.key, e)}
+                  >
+                    <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${stage.dot}`} />
+                        <span className="font-black text-sm text-zinc-900">{stage.label}</span>
+                      </div>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${stage.color}`}>{col.length}</span>
+                    </div>
+                    <div className="p-3 flex flex-col gap-2.5 min-h-[120px]">
+                      {col.length === 0 && <p className="text-zinc-300 text-xs text-center py-6">Sin deals</p>}
+                      {col.map(deal => (
+                        <DealCard
+                          key={deal.id}
+                          deal={deal}
+                          stage={stage}
+                          onDragStart={() => setDragId(deal.id)}
+                          onClick={() => { setSelected(deal); setActivities([]); }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Panel lateral */}
+      {selected && (
+        <DealPanel
+          deal={selected}
+          activities={activities}
+          actForm={actForm}
+          actLoading={actLoading}
+          onActFormChange={setActForm}
+          onAddActivity={async () => {
+            if (!actForm.title.trim()) return;
+            setActLoading(true);
+            try {
+              await api.addCRMActivity({ deal_id: selected.id, ...actForm });
+              const r = await api.getCRMActivities(selected.id);
+              setActivities(r.activities || []);
+              setActForm({ type: 'note', title: '', description: '' });
+            } catch { /* silencioso */ }
+            finally { setActLoading(false); }
+          }}
+          onStageChange={async (stage) => {
+            setDeals(prev => prev.map(d => d.id === selected.id ? { ...d, stage } : d));
+            setSelected(prev => ({ ...prev, stage }));
+            try { await api.updateCRMDeal(selected.id, { stage }); } catch { loadDeals(); }
+          }}
+          onClose={() => setSelected(null)}
+        />
+      )}
+
+      {/* Modal nuevo deal */}
+      {newDeal && (
+        <NewDealModal
+          form={newDeal}
+          onChange={setNewDeal}
+          onClose={() => setNewDeal(null)}
+          onSave={async () => {
+            try {
+              let contactId = null;
+              if (newDeal.contact_name.trim()) {
+                const { data: c } = await (await import('../services/supabaseClient')).supabase
+                  .from('crm_contacts').insert({ name: newDeal.contact_name, email: newDeal.contact_email || null, phone: newDeal.contact_phone || null, company: newDeal.contact_company || null }).select().single();
+                contactId = c?.id || null;
+              }
+              await api.createCRMDeal({ name: newDeal.name, amount_cents: parseInt(newDeal.amount_cents) || 0, stage: newDeal.stage, notes: newDeal.notes || null, contact_id: contactId });
+              await loadDeals();
+              setNewDeal(null);
+            } catch { /* silencioso */ }
+          }}
+        />
       )}
     </div>
   );
-};
+}
 
-const CRMDashboard = ({ orders = [], onUpdateOrder }) => {
-  const [busyOrderId, setBusyOrderId] = useState(null);
-  const [feedback, setFeedback] = useState({ type: '', message: '' });
-  const [cancelledOpen, setCancelledOpen] = useState(false);
-
-  const handleAdvance = async (orderId, nextStatus) => {
-    setBusyOrderId(orderId);
-    setFeedback({ type: '', message: '' });
-    try {
-      await onUpdateOrder(orderId, { fulfillment_status: nextStatus });
-      setFeedback({
-        type: 'success',
-        message: `Orden actualizada → ${formatLabel(nextStatus)}.`,
-      });
-    } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: err?.message || 'No fue posible actualizar la orden.',
-      });
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const activeOrders = useMemo(
-    () => orders.filter((o) => o.fulfillment_status !== 'cancelled'),
-    [orders],
-  );
-
-  const cancelledOrders = useMemo(
-    () => orders.filter((o) => o.fulfillment_status === 'cancelled'),
-    [orders],
-  );
-
-  const columnMap = useMemo(() => {
-    const map = {};
-    for (const col of COLUMNS) {
-      map[col.key] = activeOrders.filter((o) => o.fulfillment_status === col.key);
-    }
-    return map;
-  }, [activeOrders]);
-
-  const inProductionCount = columnMap['in_production']?.length ?? 0;
-  const unpaidCount = useMemo(
-    () => orders.filter((o) => o.payment_status === 'pending').length,
-    [orders],
-  );
-
+function DealCard({ deal, stage, onDragStart, onClick }) {
+  const contact = deal.crm_contacts;
+  const days = daysSince(deal.updated_at);
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 p-8">
-      <div className="max-w-[1600px] mx-auto flex flex-col gap-8">
-
-        {/* Header */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-zinc-950">
-              CRM — Pipeline de órdenes
-            </h1>
-            <p className="text-zinc-500 font-medium mt-1">
-              Vista Kanban por estado de fulfillment.
-            </p>
-          </div>
-          <div className="flex gap-3 flex-wrap">
-            <a
-              href="/admin"
-              className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm hover:bg-zinc-50 transition-colors"
-            >
-              Dashboard
-            </a>
-            <a
-              href="/admin/orders"
-              className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm hover:bg-zinc-50 transition-colors"
-            >
-              Órdenes
-            </a>
-            <a
-              href="/admin/cards"
-              className="px-4 py-3 bg-white border border-zinc-200 text-zinc-900 rounded-2xl font-bold text-sm hover:bg-zinc-50 transition-colors"
-            >
-              Cards
-            </a>
-          </div>
-        </div>
-
-        {/* Quick metrics */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:w-fit">
-          <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm px-6 py-4 flex items-center gap-4">
-            <div className="p-2.5 rounded-2xl bg-indigo-50 text-indigo-500">
-              <Package size={20} />
-            </div>
-            <div>
-              <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">En producción</p>
-              <p className="text-2xl font-black text-zinc-950">{inProductionCount}</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-3xl border border-zinc-100 shadow-sm px-6 py-4 flex items-center gap-4">
-            <div className="p-2.5 rounded-2xl bg-amber-50 text-amber-500">
-              <Clock3 size={20} />
-            </div>
-            <div>
-              <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Sin pagar</p>
-              <p className="text-2xl font-black text-zinc-950">{unpaidCount}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Feedback */}
-        {feedback.message && (
-          <div
-            className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${
-              feedback.type === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-rose-200 bg-rose-50 text-rose-700'
-            }`}
-          >
-            {feedback.type === 'success' ? (
-              <CheckCircle2 size={18} />
-            ) : (
-              <AlertCircle size={18} />
-            )}
-            <span>{feedback.message}</span>
-          </div>
-        )}
-
-        {/* Kanban columns */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 items-start">
-          {COLUMNS.map((col) => {
-            const colOrders = columnMap[col.key] || [];
-            const headerTone = statusTone[col.key] || 'bg-zinc-100 text-zinc-600';
-            return (
-              <div
-                key={col.key}
-                className="bg-white rounded-[32px] border border-zinc-100 shadow-sm flex flex-col overflow-hidden"
-              >
-                {/* Column header */}
-                <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between gap-2">
-                  <span className="font-black text-zinc-900 text-sm">{col.label}</span>
-                  <span
-                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black ${headerTone}`}
-                  >
-                    {colOrders.length}
-                  </span>
-                </div>
-
-                {/* Cards */}
-                <div className="p-3 flex flex-col gap-3 min-h-[120px]">
-                  {colOrders.length === 0 ? (
-                    <p className="text-zinc-300 text-xs font-bold text-center py-6">Sin órdenes</p>
-                  ) : (
-                    colOrders.map((order) => (
-                      <OrderCard
-                        key={order.id}
-                        order={order}
-                        onAdvance={handleAdvance}
-                        busy={busyOrderId === order.id}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Cancelled collapsible section */}
-        {cancelledOrders.length > 0 && (
-          <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm overflow-hidden">
-            <button
-              onClick={() => setCancelledOpen((v) => !v)}
-              className="w-full px-6 py-4 flex items-center justify-between gap-3 hover:bg-zinc-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <span className="font-black text-zinc-700 text-sm">Canceladas</span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
-                  {cancelledOrders.length}
-                </span>
-              </div>
-              {cancelledOpen ? (
-                <ChevronDown size={16} className="text-zinc-400" />
-              ) : (
-                <ChevronRight size={16} className="text-zinc-400" />
-              )}
-            </button>
-
-            {cancelledOpen && (
-              <div className="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 border-t border-zinc-100 pt-4">
-                {cancelledOrders.map((order) => {
-                  const customerName =
-                    order.customer_name || order.customer_full_name || 'Cliente sin nombre';
-                  const amount = order.amount_cents || 0;
-                  return (
-                    <div
-                      key={order.id}
-                      className="bg-zinc-50 rounded-[20px] border border-zinc-100 p-4 flex flex-col gap-2 opacity-60"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-black text-zinc-900 text-sm leading-tight">{customerName}</p>
-                          {order.customer_email && (
-                            <p className="text-zinc-400 text-xs mt-0.5 truncate max-w-[180px]">
-                              {order.customer_email}
-                            </p>
-                          )}
-                        </div>
-                        <p className="font-black text-zinc-700 text-sm whitespace-nowrap">{currency(amount)}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge value={order.payment_status} />
-                        <span className="text-zinc-300 text-xs">•</span>
-                        <span className="text-zinc-400 text-xs">{formatDate(order.created_at)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onClick={onClick}
+      className="bg-white border border-zinc-100 rounded-2xl p-3.5 cursor-pointer hover:border-zinc-300 hover:shadow-sm transition-all select-none"
+    >
+      <p className="font-bold text-sm text-zinc-900 truncate">{deal.name}</p>
+      {contact?.company && <p className="text-xs text-zinc-400 truncate mt-0.5">{contact.company}</p>}
+      <div className="flex items-center justify-between mt-2.5 gap-2">
+        <span className="text-sm font-black text-zinc-800">{CLP(deal.amount_cents)}</span>
+        <span className="text-[10px] text-zinc-400 font-medium">{days}d</span>
+      </div>
+      <div className="flex items-center justify-between mt-2">
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${stage.color}`}>{stage.label}</span>
+        {contact?.phone && (
+          <a
+            href={`https://wa.me/56${contact.phone.replace(/\D/g, '')}`}
+            target="_blank" rel="noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="text-emerald-500 hover:text-emerald-400 text-xs"
+          >💬</a>
         )}
       </div>
     </div>
   );
-};
+}
 
-export default CRMDashboard;
+function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onAddActivity, onStageChange, onClose }) {
+  const contact = deal.crm_contacts;
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end">
+      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="w-full max-w-md bg-white shadow-2xl overflow-y-auto flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 sticky top-0 bg-white z-10">
+          <h2 className="font-black text-lg truncate pr-4">{deal.name}</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">×</button>
+        </div>
+        <div className="p-6 flex flex-col gap-5">
+
+          {/* Etapa */}
+          <div>
+            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wide block mb-1.5">Etapa</label>
+            <select
+              value={deal.stage}
+              onChange={e => onStageChange(e.target.value)}
+              className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white focus:outline-none focus:border-emerald-500"
+            >
+              {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          </div>
+
+          {/* Info deal */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="bg-zinc-50 rounded-xl p-3">
+              <p className="text-zinc-400 text-xs font-bold">Monto</p>
+              <p className="font-black text-zinc-900">{CLP(deal.amount_cents)}</p>
+            </div>
+            <div className="bg-zinc-50 rounded-xl p-3">
+              <p className="text-zinc-400 text-xs font-bold">Días en etapa</p>
+              <p className="font-black text-zinc-900">{daysSince(deal.updated_at)}d</p>
+            </div>
+          </div>
+
+          {/* Contacto */}
+          {contact && (
+            <div className="border border-zinc-100 rounded-xl p-4">
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">Contacto</p>
+              <p className="font-bold text-zinc-900">{contact.name}</p>
+              {contact.company && <p className="text-xs text-zinc-500">{contact.company}</p>}
+              {contact.email && <p className="text-xs text-zinc-400 mt-1">{contact.email}</p>}
+              {contact.phone && (
+                <a href={`https://wa.me/56${contact.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-500 font-bold mt-1 inline-block">💬 {contact.phone}</a>
+              )}
+            </div>
+          )}
+
+          {/* Notas */}
+          {deal.notes && (
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-sm text-zinc-700">{deal.notes}</div>
+          )}
+
+          {/* Actividades */}
+          <div>
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-3">Actividades</p>
+            <div className="space-y-2.5 mb-4 max-h-56 overflow-y-auto">
+              {activities.length === 0 && <p className="text-xs text-zinc-300">Sin actividades</p>}
+              {activities.map(act => (
+                <div key={act.id} className="flex gap-2.5 text-sm">
+                  <span className="text-base leading-none mt-0.5">{ActivityIcon[act.type] || '📝'}</span>
+                  <div>
+                    <p className="font-bold text-zinc-900 text-xs">{act.title}</p>
+                    {act.description && <p className="text-zinc-500 text-xs mt-0.5">{act.description}</p>}
+                    <p className="text-zinc-300 text-[10px] mt-0.5">{new Date(act.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Form actividad rápida */}
+            <div className="border border-zinc-100 rounded-xl p-3 space-y-2.5">
+              <div className="flex gap-2">
+                <select value={actForm.type} onChange={e => onActFormChange(p => ({ ...p, type: e.target.value }))} className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none">
+                  {Object.entries(ActivityIcon).map(([k,v]) => <option key={k} value={k}>{v} {k}</option>)}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Título *"
+                  value={actForm.title}
+                  onChange={e => onActFormChange(p => ({ ...p, title: e.target.value }))}
+                  className="flex-1 border border-zinc-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Descripción (opcional)"
+                value={actForm.description}
+                onChange={e => onActFormChange(p => ({ ...p, description: e.target.value }))}
+                className="w-full border border-zinc-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                onClick={onAddActivity}
+                disabled={actLoading || !actForm.title.trim()}
+                className="w-full py-2 bg-zinc-900 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold disabled:opacity-40 transition-colors"
+              >
+                {actLoading ? 'Guardando...' : 'Agregar actividad'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NewDealModal({ form, onChange, onClose, onSave }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-black text-lg">Nuevo deal</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 text-xl">×</button>
+        </div>
+        <div className="space-y-3">
+          <input type="text" placeholder="Nombre del deal *" value={form.name} onChange={e => onChange(p => ({ ...p, name: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+          <input type="number" placeholder="Monto (CLP)" value={form.amount_cents} onChange={e => onChange(p => ({ ...p, amount_cents: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+          <select value={form.stage} onChange={e => onChange(p => ({ ...p, stage: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-emerald-500">
+            {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide pt-1">Contacto (opcional)</p>
+          <input type="text" placeholder="Nombre del contacto" value={form.contact_name} onChange={e => onChange(p => ({ ...p, contact_name: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+          <div className="grid grid-cols-2 gap-3">
+            <input type="email" placeholder="Email" value={form.contact_email} onChange={e => onChange(p => ({ ...p, contact_email: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+            <input type="tel" placeholder="Teléfono" value={form.contact_phone} onChange={e => onChange(p => ({ ...p, contact_phone: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+          </div>
+          <input type="text" placeholder="Empresa" value={form.contact_company} onChange={e => onChange(p => ({ ...p, contact_company: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+          <textarea placeholder="Notas (opcional)" value={form.notes} onChange={e => onChange(p => ({ ...p, notes: e.target.value }))} rows={2} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-zinc-200 rounded-xl text-sm font-semibold hover:bg-zinc-50">Cancelar</button>
+          <button onClick={onSave} disabled={!form.name.trim()} className="flex-[2] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold disabled:opacity-40 transition-colors">Crear deal</button>
+        </div>
+      </div>
+    </div>
+  );
+}

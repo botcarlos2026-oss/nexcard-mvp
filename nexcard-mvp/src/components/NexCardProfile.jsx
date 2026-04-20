@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../services/supabaseClient';
 import { 
   Phone, 
   Instagram, 
@@ -36,6 +37,16 @@ const NexCardProfile = ({ data }) => {
 
   const [copiedField, setCopiedField] = useState(null);
   const [isBankOpen, setIsBankOpen] = useState(false);
+  const [contactModal, setContactModal] = useState(false);
+  const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', company: '' });
+  const [contactSent, setContactSent] = useState(false);
+  const [contactLoading, setContactLoading] = useState(false);
+
+  useEffect(() => {
+    if (data?.slug && supabase) {
+      supabase.from('card_scans').insert({ profile_slug: data.slug, profile_id: data.id || null }).then(() => {});
+    }
+  }, [data?.id]);
 
   // Default theme settings
   const themeColor = data.theme_color || '#10B981';
@@ -135,9 +146,9 @@ const NexCardProfile = ({ data }) => {
         <p className="mt-4 text-sm opacity-80 leading-relaxed px-2 text-left">{data.bio}</p>
 
         {/* Action Buttons (Primary) */}
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col gap-3">
           {data.vcard_enabled !== false && (
-            <button 
+            <button
               onClick={handleSaveContact}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-black/10"
               style={{ backgroundColor: themeColor, color: '#fff' }}
@@ -146,7 +157,60 @@ const NexCardProfile = ({ data }) => {
               Guardar Contacto
             </button>
           )}
+          <button
+            onClick={() => setContactModal(true)}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+          >
+            💬 Conectemos
+          </button>
         </div>
+
+        {/* Modal Conectemos */}
+        {contactModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setContactModal(false)}>
+            <div className={`w-full max-w-sm rounded-2xl p-6 ${isDark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
+              {contactSent ? (
+                <div className="text-center py-4">
+                  <div className="text-4xl mb-3">✅</div>
+                  <p className="font-bold text-lg">¡Listo!</p>
+                  <p className="text-sm opacity-60 mt-1">Te contactaremos pronto.</p>
+                  <button onClick={() => { setContactModal(false); setContactSent(false); }} className="mt-4 text-sm opacity-50 hover:opacity-80">Cerrar</button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="font-black text-lg mb-4">Conectemos</h3>
+                  <div className="space-y-3">
+                    <input type="text" placeholder="Tu nombre *" value={contactForm.name} onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                    <input type="email" placeholder="Email" value={contactForm.email} onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                    <input type="tel" placeholder="Teléfono" value={contactForm.phone} onChange={e => setContactForm(p => ({ ...p, phone: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                    <input type="text" placeholder="Empresa" value={contactForm.company} onChange={e => setContactForm(p => ({ ...p, company: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={() => setContactModal(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold opacity-50 hover:opacity-80">Cancelar</button>
+                    <button
+                      disabled={contactLoading || !contactForm.name.trim()}
+                      onClick={async () => {
+                        if (!contactForm.name.trim()) return;
+                        setContactLoading(true);
+                        try {
+                          if (supabase) {
+                            await supabase.from('crm_contacts').insert({ name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, source: 'nfc_tap', profile_id: data.id || null });
+                          }
+                          setContactSent(true);
+                        } catch { setContactSent(true); }
+                        finally { setContactLoading(false); }
+                      }}
+                      className="flex-[2] py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+                      style={{ backgroundColor: themeColor }}
+                    >
+                      {contactLoading ? 'Enviando…' : 'Enviar'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="max-w-md mx-auto px-6 space-y-6 pb-12">
