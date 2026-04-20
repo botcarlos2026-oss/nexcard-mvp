@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone } from 'lucide-react';
+import api from '../services/api';
 
 const FEATURES = [
   { icon: <Zap size={22} className="text-emerald-400" />, title: 'Comparte al instante', description: 'Un toque con tu tarjeta NFC y tu contacto completo aparece en el teléfono de tu cliente. Sin apps, sin fricción.' },
@@ -8,11 +9,21 @@ const FEATURES = [
   { icon: <Shield size={22} className="text-emerald-400" />, title: 'Compatible con todos', description: 'Funciona con iPhone y Android sin necesidad de instalar nada. Solo acercar y compartir.' },
 ];
 
-const PRICING = [
-  { sku: 'BASIC-5', name: 'Estándar', cards: 5, price: 89990, perUnit: 17998, description: 'Ideal para profesionales independientes', highlight: false, features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Activación guiada', 'Soporte por email'] },
-  { sku: 'PREMIUM-5', name: 'Premium 5', cards: 5, price: 79990, perUnit: 15998, description: 'El más popular para emprendedores', highlight: false, features: ['5 tarjetas NFC premium', 'Perfil personalizado', 'Analítica básica', 'Soporte prioritario'] },
-  { sku: 'PREMIUM-10', name: 'Premium 10', cards: 10, price: 149990, perUnit: 14999, description: 'Para equipos de ventas en crecimiento', highlight: true, badge: 'Más popular', features: ['10 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte prioritario', 'Dashboard de equipo'] },
-  { sku: 'PREMIUM-20', name: 'Premium 20', cards: 20, price: 269990, perUnit: 13499, description: 'La mejor relación precio-volumen', highlight: false, features: ['20 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte dedicado', 'Dashboard de equipo', 'Onboarding asistido'] },
+// Metadata estático por SKU — precios vienen de Supabase (price_cents)
+// SKUs activos: BASIC-5 ($89.990), PREMIUM-5 ($79.990), PREMIUM-10 ($149.990), PREMIUM-20 ($269.990)
+const PRICING_META = {
+  'BASIC-5':    { name: 'Starter',    cards: 5,  description: 'Ideal para profesionales independientes', highlight: false, features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Activación guiada', 'Soporte por email'] },
+  'PREMIUM-5':  { name: 'Plus',       cards: 5,  description: 'El más popular para emprendedores',       highlight: false, features: ['5 tarjetas NFC premium', 'Perfil personalizado', 'Analítica básica', 'Soporte prioritario'] },
+  'PREMIUM-10': { name: 'Business',   cards: 10, description: 'Para equipos de ventas en crecimiento',   highlight: true,  badge: 'Más popular', features: ['10 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte prioritario', 'Dashboard de equipo'] },
+  'PREMIUM-20': { name: 'Enterprise', cards: 20, description: 'La mejor relación precio-volumen',        highlight: false, features: ['20 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte dedicado', 'Dashboard de equipo', 'Onboarding asistido'] },
+};
+
+// Fallback si Supabase no responde
+const PRICING_FALLBACK = [
+  { sku: 'BASIC-5',    price: 89990 },
+  { sku: 'PREMIUM-5',  price: 79990 },
+  { sku: 'PREMIUM-10', price: 149990 },
+  { sku: 'PREMIUM-20', price: 269990 },
 ];
 
 const STEPS = [
@@ -24,7 +35,23 @@ const STEPS = [
 
 export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
+  const [pricing, setPricing] = useState(() =>
+    PRICING_FALLBACK.map((p) => ({ ...p, ...PRICING_META[p.sku], perUnit: Math.round(p.price / (PRICING_META[p.sku]?.cards || 1)) }))
+  );
   const formatPrice = (n) => n.toLocaleString('es-CL');
+
+  useEffect(() => {
+    api.getProducts().then((products) => {
+      const nexcardSkus = Object.keys(PRICING_META);
+      const merged = PRICING_FALLBACK.map((fallback) => {
+        const dbProduct = products.find((p) => p.sku === fallback.sku);
+        const price = dbProduct ? dbProduct.price_cents : fallback.price;
+        const meta = PRICING_META[fallback.sku];
+        return { sku: fallback.sku, price, perUnit: Math.round(price / (meta?.cards || 1)), ...meta };
+      });
+      setPricing(merged);
+    }).catch(() => { /* mantener fallback */ });
+  }, []);
 
   useEffect(() => {
     const cards = document.querySelectorAll('.pricing-reveal');
@@ -79,28 +106,6 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             </button>
           </div>
           <p className="mt-10 text-sm text-zinc-500">Despacho a todo Chile · Activación en minutos · Sin contratos</p>
-
-          {/* Buscador de perfil inline */}
-          <div className="mt-10 flex flex-col items-center gap-2">
-            <p className="text-zinc-500 text-xs">¿Ya tienes tu tarjeta? Busca tu perfil</p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
-                placeholder="tu-slug"
-                aria-label="Buscar perfil por slug"
-                className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-36 transition-colors min-h-[44px]"
-              />
-              <button
-                onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)}
-                className="btn-press text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap min-h-[44px] inline-flex items-center"
-              >
-                Ver perfil →
-              </button>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -120,6 +125,29 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-zinc-800/60 py-16 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-xl font-black mb-3">¿Ya eres cliente NexCard? Accede a tu perfil</h2>
+          <div className="flex items-center justify-center gap-2">
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
+              placeholder="tu-slug"
+              aria-label="Buscar perfil por slug"
+              className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-48 transition-colors min-h-[44px]"
+            />
+            <button
+              onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)}
+              className="btn-press text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap min-h-[44px] inline-flex items-center"
+            >
+              Ver perfil →
+            </button>
           </div>
         </div>
       </section>
@@ -183,7 +211,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <p className="text-zinc-400 max-w-xl mx-auto">A mayor volumen, mejor precio por unidad. Elige el pack que se adapta a tu equipo.</p>
           </div>
           <div className="pricing-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {PRICING.map((plan) => (
+            {pricing.map((plan) => (
               <div key={plan.sku} className={`pricing-card pricing-reveal relative rounded-xl p-7 flex flex-col ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800'}`}>
                 {plan.badge && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -365,6 +393,17 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             </a>
           </div>
 
+        </div>
+      </section>
+
+      <section className="border-t border-zinc-800/60 py-8 px-6">
+        <div className="max-w-4xl mx-auto flex flex-wrap justify-center gap-6 text-sm text-zinc-400">
+          {['✓ Empresa chilena','✓ Despacho a todo Chile','✓ Devolución en 10 días','✓ Pago 100% seguro'].map(item => (
+            <span key={item} className="flex items-center gap-1">{item}</span>
+          ))}
+          <a href="https://wa.me/56993183021" className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300">
+            💬 +56 9 9318 3021
+          </a>
         </div>
       </section>
 

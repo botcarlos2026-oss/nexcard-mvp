@@ -306,15 +306,7 @@ function App() {
   }
   if (path === '/baja') return <UnsubscribePage />;
 
-  if (path === '/admin/crm') return (
-    <CRMDashboard
-      orders={ordersAdminData}
-      onUpdateOrder={async (orderId, payload) => {
-        const result = await api.updateOrder(orderId, payload);
-        setOrdersAdminData(result.orders || []);
-      }}
-    />
-  );
+  if (path === '/admin/crm') return <CRMDashboard />;
 
   if (path === '/edit') {
     if (!user) return null;
@@ -339,7 +331,8 @@ function App() {
     return <DeliveryConfirmation orderId={parts[0]} token={parts[1]} />;
   }
 
-  if (path === '/') return <ComingSoon />;
+  if (path === '/') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
+  if (path === '/coming-soon') return <ComingSoon />;
   if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
   if (path === '/privacidad') return <PrivacyPolicy />;
   if (path === '/terminos') return <TermsAndConditions />;

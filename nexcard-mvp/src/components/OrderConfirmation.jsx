@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Copy } from 'lucide-react';
+import { CheckCircle, Clock, Copy } from 'lucide-react';
 
 export default function OrderConfirmation({ order, onContinueShopping }) {
   const [copied, setCopied] = React.useState(false);
@@ -31,11 +31,21 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">
       <div className="max-w-2xl mx-auto">
-        {/* Icono de éxito */}
+        {/* Icono y título según estado de pago */}
         <div className="text-center mb-8">
-          <CheckCircle size={80} className="mx-auto text-emerald-400 mb-4" />
-          <h1 className="text-4xl font-black mb-2">¡Orden Confirmada!</h1>
-          <p className="text-zinc-400 text-lg">Tu compra ha sido procesada correctamente</p>
+          {order.payment_status === 'paid' || order.payment_status === 'success' ? (
+            <>
+              <CheckCircle size={80} className="mx-auto text-emerald-400 mb-4" />
+              <h1 className="text-4xl font-black mb-2">¡Orden Confirmada!</h1>
+              <p className="text-zinc-400 text-lg">Tu compra ha sido procesada correctamente</p>
+            </>
+          ) : (
+            <>
+              <Clock size={80} className="mx-auto text-amber-400 mb-4" />
+              <h1 className="text-4xl font-black mb-2">Orden Recibida</h1>
+              <p className="text-zinc-400 text-lg">Tu orden fue recibida. El pago está siendo verificado.</p>
+            </>
+          )}
         </div>
 
         {/* Detalles de la orden */}
@@ -45,7 +55,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
               <p className="text-zinc-400 text-sm mb-1">Número de Orden</p>
               <div className="flex items-center gap-2">
                 <code className="bg-zinc-800 px-3 py-2 rounded font-mono text-sm break-all">
-                  {order.id.substring(0, 8)}...{order.id.substring(order.id.length - 8)}
+                  {order.folio || '#' + order.id.substring(0, 8).toUpperCase()}
                 </code>
                 <button
                   onClick={handleCopyOrderId}
@@ -81,9 +91,16 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
             <div>
               <p className="text-zinc-400 text-sm mb-2">Estado de Pago</p>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <span className="font-semibold capitalize">{order.payment_status}</span>
-                <span className="text-zinc-500 text-sm">(Pendiente de confirmación)</span>
+                <div className={`w-3 h-3 rounded-full ${
+                  order.payment_status === 'paid' || order.payment_status === 'success'
+                    ? 'bg-emerald-500'
+                    : order.payment_status === 'failure' || order.payment_status === 'failed'
+                    ? 'bg-red-500'
+                    : 'bg-yellow-500'
+                }`} />
+                <span className="font-semibold">
+                  {paymentStatusLabel.text}
+                </span>
               </div>
             </div>
 
@@ -128,17 +145,28 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
           </ol>
         </div>
 
-        {/* CTA */}
-        <button
-          onClick={onContinueShopping}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-lg transition-colors text-lg"
-        >
-          Volver al Catálogo
-        </button>
+        {/* CTAs post-compra */}
+        <div className="flex flex-col sm:flex-row gap-3 mt-6">
+          <a
+            href={`https://wa.me/56993183021?text=Hola,%20mi%20folio%20es%20${order.folio || order.id.substring(0, 8).toUpperCase()}`}
+            target="_blank" rel="noreferrer"
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-bold transition-colors"
+          >
+            💬 Seguimiento por WhatsApp
+          </a>
+          <a href="/"
+            className="flex items-center justify-center px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-bold transition-colors"
+          >
+            Volver al inicio
+          </a>
+        </div>
+        <p className="text-zinc-400 text-xs mt-4 text-center">
+          Recibirás un email con actualizaciones. Tu tarjeta estará lista en 5-7 días hábiles.
+        </p>
 
         {/* Footer */}
         <div className="text-center mt-8 text-zinc-500 text-sm">
-          <p>¿Preguntas? Contacta a <strong>soporte@nexcard.com</strong></p>
+          <p>¿Preguntas? Contacta a <strong>hola@nexcard.cl</strong></p>
         </div>
       </div>
     </div>

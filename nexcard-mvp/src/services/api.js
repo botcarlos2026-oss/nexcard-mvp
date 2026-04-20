@@ -1,5 +1,23 @@
 import { supabase, hasSupabase } from './supabaseClient';
 
+const ERROR_MESSAGES = {
+  'Failed to fetch': 'Sin conexión. Verifica tu internet e intenta nuevamente.',
+  'JWT expired': 'Tu sesión expiró. Recarga la página.',
+  '23502': 'Faltan datos requeridos. Completa todos los campos.',
+  '23503': 'Error de referencia. Contacta a soporte en hola@nexcard.cl',
+  '23505': 'Este registro ya existe.',
+  'Stock insuficiente': 'Stock insuficiente para completar el despacho.',
+  'PGRST': 'Error de base de datos. Intenta nuevamente.',
+};
+
+export const getErrorMessage = (error) => {
+  const msg = error?.message || error?.toString() || '';
+  for (const [key, friendly] of Object.entries(ERROR_MESSAGES)) {
+    if (msg.includes(key)) return friendly;
+  }
+  return 'Ocurrió un error inesperado. Intenta nuevamente o contacta a hola@nexcard.cl';
+};
+
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
 
 export const getStoredAuth = () => {
@@ -52,46 +70,48 @@ async function supabaseCreateOrder(payload) {
   const { data: sessionData } = await supabase.auth.getSession();
   const userId = sessionData?.session?.user?.id || null;
 
-  const orderPayload = {
+  const orderData = {
     user_id: userId,
     customer_name: payload.customer_name.trim(),
     customer_email: payload.customer_email.trim().toLowerCase(),
+    customer_phone: payload.customer_phone?.trim() || null,
+    customer_address: payload.customer_address?.trim() || null,
     payment_method: payload.payment_method,
-    payment_status: 'pending',
-    fulfillment_status: 'new',
     amount_cents: payload.amount_cents,
     currency: payload.currency || 'CLP',
     card_customization: payload.card_customization || null,
+    requires_invoice: payload.requires_invoice || false,
+    invoice_rut: payload.invoice_rut || null,
+    invoice_razon_social: payload.invoice_razon_social || null,
   };
 
-  const { data: orderData, error: orderError } = await supabase
-    .from('orders')
-    .insert([orderPayload])
-    .select()
-    .single();
-
-  if (orderError) throw new Error(orderError.message || 'No se pudo crear la orden');
-  if (!orderData?.id) throw new Error('La orden fue creada pero no retornó un ID');
-
-  const orderId = orderData.id;
   const orderItems = payload.items.map((item) => ({
-    order_id: orderId,
     product_id: item.product_id,
     quantity: Number(item.quantity) || 1,
     unit_price_cents: Number(item.unit_price_cents),
     currency: payload.currency || 'CLP',
   }));
 
-  const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-  if (itemsError) {
-    await supabase.from('orders').delete().eq('id', orderId);
-    throw new Error('Error al guardar los items. La operación fue revertida.');
-  }
+  const { data: orderId, error: rpcError } = await supabase.rpc('create_order_with_items', {
+    p_order: orderData,
+    p_items: orderItems,
+  });
+
+  if (rpcError) throw new Error(rpcError.message || 'No se pudo crear la orden');
+  if (!orderId) throw new Error('La orden fue creada pero no retornó un ID');
+
+  const { data: createdOrder, error: fetchError } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+
+  if (fetchError || !createdOrder) throw new Error('Orden creada pero no se pudo recuperar');
 
   // Enviar email de confirmación vía Edge Function
   try {
     const emailPayload = {
-      order: orderData,
+      order: createdOrder,
       card_customization: payload.card_customization || null,
       items: payload.items.map(item => ({
         product_id: item.product_id,
@@ -100,7 +120,7 @@ async function supabaseCreateOrder(payload) {
         unit_price_cents: item.unit_price_cents,
       })),
     };
-    const { error: fnError } = await supabase.functions.invoke('send-order-confirmation', {
+    await supabase.functions.invoke('send-order-confirmation', {
       body: JSON.stringify(emailPayload),
       headers: { 'Content-Type': 'application/json' },
     });
@@ -108,7 +128,7 @@ async function supabaseCreateOrder(payload) {
     // Email no crítico, continuar sin bloquear
   }
 
-  return orderData;
+  return createdOrder;
 }
 
 // ---------------------------------------------------------------------------
@@ -476,7 +496,7 @@ export const api = {
       await supabase.from('order_status_history').insert(historyEntries);
     }
 
-    // Descontar insumos de dispatch_config activos
+    // Descontar insumos de dispatch_config activos (atómico vía RPC)
     const decremented = [];
     const { data: configs } = await supabase
       .from('dispatch_config')
@@ -487,15 +507,13 @@ export const api = {
       for (const config of configs) {
         const item = config.inventory_items;
         if (!item) continue;
-        const newStock = Math.max(0, (item.stock || 0) - config.quantity_per_dispatch);
-        await supabase.from('inventory_items').update({ stock: newStock }).eq('id', item.id);
-        await supabase.from('inventory_movements').insert([{
-          inventory_item_id: item.id,
-          movement_type: 'out',
-          quantity: config.quantity_per_dispatch,
-          reason: `Despacho orden ${orderId}`,
-          order_id: orderId,
-        }]);
+        const { error: rpcError } = await supabase.rpc('decrement_stock', {
+          p_item_id: item.id,
+          p_quantity: config.quantity_per_dispatch,
+          p_reason: `Despacho orden ${orderId}`,
+          p_order_id: orderId,
+        });
+        if (rpcError) throw new Error(`Stock insuficiente para "${item.item || item.sku}": ${rpcError.message}`);
         decremented.push({ name: item.item || item.sku, quantity: config.quantity_per_dispatch });
       }
     }
@@ -897,5 +915,42 @@ export const api = {
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data || [];
+  },
+
+  getCRMContacts: async () => {
+    const { data } = await supabase.from('crm_contacts').select('*, crm_deals(count)').order('created_at', { ascending: false });
+    return { contacts: data || [] };
+  },
+
+  getCRMDeals: async () => {
+    const { data } = await supabase.from('crm_deals').select('*, crm_contacts(name, email, company, phone)').order('created_at', { ascending: false });
+    return { deals: data || [] };
+  },
+
+  createCRMDeal: async (deal) => {
+    const { data, error } = await supabase.from('crm_deals').insert(deal).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  updateCRMDeal: async (id, payload) => {
+    const { error } = await supabase.from('crm_deals').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+  },
+
+  getCRMActivities: async (dealId) => {
+    const { data } = await supabase.from('crm_activities').select('*').eq('deal_id', dealId).order('created_at', { ascending: false });
+    return { activities: data || [] };
+  },
+
+  addCRMActivity: async (activity) => {
+    const { data, error } = await supabase.from('crm_activities').insert(activity).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  getCardScans: async (profileSlug) => {
+    const { data } = await supabase.from('card_scans').select('*').eq('profile_slug', profileSlug).order('scanned_at', { ascending: false });
+    return { scans: data || [] };
   },
 };

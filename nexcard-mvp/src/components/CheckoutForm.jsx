@@ -237,6 +237,45 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           <h1 className="text-3xl sm:text-4xl font-black">Checkout</h1>
         </div>
 
+        {/* Stepper */}
+        <div className="flex items-center gap-1 mb-8 overflow-x-auto pb-1">
+          {[
+            { label: 'Catálogo', step: 0 },
+            { label: 'Carrito', step: 1 },
+            { label: 'Datos', step: 2 },
+            { label: 'Pago', step: 3 },
+          ].map(({ label, step }, i) => {
+            const current = step === 2;
+            const done = step < 2;
+            return (
+              <React.Fragment key={step}>
+                {i > 0 && <div className="h-px w-6 shrink-0 bg-zinc-700" />}
+                <div className={`flex items-center gap-1.5 shrink-0 text-xs font-bold px-2 py-1 rounded-full ${current ? 'bg-emerald-600 text-white' : done ? 'text-emerald-400' : 'text-zinc-600'}`}>
+                  {done ? '✓' : <span className="w-4 h-4 rounded-full border flex items-center justify-center text-[10px]" style={{ borderColor: current ? 'white' : '#52525b' }}>{step + 1}</span>}
+                  {label}
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Resumen carrito mobile */}
+        <div className="lg:hidden bg-zinc-900 border border-zinc-800 rounded-xl p-4 mb-5">
+          <h3 className="font-bold text-sm mb-3">Tu pedido</h3>
+          <div className="space-y-2">
+            {items.map((item) => (
+              <div key={item.product_id} className="flex justify-between text-sm">
+                <span className="text-zinc-300">{item.product_name} <span className="text-zinc-500">×{item.quantity}</span></span>
+                <span className="font-bold">${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between items-baseline pt-3 mt-3 border-t border-zinc-800">
+            <span className="text-sm font-semibold">Total</span>
+            <span className="text-lg font-black text-emerald-400">${totalCLP}</span>
+          </div>
+        </div>
+
         {/* Error global */}
         {error && (
           <div className="flex items-start gap-3 bg-red-950 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
@@ -332,7 +371,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
             {/* Personalización de tarjeta */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
               <h2 className="text-lg font-bold mb-1">Personaliza tu tarjeta</h2>
-              <p className="text-xs text-zinc-500 mb-5">Opcional — si no completas esto te contactaremos para definir el diseño.</p>
+              <p className="text-xs text-zinc-500 mb-5">Opcional — si lo dejas vacío, te contactamos en menos de 24h para definir el diseño. Tu despacho no se atrasa.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
@@ -438,49 +477,36 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               <h2 className="text-lg font-bold mb-4">Método de pago</h2>
 
               <div className="space-y-3">
-                {[
-                  {
-                    value: 'mercado-pago',
-                    label: 'Mercado Pago',
-                    description: 'Tarjeta, transferencia, efectivo',
-                    badge: 'Recomendado',
-                  },
-                  {
-                    value: 'transbank',
-                    label: 'Transbank WebPay',
-                    description: 'Tarjetas de crédito y débito',
-                    badge: null,
-                  },
-                ].map((method) => (
-                  <label
-                    key={method.value}
-                    className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${
-                      paymentMethod === method.value
-                        ? 'border-emerald-500 bg-emerald-900/20'
-                        : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value={method.value}
-                      checked={paymentMethod === method.value}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="mr-3 accent-emerald-500"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm">{method.label}</p>
-                        {method.badge && (
-                          <span className="text-xs bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded-full">
-                            {method.badge}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-zinc-400 mt-0.5">{method.description}</p>
+                <label className="flex items-center p-4 border border-emerald-500 bg-emerald-900/20 rounded-xl cursor-pointer transition-colors">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="mercado-pago"
+                    checked={true}
+                    onChange={() => {}}
+                    className="mr-3 accent-emerald-500"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">Mercado Pago</p>
+                      <span className="text-xs bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded-full">Recomendado</span>
                     </div>
-                  </label>
-                ))}
+                    <p className="text-xs text-zinc-400 mt-0.5">Tarjeta, transferencia, efectivo</p>
+                  </div>
+                </label>
+                <div
+                  className="flex items-center p-4 border border-zinc-800 rounded-xl opacity-50 cursor-not-allowed pointer-events-none"
+                  title="Disponible pronto"
+                >
+                  <div className="w-4 h-4 rounded-full border border-zinc-600 mr-3 shrink-0" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm text-zinc-500">Transbank WebPay</p>
+                      <span className="text-xs bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full">Próximamente</span>
+                    </div>
+                    <p className="text-xs text-zinc-600 mt-0.5">Tarjetas de crédito y débito</p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -569,23 +595,26 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               >
                 ← Volver
               </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-press flex-[2] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
-              >
-                {loading ? (
-                  <>
-                    <span className="spinner" />
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={18} />
-                    Confirmar Orden
-                  </>
-                )}
-              </button>
+              <div className="flex-[2] flex flex-col gap-1.5">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-press w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
+                >
+                  {loading ? (
+                    <>
+                      <span className="spinner" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={18} />
+                      Pagar con Mercado Pago →
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-zinc-400 text-center">Serás redirigido a Mercado Pago para completar el pago de forma segura</p>
+              </div>
             </div>
 
           </form>
