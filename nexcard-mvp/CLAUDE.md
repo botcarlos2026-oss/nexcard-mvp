@@ -217,3 +217,11 @@ La estructura está lista (NO-OP hasta configurar el token). Pasos para activar:
 supabase functions deploy emit-bsale-document --project-ref ghiremuuyprohdqfrxsy
 supabase functions deploy send-order-confirmation --project-ref ghiremuuyprohdqfrxsy
 ```
+## Skills disponibles
+- UI/Animaciones: ~/.claude/skills/emil-design-eng/SKILL.md
+  Filosofía de design engineering de Emil Kowalski.
+  Leer antes de cualquier tarea de UI, animaciones o micro-interacciones.
+
+## Skills globales
+- Design Engineering: ~/.claude/skills/emil-design-eng/SKILL.md
+  Leer antes de cualquier tarea de UI, animaciones o componentes.
