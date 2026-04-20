@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../services/api';
+import AdminShell from './AdminShell';
+import AdminStat from './ui/AdminStat';
 
 const CLP = (n) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n || 0);
 
@@ -65,44 +67,24 @@ export default function CRMDashboard() {
     }).length,
   };
 
+  const newDealButton = (
+    <button
+      onClick={() => setNewDeal({ name: '', amount_cents: '', stage: 'nuevo_lead', contact_name: '', contact_email: '', contact_phone: '', contact_company: '', notes: '' })}
+      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      + Nuevo deal
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900">
-
-      {/* Nav */}
-      <div className="bg-white border-b border-zinc-200 px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-xl font-black tracking-tight">CRM · Pipeline</h1>
-        <div className="flex gap-2 flex-wrap text-sm">
-          {[['Dashboard','/admin'],['Órdenes','/admin/orders'],['Cards','/admin/cards'],['Perfiles','/admin/profiles']].map(([l,h]) => (
-            <a key={h} href={h} className="px-3 py-2 bg-white border border-zinc-200 rounded-xl font-bold hover:bg-zinc-50 transition-colors">{l}</a>
-          ))}
-          <a href="/admin/crm" className="px-3 py-2 bg-zinc-900 text-white rounded-xl font-bold">CRM</a>
-        </div>
-      </div>
-
-      <div className="p-6 max-w-[1600px] mx-auto flex flex-col gap-6">
+    <AdminShell active="crm" title="CRM · Pipeline" actions={newDealButton}>
+      <div className="flex flex-col gap-6">
 
         {/* Métricas */}
         <div className="grid grid-cols-3 gap-4 max-w-xl">
-          {[
-            { label: 'Pipeline total', value: CLP(metrics.pipeline) },
-            { label: 'Deals activos', value: metrics.active },
-            { label: 'Ganados este mes', value: metrics.wonMonth },
-          ].map(m => (
-            <div key={m.label} className="bg-white border border-zinc-100 rounded-2xl p-4 shadow-sm">
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide">{m.label}</p>
-              <p className="text-xl font-black text-zinc-950 mt-1">{m.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Botón nuevo deal */}
-        <div>
-          <button
-            onClick={() => setNewDeal({ name: '', amount_cents: '', stage: 'nuevo_lead', contact_name: '', contact_email: '', contact_phone: '', contact_company: '', notes: '' })}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-colors"
-          >
-            + Nuevo deal
-          </button>
+          <AdminStat label="Pipeline total" value={CLP(metrics.pipeline)} accent="emerald" />
+          <AdminStat label="Deals activos" value={metrics.active} />
+          <AdminStat label="Ganados este mes" value={metrics.wonMonth} accent="emerald" />
         </div>
 
         {loading ? (
@@ -116,19 +98,19 @@ export default function CRMDashboard() {
                 return (
                   <div
                     key={stage.key}
-                    className="w-64 bg-white border border-zinc-100 rounded-2xl shadow-sm flex flex-col overflow-hidden"
+                    className="w-64 bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden"
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleDrop(stage.key, e)}
                   >
-                    <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between">
+                    <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${stage.dot}`} />
-                        <span className="font-black text-sm text-zinc-900">{stage.label}</span>
+                        <span className="font-bold text-sm text-white">{stage.label}</span>
                       </div>
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${stage.color}`}>{col.length}</span>
                     </div>
                     <div className="p-3 flex flex-col gap-2.5 min-h-[120px]">
-                      {col.length === 0 && <p className="text-zinc-300 text-xs text-center py-6">Sin deals</p>}
+                      {col.length === 0 && <p className="text-zinc-600 text-xs text-center py-6">Sin deals</p>}
                       {col.map(deal => (
                         <DealCard
                           key={deal.id}
@@ -196,7 +178,7 @@ export default function CRMDashboard() {
           }}
         />
       )}
-    </div>
+    </AdminShell>
   );
 }
 
@@ -208,13 +190,13 @@ function DealCard({ deal, stage, onDragStart, onClick }) {
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
-      className="bg-white border border-zinc-100 rounded-2xl p-3.5 cursor-pointer hover:border-zinc-300 hover:shadow-sm transition-all select-none"
+      className="bg-zinc-800 border border-zinc-700 rounded-xl p-3.5 cursor-pointer hover:border-zinc-600 hover:bg-zinc-750 transition-all select-none"
     >
-      <p className="font-bold text-sm text-zinc-900 truncate">{deal.name}</p>
+      <p className="font-bold text-sm text-white truncate">{deal.name}</p>
       {contact?.company && <p className="text-xs text-zinc-400 truncate mt-0.5">{contact.company}</p>}
       <div className="flex items-center justify-between mt-2.5 gap-2">
-        <span className="text-sm font-black text-zinc-800">{CLP(deal.amount_cents)}</span>
-        <span className="text-[10px] text-zinc-400 font-medium">{days}d</span>
+        <span className="text-sm font-bold text-zinc-200">{CLP(deal.amount_cents)}</span>
+        <span className="text-[10px] text-zinc-500 font-medium">{days}d</span>
       </div>
       <div className="flex items-center justify-between mt-2">
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${stage.color}`}>{stage.label}</span>
@@ -235,21 +217,21 @@ function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onA
   const contact = deal.crm_contacts;
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="w-full max-w-md bg-white shadow-2xl overflow-y-auto flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 sticky top-0 bg-white z-10">
-          <h2 className="font-black text-lg truncate pr-4">{deal.name}</h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 text-xl leading-none">×</button>
+      <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="w-full max-w-md bg-zinc-900 border-l border-zinc-800 shadow-2xl overflow-y-auto flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 sticky top-0 bg-zinc-900 z-10">
+          <h2 className="font-bold text-lg text-white truncate pr-4">{deal.name}</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white text-xl leading-none">×</button>
         </div>
         <div className="p-6 flex flex-col gap-5">
 
           {/* Etapa */}
           <div>
-            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wide block mb-1.5">Etapa</label>
+            <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Etapa</label>
             <select
               value={deal.stage}
               onChange={e => onStageChange(e.target.value)}
-              className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm font-semibold bg-white focus:outline-none focus:border-emerald-500"
+              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
             >
               {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
@@ -257,55 +239,59 @@ function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onA
 
           {/* Info deal */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-zinc-50 rounded-xl p-3">
-              <p className="text-zinc-400 text-xs font-bold">Monto</p>
-              <p className="font-black text-zinc-900">{CLP(deal.amount_cents)}</p>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-3">
+              <p className="text-zinc-500 text-xs font-bold">Monto</p>
+              <p className="font-bold text-white">{CLP(deal.amount_cents)}</p>
             </div>
-            <div className="bg-zinc-50 rounded-xl p-3">
-              <p className="text-zinc-400 text-xs font-bold">Días en etapa</p>
-              <p className="font-black text-zinc-900">{daysSince(deal.updated_at)}d</p>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-3">
+              <p className="text-zinc-500 text-xs font-bold">Días en etapa</p>
+              <p className="font-bold text-white">{daysSince(deal.updated_at)}d</p>
             </div>
           </div>
 
           {/* Contacto */}
           {contact && (
-            <div className="border border-zinc-100 rounded-xl p-4">
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">Contacto</p>
-              <p className="font-bold text-zinc-900">{contact.name}</p>
-              {contact.company && <p className="text-xs text-zinc-500">{contact.company}</p>}
-              {contact.email && <p className="text-xs text-zinc-400 mt-1">{contact.email}</p>}
+            <div className="border border-zinc-800 rounded-xl p-4">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2">Contacto</p>
+              <p className="font-bold text-white">{contact.name}</p>
+              {contact.company && <p className="text-xs text-zinc-400">{contact.company}</p>}
+              {contact.email && <p className="text-xs text-zinc-500 mt-1">{contact.email}</p>}
               {contact.phone && (
-                <a href={`https://wa.me/56${contact.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-500 font-bold mt-1 inline-block">💬 {contact.phone}</a>
+                <a href={`https://wa.me/56${contact.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-400 font-bold mt-1 inline-block">💬 {contact.phone}</a>
               )}
             </div>
           )}
 
           {/* Notas */}
           {deal.notes && (
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-sm text-zinc-700">{deal.notes}</div>
+            <div className="bg-amber-950/40 border border-amber-900/50 rounded-xl p-3 text-sm text-zinc-300">{deal.notes}</div>
           )}
 
           {/* Actividades */}
           <div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-3">Actividades</p>
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-3">Actividades</p>
             <div className="space-y-2.5 mb-4 max-h-56 overflow-y-auto">
-              {activities.length === 0 && <p className="text-xs text-zinc-300">Sin actividades</p>}
+              {activities.length === 0 && <p className="text-xs text-zinc-600">Sin actividades</p>}
               {activities.map(act => (
                 <div key={act.id} className="flex gap-2.5 text-sm">
                   <span className="text-base leading-none mt-0.5">{ActivityIcon[act.type] || '📝'}</span>
                   <div>
-                    <p className="font-bold text-zinc-900 text-xs">{act.title}</p>
+                    <p className="font-bold text-white text-xs">{act.title}</p>
                     {act.description && <p className="text-zinc-500 text-xs mt-0.5">{act.description}</p>}
-                    <p className="text-zinc-300 text-[10px] mt-0.5">{new Date(act.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                    <p className="text-zinc-600 text-[10px] mt-0.5">{new Date(act.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}</p>
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Form actividad rápida */}
-            <div className="border border-zinc-100 rounded-xl p-3 space-y-2.5">
+            <div className="border border-zinc-800 rounded-xl p-3 space-y-2.5">
               <div className="flex gap-2">
-                <select value={actForm.type} onChange={e => onActFormChange(p => ({ ...p, type: e.target.value }))} className="border border-zinc-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none">
+                <select
+                  value={actForm.type}
+                  onChange={e => onActFormChange(p => ({ ...p, type: e.target.value }))}
+                  className="bg-zinc-900 border border-zinc-800 text-white rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-emerald-500"
+                >
                   {Object.entries(ActivityIcon).map(([k,v]) => <option key={k} value={k}>{v} {k}</option>)}
                 </select>
                 <input
@@ -313,7 +299,7 @@ function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onA
                   placeholder="Título *"
                   value={actForm.title}
                   onChange={e => onActFormChange(p => ({ ...p, title: e.target.value }))}
-                  className="flex-1 border border-zinc-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-emerald-500"
+                  className="flex-1 bg-zinc-900 border border-zinc-800 text-white rounded-lg px-2 py-1.5 text-xs placeholder-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <input
@@ -321,12 +307,12 @@ function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onA
                 placeholder="Descripción (opcional)"
                 value={actForm.description}
                 onChange={e => onActFormChange(p => ({ ...p, description: e.target.value }))}
-                className="w-full border border-zinc-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-emerald-500"
+                className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-2 py-1.5 text-xs placeholder-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors"
               />
               <button
                 onClick={onAddActivity}
                 disabled={actLoading || !actForm.title.trim()}
-                className="w-full py-2 bg-zinc-900 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold disabled:opacity-40 transition-colors"
+                className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-xs font-bold disabled:opacity-40 transition-colors"
               >
                 {actLoading ? 'Guardando...' : 'Agregar actividad'}
               </button>
@@ -339,31 +325,32 @@ function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onA
 }
 
 function NewDealModal({ form, onChange, onClose, onSave }) {
+  const inputClass = 'w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors';
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="font-black text-lg">Nuevo deal</h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 text-xl">×</button>
+          <h2 className="font-bold text-lg text-white">Nuevo deal</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white text-xl">×</button>
         </div>
         <div className="space-y-3">
-          <input type="text" placeholder="Nombre del deal *" value={form.name} onChange={e => onChange(p => ({ ...p, name: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
-          <input type="number" placeholder="Monto (CLP)" value={form.amount_cents} onChange={e => onChange(p => ({ ...p, amount_cents: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
-          <select value={form.stage} onChange={e => onChange(p => ({ ...p, stage: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-emerald-500">
+          <input type="text" placeholder="Nombre del deal *" value={form.name} onChange={e => onChange(p => ({ ...p, name: e.target.value }))} className={inputClass} />
+          <input type="number" placeholder="Monto (CLP)" value={form.amount_cents} onChange={e => onChange(p => ({ ...p, amount_cents: e.target.value }))} className={inputClass} />
+          <select value={form.stage} onChange={e => onChange(p => ({ ...p, stage: e.target.value }))} className={inputClass}>
             {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
           </select>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide pt-1">Contacto (opcional)</p>
-          <input type="text" placeholder="Nombre del contacto" value={form.contact_name} onChange={e => onChange(p => ({ ...p, contact_name: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+          <p className="block text-xs uppercase tracking-wide text-zinc-500 font-medium pt-1">Contacto (opcional)</p>
+          <input type="text" placeholder="Nombre del contacto" value={form.contact_name} onChange={e => onChange(p => ({ ...p, contact_name: e.target.value }))} className={inputClass} />
           <div className="grid grid-cols-2 gap-3">
-            <input type="email" placeholder="Email" value={form.contact_email} onChange={e => onChange(p => ({ ...p, contact_email: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
-            <input type="tel" placeholder="Teléfono" value={form.contact_phone} onChange={e => onChange(p => ({ ...p, contact_phone: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
+            <input type="email" placeholder="Email" value={form.contact_email} onChange={e => onChange(p => ({ ...p, contact_email: e.target.value }))} className={inputClass} />
+            <input type="tel" placeholder="Teléfono" value={form.contact_phone} onChange={e => onChange(p => ({ ...p, contact_phone: e.target.value }))} className={inputClass} />
           </div>
-          <input type="text" placeholder="Empresa" value={form.contact_company} onChange={e => onChange(p => ({ ...p, contact_company: e.target.value }))} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500" />
-          <textarea placeholder="Notas (opcional)" value={form.notes} onChange={e => onChange(p => ({ ...p, notes: e.target.value }))} rows={2} className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-emerald-500" />
+          <input type="text" placeholder="Empresa" value={form.contact_company} onChange={e => onChange(p => ({ ...p, contact_company: e.target.value }))} className={inputClass} />
+          <textarea placeholder="Notas (opcional)" value={form.notes} onChange={e => onChange(p => ({ ...p, notes: e.target.value }))} rows={2} className={`${inputClass} resize-none`} />
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-zinc-200 rounded-xl text-sm font-semibold hover:bg-zinc-50">Cancelar</button>
-          <button onClick={onSave} disabled={!form.name.trim()} className="flex-[2] py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold disabled:opacity-40 transition-colors">Crear deal</button>
+          <button onClick={onClose} className="flex-1 py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
+          <button onClick={onSave} disabled={!form.name.trim()} className="flex-[2] py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Crear deal</button>
         </div>
       </div>
     </div>

@@ -3,6 +3,11 @@ import { Mail, Users, UserMinus, BarChart2, Send, Clock, Download, Eye, X, Shopp
 import { supabase } from '../services/supabaseClient';
 import { api } from '../services/api';
 import { templateShipping, templateFollowup, templateUpsell, templateWaitlistLaunch } from '../utils/emailTemplates';
+import AdminShell from './AdminShell';
+import AdminStat from './ui/AdminStat';
+import AdminCard from './ui/AdminCard';
+import AdminBadge from './ui/AdminBadge';
+import { Table, THead, TH, TR, TD } from './ui/AdminTable';
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
@@ -20,20 +25,6 @@ const formatDate = (iso) => {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
-
-function StatCard({ icon: Icon, label, value, color }) {
-  return (
-    <div className="bg-white rounded-2xl p-6 border border-zinc-100 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon size={22} className="text-white" />
-      </div>
-      <div>
-        <p className="text-2xl font-black text-zinc-950">{value}</p>
-        <p className="text-sm font-medium text-zinc-500">{label}</p>
-      </div>
-    </div>
-  );
-}
 
 export default function EmailDashboard() {
   const [activeTab, setActiveTab] = useState('stats');
@@ -197,37 +188,28 @@ export default function EmailDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-      </div>
+      <AdminShell active="emails" title="Email Marketing" subtitle="Campañas, historial y bajas — Ley 19.628">
+        <div className="flex items-center justify-center py-24">
+          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AdminShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 p-8">
-      <div className="max-w-6xl mx-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-zinc-950">Email Marketing</h1>
-            <p className="text-zinc-500 font-medium">Campañas, historial y bajas — Ley 19.628</p>
-          </div>
-          <a href="/admin" className="px-4 py-2 bg-zinc-200 text-zinc-700 rounded-xl font-bold text-sm hover:bg-zinc-300 transition-colors">
-            ← Admin
-          </a>
-        </div>
+    <AdminShell active="emails" title="Email Marketing" subtitle="Campañas, historial y bajas — Ley 19.628">
+      <div className="space-y-6">
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-white border border-zinc-100 rounded-2xl p-1.5 w-fit">
+        <div className="flex gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-1.5 w-fit flex-wrap">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
                 activeTab === tab.id
-                  ? 'bg-zinc-950 text-white'
-                  : 'text-zinc-500 hover:text-zinc-900'
+                  ? 'bg-zinc-800 text-white'
+                  : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
               <tab.icon size={15} />
@@ -240,40 +222,38 @@ export default function EmailDashboard() {
         {activeTab === 'stats' && (
           <div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              <StatCard icon={Mail} label="Emails enviados" value={totalSent} color="bg-emerald-500" />
-              <StatCard icon={UserMinus} label="Bajas totales" value={totalUnsub} color="bg-red-500" />
-              <StatCard icon={Users} label="Destinatarios activos" value={clientEmails.length + waitlistEmails.length} color="bg-blue-500" />
+              <AdminStat label="Emails enviados" value={totalSent} accent="emerald" />
+              <AdminStat label="Bajas totales" value={totalUnsub} accent="red" />
+              <AdminStat label="Destinatarios activos" value={clientEmails.length + waitlistEmails.length} />
             </div>
 
-            <div className="bg-white rounded-2xl border border-zinc-100 p-6">
-              <h2 className="text-lg font-black text-zinc-950 mb-4">Emails por tipo</h2>
+            <AdminCard>
+              <h2 className="text-base font-bold text-white mb-4">Emails por tipo</h2>
               {Object.keys(byType).length === 0 ? (
-                <p className="text-zinc-400 text-sm">Sin registros aún.</p>
+                <p className="text-zinc-500 text-sm">Sin registros aún.</p>
               ) : (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-zinc-100">
-                      <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3">Tipo</th>
-                      <th className="text-right text-xs font-black uppercase tracking-widest text-zinc-400 pb-3">Cantidad</th>
-                    </tr>
-                  </thead>
+                <Table>
+                  <THead>
+                    <TH>Tipo</TH>
+                    <TH className="text-right">Cantidad</TH>
+                  </THead>
                   <tbody>
                     {Object.entries(byType).map(([type, count]) => (
-                      <tr key={type} className="border-b border-zinc-50 last:border-0">
-                        <td className="py-3 text-sm font-medium text-zinc-700">{EMAIL_TYPE_LABELS[type] || type}</td>
-                        <td className="py-3 text-right font-black text-zinc-950">{count}</td>
-                      </tr>
+                      <TR key={type}>
+                        <TD>{EMAIL_TYPE_LABELS[type] || type}</TD>
+                        <TD className="text-right font-bold text-white">{count}</TD>
+                      </TR>
                     ))}
                   </tbody>
-                </table>
+                </Table>
               )}
-            </div>
+            </AdminCard>
           </div>
         )}
 
         {/* ==================== DESTINATARIOS ==================== */}
         {activeTab === 'recipients' && (
-          <div className="bg-white rounded-2xl border border-zinc-100 p-6">
+          <AdminCard>
             <div className="flex gap-2 mb-6">
               {[
                 { id: 'clientes', label: `Clientes (${clientEmails.length})` },
@@ -282,8 +262,10 @@ export default function EmailDashboard() {
                 <button
                   key={t.id}
                   onClick={() => setRecipientTab(t.id)}
-                  className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-                    recipientTab === t.id ? 'bg-zinc-950 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+                    recipientTab === t.id
+                      ? 'bg-emerald-500 text-white'
+                      : 'px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors'
                   }`}
                 >
                   {t.label}
@@ -292,7 +274,7 @@ export default function EmailDashboard() {
             </div>
 
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-zinc-500 font-medium">
+              <p className="text-sm text-zinc-400 font-medium">
                 {recipientTab === 'clientes' ? clientEmails.length : waitlistEmails.length} emails activos (excluye bajas)
               </p>
               <button
@@ -300,7 +282,7 @@ export default function EmailDashboard() {
                   const list = recipientTab === 'clientes' ? clientEmails : waitlistEmails;
                   exportCSV(list, `nexcard-${recipientTab}-${Date.now()}.csv`);
                 }}
-                className="flex items-center gap-2 px-3 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl font-bold text-sm transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
               >
                 <Download size={14} />
                 Exportar CSV
@@ -309,27 +291,27 @@ export default function EmailDashboard() {
 
             <div className="max-h-96 overflow-y-auto space-y-1">
               {(recipientTab === 'clientes' ? clientEmails : waitlistEmails).map(email => (
-                <div key={email} className="px-4 py-2.5 bg-zinc-50 rounded-xl text-sm font-medium text-zinc-700">
+                <div key={email} className="px-4 py-2.5 bg-zinc-800 rounded-lg text-sm font-medium text-zinc-300">
                   {email}
                 </div>
               ))}
               {(recipientTab === 'clientes' ? clientEmails : waitlistEmails).length === 0 && (
-                <p className="text-zinc-400 text-sm py-4 text-center">Sin destinatarios activos.</p>
+                <p className="text-zinc-500 text-sm py-4 text-center">Sin destinatarios activos.</p>
               )}
             </div>
-          </div>
+          </AdminCard>
         )}
 
         {/* ==================== CAMPAÑA ==================== */}
         {activeTab === 'campaign' && (
-          <div className="bg-white rounded-2xl border border-zinc-100 p-6">
-            <h2 className="text-lg font-black text-zinc-950 mb-6">Enviar campaña</h2>
+          <AdminCard>
+            <h2 className="text-base font-bold text-white mb-6">Enviar campaña</h2>
 
             <div className="space-y-5">
               {/* Audiencia */}
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Audiencia</label>
-                <div className="flex gap-2">
+                <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Audiencia</label>
+                <div className="flex gap-2 flex-wrap">
                   {[
                     { id: 'clientes', label: `Clientes (${clientEmails.length})` },
                     { id: 'waitlist', label: `Waitlist (${waitlistEmails.length})` },
@@ -338,8 +320,10 @@ export default function EmailDashboard() {
                     <button
                       key={opt.id}
                       onClick={() => setAudience(opt.id)}
-                      className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-                        audience === opt.id ? 'bg-zinc-950 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                      className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+                        audience === opt.id
+                          ? 'bg-emerald-500 text-white'
+                          : 'px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors'
                       }`}
                     >
                       {opt.label}
@@ -350,42 +334,42 @@ export default function EmailDashboard() {
 
               {/* Asunto */}
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Asunto</label>
+                <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Asunto</label>
                 <input
                   type="text"
                   value={subject}
                   onChange={e => setSubject(e.target.value)}
                   placeholder="Asunto del email..."
-                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-medium text-zinc-900 outline-none focus:border-emerald-400 transition-colors"
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
                 />
               </div>
 
               {/* Cuerpo */}
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Cuerpo (HTML básico)</label>
+                <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Cuerpo (HTML básico)</label>
                 <textarea
                   value={body}
                   onChange={e => setBody(e.target.value)}
                   rows={8}
                   placeholder="<p>Hola, ...</p>"
-                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-medium text-zinc-700 outline-none focus:border-emerald-400 transition-colors resize-y font-mono"
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors resize-y font-mono"
                 />
               </div>
 
               {/* Templates rápidos */}
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-zinc-400 mb-2">Templates rápidos</label>
+                <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Templates rápidos</label>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { label: 'Despacho', fn: () => { setSubject('Tu pedido NexCard fue despachado 🚀'); setBody(templateShipping({ customer_email: '{email}', customer_name: '{nombre}', id: '{order_id}' }, '{tracking}')); } },
-                    { label: 'Seguimiento', fn: () => { setSubject('¿Cómo va tu NexCard? 💬'); setBody(templateFollowup({ customer_email: '{email}', customer_name: '{nombre}' })); } },
-                    { label: 'Upsell', fn: () => { setSubject('10% OFF en tu próxima NexCard 🎁'); setBody(templateUpsell({ customer_email: '{email}', customer_name: '{nombre}' })); } },
-                    { label: 'Lanzamiento waitlist', fn: () => { setSubject('¡NexCard ya está disponible! 🎉'); setBody(templateWaitlistLaunch('{email}')); } },
+                    { label: 'Despacho', fn: () => { setSubject('Tu pedido NexCard fue despachado'); setBody(templateShipping({ customer_email: '{email}', customer_name: '{nombre}', id: '{order_id}' }, '{tracking}')); } },
+                    { label: 'Seguimiento', fn: () => { setSubject('Como va tu NexCard?'); setBody(templateFollowup({ customer_email: '{email}', customer_name: '{nombre}' })); } },
+                    { label: 'Upsell', fn: () => { setSubject('10% OFF en tu proxima NexCard'); setBody(templateUpsell({ customer_email: '{email}', customer_name: '{nombre}' })); } },
+                    { label: 'Lanzamiento waitlist', fn: () => { setSubject('NexCard ya esta disponible!'); setBody(templateWaitlistLaunch('{email}')); } },
                   ].map(t => (
                     <button
                       key={t.label}
                       onClick={t.fn}
-                      className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg font-bold text-xs hover:bg-emerald-100 transition-colors"
+                      className="px-3 py-1.5 bg-emerald-950/50 border border-emerald-900 text-emerald-400 rounded-lg font-bold text-xs hover:bg-emerald-900/50 transition-colors"
                     >
                       {t.label}
                     </button>
@@ -394,11 +378,11 @@ export default function EmailDashboard() {
               </div>
 
               {/* Preview + Enviar */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-2 flex-wrap">
                 <button
                   onClick={() => setShowPreview(true)}
                   disabled={!body.trim()}
-                  className="flex items-center gap-2 px-4 py-3 bg-zinc-100 hover:bg-zinc-200 disabled:opacity-40 text-zinc-700 rounded-xl font-bold text-sm transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Eye size={15} />
                   Preview
@@ -406,7 +390,7 @@ export default function EmailDashboard() {
                 <button
                   onClick={handleSendCampaign}
                   disabled={sending || !subject.trim() || !body.trim()}
-                  className="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-black text-sm transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send size={15} />
                   {sending ? 'Enviando...' : `Enviar a ${recipientCount} destinatarios`}
@@ -414,25 +398,25 @@ export default function EmailDashboard() {
               </div>
 
               {sendResult && (
-                <div className={`rounded-2xl p-4 text-sm font-medium ${sendResult.error ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                <div className={`rounded-xl p-4 text-sm font-medium ${sendResult.error ? 'bg-red-950/50 text-red-400 border border-red-900' : 'bg-emerald-950/50 text-emerald-400 border border-emerald-900'}`}>
                   {sendResult.error ? sendResult.error : (
                     <>Campaña enviada: <strong>{sendResult.sent}</strong> enviados · <strong>{sendResult.skipped}</strong> bajas · <strong>{sendResult.errors}</strong> errores{sendResult.rateLimited > 0 && <> · <strong>{sendResult.rateLimited}</strong> límite de tasa (reintentos agotados)</>}</>
                   )}
                 </div>
               )}
             </div>
-          </div>
+          </AdminCard>
         )}
 
         {/* ==================== HISTORIAL ==================== */}
         {activeTab === 'history' && (
-          <div className="bg-white rounded-2xl border border-zinc-100 p-6">
+          <AdminCard>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-black text-zinc-950">Últimos 50 emails</h2>
+              <h2 className="text-base font-bold text-white">Últimos 50 emails</h2>
               <select
                 value={logTypeFilter}
                 onChange={e => setLogTypeFilter(e.target.value)}
-                className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-medium text-zinc-700 outline-none"
+                className="px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
               >
                 <option value="all">Todos los tipos</option>
                 {Object.entries(EMAIL_TYPE_LABELS).map(([v, l]) => (
@@ -442,129 +426,116 @@ export default function EmailDashboard() {
             </div>
 
             {filteredLog.length === 0 ? (
-              <p className="text-zinc-400 text-sm py-4 text-center">Sin registros.</p>
+              <p className="text-zinc-500 text-sm py-4 text-center">Sin registros.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-100">
-                      <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Fecha</th>
-                      <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Destinatario</th>
-                      <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Tipo</th>
-                      <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Asunto</th>
-                      <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLog.map(row => (
-                      <tr key={row.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50">
-                        <td className="py-3 pr-4 text-zinc-400 whitespace-nowrap">{formatDate(row.sent_at)}</td>
-                        <td className="py-3 pr-4 font-medium text-zinc-700 max-w-[180px] truncate">{row.recipient_email}</td>
-                        <td className="py-3 pr-4">
-                          <span className="px-2 py-0.5 bg-zinc-100 text-zinc-600 rounded-lg text-xs font-bold">
-                            {EMAIL_TYPE_LABELS[row.email_type] || row.email_type}
-                          </span>
-                        </td>
-                        <td className="py-3 pr-4 text-zinc-600 max-w-[220px] truncate">{row.subject || '—'}</td>
-                        <td className="py-3">
-                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold">
-                            {row.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <THead>
+                  <TH>Fecha</TH>
+                  <TH>Destinatario</TH>
+                  <TH>Tipo</TH>
+                  <TH>Asunto</TH>
+                  <TH>Estado</TH>
+                </THead>
+                <tbody>
+                  {filteredLog.map(row => (
+                    <TR key={row.id}>
+                      <TD className="whitespace-nowrap">{formatDate(row.sent_at)}</TD>
+                      <TD className="font-medium max-w-[180px] truncate">{row.recipient_email}</TD>
+                      <TD>
+                        <AdminBadge variant="default">
+                          {EMAIL_TYPE_LABELS[row.email_type] || row.email_type}
+                        </AdminBadge>
+                      </TD>
+                      <TD className="max-w-[220px] truncate">{row.subject || '—'}</TD>
+                      <TD>
+                        <AdminBadge variant="success">{row.status}</AdminBadge>
+                      </TD>
+                    </TR>
+                  ))}
+                </tbody>
+              </Table>
             )}
-          </div>
+          </AdminCard>
         )}
-      </div>
 
-      {/* ==================== CARRITOS ABANDONADOS ==================== */}
-      {activeTab === 'abandoned' && (() => {
-        const abandoned = abandonedCarts.filter(c => c.status === 'abandoned' || c.status === 'email_sent');
-        const converted = abandonedCarts.filter(c => c.status === 'converted');
-        const total = abandoned.length + converted.length;
-        const recoveryRate = total > 0 ? Math.round((converted.length / total) * 100) : 0;
-        const recoveredRevenue = converted.reduce((sum, c) => sum + (c.total_cents || 0), 0);
+        {/* ==================== CARRITOS ABANDONADOS ==================== */}
+        {activeTab === 'abandoned' && (() => {
+          const abandoned = abandonedCarts.filter(c => c.status === 'abandoned' || c.status === 'email_sent');
+          const converted = abandonedCarts.filter(c => c.status === 'converted');
+          const total = abandoned.length + converted.length;
+          const recoveryRate = total > 0 ? Math.round((converted.length / total) * 100) : 0;
+          const recoveredRevenue = converted.reduce((sum, c) => sum + (c.total_cents || 0), 0);
 
-        const handleSendReminder = async (cart) => {
-          if (sendingReminder) return;
-          setSendingReminder(cart.id);
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
-            const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/send-abandoned-cart`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
-                'apikey': SUPABASE_ANON_KEY,
-              },
-              body: JSON.stringify({ cartId: cart.id }),
-            });
-            const data = await res.json();
-            if (data.success || data.skipped) load();
-          } catch {
-            // silencioso
-          } finally {
-            setSendingReminder(null);
-          }
-        };
-
-        const statusBadge = (status) => {
-          const map = {
-            abandoned: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pendiente' },
-            email_sent: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Email enviado' },
-            converted: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Recuperado' },
-            ignored: { bg: 'bg-zinc-100', text: 'text-zinc-500', label: 'Ignorado' },
+          const handleSendReminder = async (cart) => {
+            if (sendingReminder) return;
+            setSendingReminder(cart.id);
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              const token = session?.access_token;
+              const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+              const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
+              const res = await fetch(`${SUPABASE_URL}/functions/v1/send-abandoned-cart`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+                  'apikey': SUPABASE_ANON_KEY,
+                },
+                body: JSON.stringify({ cartId: cart.id }),
+              });
+              const data = await res.json();
+              if (data.success || data.skipped) load();
+            } catch {
+              // silencioso
+            } finally {
+              setSendingReminder(null);
+            }
           };
-          const s = map[status] || map.ignored;
-          return <span className={`px-2 py-0.5 ${s.bg} ${s.text} rounded-lg text-xs font-bold`}>{s.label}</span>;
-        };
 
-        return (
-          <div>
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-2xl p-5 border border-zinc-100">
-                <p className="text-2xl font-black text-zinc-950">{abandoned.length}</p>
-                <p className="text-sm font-medium text-zinc-500">Carritos (7 días)</p>
-              </div>
-              <div className="bg-white rounded-2xl p-5 border border-zinc-100">
-                <p className="text-2xl font-black text-emerald-600">{converted.length}</p>
-                <p className="text-sm font-medium text-zinc-500">Recuperados</p>
-              </div>
-              <div className="bg-white rounded-2xl p-5 border border-zinc-100">
-                <p className="text-2xl font-black text-zinc-950">{recoveryRate}%</p>
-                <p className="text-sm font-medium text-zinc-500">Tasa recuperación</p>
-              </div>
-              <div className="bg-white rounded-2xl p-5 border border-zinc-100">
-                <p className="text-2xl font-black text-emerald-600">${recoveredRevenue.toLocaleString('es-CL')}</p>
-                <p className="text-sm font-medium text-zinc-500">Revenue recuperado</p>
-              </div>
-            </div>
+          const cartStatusVariant = (status) => {
+            const map = {
+              abandoned: 'warning',
+              email_sent: 'info',
+              converted: 'success',
+              ignored: 'default',
+            };
+            return map[status] || 'default';
+          };
 
-            {/* Tabla */}
-            <div className="bg-white rounded-2xl border border-zinc-100 p-6">
-              {abandonedCarts.length === 0 ? (
-                <p className="text-zinc-400 text-sm py-4 text-center">Sin carritos abandonados en los últimos 7 días.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-zinc-100">
-                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Cliente</th>
-                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Items</th>
-                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Total</th>
-                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Hace</th>
-                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3 pr-4">Estado</th>
-                        <th className="text-left text-xs font-black uppercase tracking-widest text-zinc-400 pb-3">Acción</th>
-                      </tr>
-                    </thead>
+          const cartStatusLabel = (status) => {
+            const map = {
+              abandoned: 'Pendiente',
+              email_sent: 'Email enviado',
+              converted: 'Recuperado',
+              ignored: 'Ignorado',
+            };
+            return map[status] || status;
+          };
+
+          return (
+            <div className="space-y-6">
+              {/* Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <AdminStat label="Carritos (7 días)" value={abandoned.length} />
+                <AdminStat label="Recuperados" value={converted.length} accent="emerald" />
+                <AdminStat label="Tasa recuperación" value={`${recoveryRate}%`} />
+                <AdminStat label="Revenue recuperado" value={`$${recoveredRevenue.toLocaleString('es-CL')}`} accent="emerald" />
+              </div>
+
+              {/* Tabla */}
+              <AdminCard className="p-0 overflow-hidden">
+                {abandonedCarts.length === 0 ? (
+                  <p className="text-zinc-500 text-sm py-6 text-center">Sin carritos abandonados en los últimos 7 días.</p>
+                ) : (
+                  <Table>
+                    <THead>
+                      <TH>Cliente</TH>
+                      <TH>Items</TH>
+                      <TH>Total</TH>
+                      <TH>Hace</TH>
+                      <TH>Estado</TH>
+                      <TH>Acción</TH>
+                    </THead>
                     <tbody>
                       {abandonedCarts.map(cart => {
                         const items = cart.items || [];
@@ -572,68 +543,73 @@ export default function EmailDashboard() {
                         const timeLabel = hoursAgo < 24 ? `${hoursAgo}h` : `${Math.round(hoursAgo / 24)}d`;
                         const canSend = cart.status === 'abandoned' && !cart.reminder_sent_at;
                         return (
-                          <tr key={cart.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50">
-                            <td className="py-3 pr-4">
-                              <p className="font-medium text-zinc-900 truncate max-w-[150px]">{cart.customer_name || '—'}</p>
-                              <p className="text-xs text-zinc-400 truncate max-w-[150px]">{cart.email}</p>
-                            </td>
-                            <td className="py-3 pr-4 text-zinc-600 max-w-[180px]">
+                          <TR key={cart.id}>
+                            <TD>
+                              <p className="font-medium text-white truncate max-w-[150px]">{cart.customer_name || '—'}</p>
+                              <p className="text-xs text-zinc-500 truncate max-w-[150px]">{cart.email}</p>
+                            </TD>
+                            <TD className="max-w-[180px]">
                               <p className="truncate">{items.map(i => i.product_name).join(', ')}</p>
-                              <p className="text-xs text-zinc-400">{items.reduce((s, i) => s + i.quantity, 0)} unidad{items.reduce((s, i) => s + i.quantity, 0) !== 1 ? 'es' : ''}</p>
-                            </td>
-                            <td className="py-3 pr-4 font-black text-zinc-950">${cart.total_cents.toLocaleString('es-CL')}</td>
-                            <td className="py-3 pr-4 text-zinc-400 whitespace-nowrap">{timeLabel}</td>
-                            <td className="py-3 pr-4">{statusBadge(cart.status)}</td>
-                            <td className="py-3">
+                              <p className="text-xs text-zinc-500">{items.reduce((s, i) => s + i.quantity, 0)} unidad{items.reduce((s, i) => s + i.quantity, 0) !== 1 ? 'es' : ''}</p>
+                            </TD>
+                            <TD className="font-bold text-white">${cart.total_cents.toLocaleString('es-CL')}</TD>
+                            <TD className="whitespace-nowrap">{timeLabel}</TD>
+                            <TD>
+                              <AdminBadge variant={cartStatusVariant(cart.status)}>
+                                {cartStatusLabel(cart.status)}
+                              </AdminBadge>
+                            </TD>
+                            <TD>
                               {canSend ? (
                                 <button
                                   onClick={() => handleSendReminder(cart)}
                                   disabled={sendingReminder === cart.id}
-                                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-lg font-bold text-xs transition-colors whitespace-nowrap"
+                                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                 >
                                   {sendingReminder === cart.id ? 'Enviando...' : 'Enviar recordatorio'}
                                 </button>
                               ) : (
-                                <span className="text-xs text-zinc-400">—</span>
+                                <span className="text-xs text-zinc-500">—</span>
                               )}
-                            </td>
-                          </tr>
+                            </TD>
+                          </TR>
                         );
                       })}
                     </tbody>
-                  </table>
-                </div>
-              )}
+                  </Table>
+                )}
+              </AdminCard>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
+
+      </div>
 
       {/* Preview Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-              <h3 className="font-black text-zinc-950">Preview del email</h3>
-              <button onClick={() => setShowPreview(false)} className="text-zinc-400 hover:text-zinc-700">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <h3 className="font-bold text-white">Preview del email</h3>
+              <button onClick={() => setShowPreview(false)} className="text-zinc-400 hover:text-white">
                 <X size={18} />
               </button>
             </div>
             <div className="overflow-y-auto flex-1 p-4">
-              <div className="mb-3 bg-zinc-50 rounded-xl px-4 py-2 text-sm">
+              <div className="mb-3 bg-zinc-800 rounded-xl px-4 py-2 text-sm">
                 <span className="text-zinc-400 font-medium">Asunto: </span>
-                <span className="font-bold text-zinc-900">{subject}</span>
+                <span className="font-bold text-white">{subject}</span>
               </div>
               <iframe
                 srcDoc={body}
                 title="Preview email"
-                className="w-full h-96 border border-zinc-100 rounded-xl"
+                className="w-full h-96 border border-zinc-700 rounded-xl"
                 sandbox="allow-same-origin"
               />
             </div>
           </div>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }
