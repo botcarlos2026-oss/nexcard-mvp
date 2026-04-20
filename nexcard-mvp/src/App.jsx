@@ -331,7 +331,7 @@ function App() {
     return <DeliveryConfirmation orderId={parts[0]} token={parts[1]} />;
   }
 
-  if (path === '/') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
+  if (path === '/') return <ComingSoon />;
   if (path === '/coming-soon') return <ComingSoon />;
   if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
   if (path === '/privacidad') return <PrivacyPolicy />;
