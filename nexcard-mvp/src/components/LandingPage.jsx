@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone } from 'lucide-react';
-import api from '../services/api';
+import { api } from '../services/api';
 
 const FEATURES = [
   { icon: <Zap size={22} className="text-emerald-400" />, title: 'Comparte al instante', description: 'Un toque con tu tarjeta NFC y tu contacto completo aparece en el teléfono de tu cliente. Sin apps, sin fricción.' },
