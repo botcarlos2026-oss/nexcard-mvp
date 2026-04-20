@@ -229,7 +229,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           <button
             onClick={onBack}
             disabled={loading}
-            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm disabled:opacity-50"
+            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm disabled:opacity-50 min-h-[44px] px-2"
           >
             <ArrowLeft size={16} />
             Volver
@@ -423,7 +423,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                       key={id}
                       type="button"
                       onClick={() => setCustomization({ ...customization, template: id })}
-                      className="template-option btn-press flex flex-col items-center gap-1.5 p-2 rounded-xl"
+                      className="template-option btn-press flex flex-col items-center gap-1.5 p-3 min-h-[44px] rounded-xl"
                       style={{
                         border: customization.template === id ? '2px solid #10B981' : '2px solid transparent',
                         boxShadow: customization.template === id ? '0 0 0 1px #10B98133' : 'none',

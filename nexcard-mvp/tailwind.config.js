@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const plugin = require('tailwindcss/plugin');
+
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
@@ -33,5 +35,10 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(({ addVariant }) => {
+      // Hover only fires on devices that support true hover (not touch-only)
+      addVariant('hover', '@media (hover: hover) and (pointer: fine) { &:hover }');
+    }),
+  ],
 }

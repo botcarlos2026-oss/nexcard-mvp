@@ -82,7 +82,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-emerald-500/8 rounded-full blur-3xl translate-x-1/2 -translate-y-1/4" />
-          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/6 rounded-full blur-3xl -translate-x-1/3 translate-y-1/4" />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-3xl -translate-x-1/3 translate-y-1/4" />
         </div>
         <div className="hero-content relative max-w-5xl mx-auto px-6 py-24 md:py-36 text-center">
           <div className="inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
@@ -129,7 +129,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         </div>
       </section>
 
-      <section className="border-t border-zinc-800/60 py-16 px-6">
+      <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-xl font-black mb-3">¿Ya eres cliente NexCard? Accede a tu perfil</h2>
           <div className="flex items-center justify-center gap-2">
@@ -162,7 +162,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             {STEPS.map((step) => (
               <div key={step.num}>
                 <div className="text-5xl font-black text-emerald-400/15 mb-4 leading-none">{step.num}</div>
-                <h3 className="font-bold mb-2 text-base">{step.title}</h3>
+                <p className="font-bold mb-2 text-base">{step.title}</p>
                 <p className="text-zinc-400 text-sm leading-relaxed">{step.desc}</p>
               </div>
             ))}
