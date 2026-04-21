@@ -72,7 +72,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     <div className="min-h-screen bg-zinc-950 text-white">
 
       <nav className="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-        <span className="text-xl font-black tracking-tight font-heading">Nex<span className="text-emerald-400">Card</span></span>
+        <span className="text-xl font-bold tracking-tight font-heading">Nex<span className="text-emerald-400">Card</span></span>
         <div className="flex items-center gap-3">
           <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-3 min-h-[44px] inline-flex items-center">Iniciar sesión</a>
           <button onClick={onCheckoutStart} className="btn-press text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-3 min-h-[44px] rounded-lg transition-colors">Comprar</button>
@@ -89,7 +89,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <Smartphone size={12} />
             Tarjeta NFC · Compatible con iPhone y Android
           </div>
-          <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight tracking-tight">
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-[1.05] tracking-tight">
             Tu tarjeta de visita<br />
             <span className="text-emerald-400">del siglo XXI</span>
           </h1>
