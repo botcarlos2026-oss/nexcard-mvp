@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { generateVCard } from '../utils/vCardEngine';
 import { trackClick } from '../utils/analyticsEngine';
+import LinkIcon from './LinkIcon';
 
 const NexCardProfile = ({ data }) => {
   // NexReview: si es tarjeta de reseñas, redirigir inmediatamente
@@ -346,7 +347,7 @@ const NexCardProfile = ({ data }) => {
           <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-4 px-2">Enlaces Útiles</h3>
           <div className="space-y-3">
             {(data.calendar_url_enabled !== false && data.calendar_url) && (
-              <a 
+              <a
                 href={data.calendar_url}
                 onClick={() => handleLinkClick('calendar')}
                 target="_blank"
@@ -354,17 +355,17 @@ const NexCardProfile = ({ data }) => {
                 className={`flex items-center justify-between p-4 rounded-2xl shadow-sm border transition-all group ${isDark ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-700' : 'bg-white border-zinc-100 hover:border-zinc-300'}`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
-                    <Calendar size={16} />
+                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center overflow-hidden">
+                    <LinkIcon url={data.calendar_url} size={18} />
                   </div>
-                  <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-zinc-900'}`}>Agendar Reunión (Calendly)</span>
+                  <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-zinc-900'}`}>Agendar Reunión</span>
                 </div>
                 <ExternalLink size={16} className="text-zinc-400 group-hover:text-blue-500" />
               </a>
             )}
-            
+
             {(data.portfolio_enabled !== false && data.portfolio_url) && (
-              <a 
+              <a
                 href={data.portfolio_url}
                 onClick={() => handleLinkClick('portfolio')}
                 target="_blank"
@@ -372,10 +373,10 @@ const NexCardProfile = ({ data }) => {
                 className={`flex items-center justify-between p-4 rounded-2xl shadow-sm border transition-all group ${isDark ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-700' : 'bg-white border-zinc-100 hover:border-zinc-300'}`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
-                    <FileText size={16} />
+                  <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center overflow-hidden">
+                    <LinkIcon url={data.portfolio_url} size={18} />
                   </div>
-                  <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-zinc-900'}`}>Descargar Portafolio</span>
+                  <span className={`font-bold text-sm ${isDark ? 'text-white' : 'text-zinc-900'}`}>Portafolio</span>
                 </div>
                 <ExternalLink size={16} className="text-zinc-400 group-hover:text-blue-500" />
               </a>

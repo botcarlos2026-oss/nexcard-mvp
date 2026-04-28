@@ -3,7 +3,7 @@ import {
   Save,
   User,
   Palette,
-  Link as LinkIcon,
+  Link as LinkChainIcon,
   CreditCard,
   LogOut,
   Image as ImageIcon,
@@ -15,7 +15,9 @@ import {
   LayoutTemplate
 } from 'lucide-react';
 import { uploadAvatar, uploadCover } from '../utils/imageEngine';
-import { supabase } from '../services/supabaseClient';
+import { getClerkUserId } from '../services/supabaseClient';
+import { detectLinkType } from '../utils/linkIcons';
+import LinkIcon from './LinkIcon';
 
 const UserEditor = ({ data, onSave, onLogout }) => {
   const [profile, setProfile] = useState(data);
@@ -32,8 +34,7 @@ const UserEditor = ({ data, onSave, onLogout }) => {
 
     setUploadingCover(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
+      const userId = getClerkUserId();
       if (!userId) throw new Error('No hay sesión activa');
       const newUrl = await uploadCover(userId, file);
       handleChange('cover_image_url', newUrl);
@@ -50,8 +51,7 @@ const UserEditor = ({ data, onSave, onLogout }) => {
 
     setUploading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
+      const userId = getClerkUserId();
       if (!userId) throw new Error('No hay sesión activa');
       const newUrl = await uploadAvatar(userId, file);
       handleChange('avatar_url', newUrl);
@@ -78,7 +78,7 @@ const UserEditor = ({ data, onSave, onLogout }) => {
     { id: 'stats', label: 'Stats', icon: TrendingUp },
     { id: 'basic', label: 'Básico', icon: User },
     { id: 'design', label: 'Diseño', icon: Palette },
-    { id: 'links', label: 'Enlaces', icon: LinkIcon },
+    { id: 'links', label: 'Enlaces', icon: LinkChainIcon },
     { id: 'bank', label: 'Pago', icon: CreditCard },
     { id: 'content', label: 'Landing', icon: LayoutTemplate },
   ];
@@ -259,36 +259,55 @@ const UserEditor = ({ data, onSave, onLogout }) => {
           {activeTab === 'links' && (
             <div className="space-y-6">
               {[
-                ['whatsapp', 'WhatsApp (con código de país)', 'Ej: 56912345678', 'whatsapp_enabled'],
-                ['instagram', 'Instagram (Usuario)', '@usuario', 'instagram_enabled'],
-                ['linkedin', 'LinkedIn', 'perfil-linkedin', 'linkedin_enabled'],
-                ['facebook', 'Facebook', 'perfil-facebook', 'facebook_enabled'],
-                ['contact_phone', 'Teléfono Múltiple', '+56 9...', 'contact_phone_enabled'],
-                ['contact_email', 'Correo Electrónico', 'correo@empresa.com', 'contact_email_enabled'],
-                ['website_url', 'Sitio Web', 'https://...', 'website_enabled'],
-                ['portfolio_url', 'URL Portafolio', 'https://...', 'portfolio_enabled'],
-                ['calendar_url', 'URL Agenda', 'https://calendly.com/...', 'calendar_url_enabled'],
-              ].map(([field, label, placeholder, toggleField]) => {
+                ['whatsapp', 'WhatsApp (con código de país)', 'Ej: 56912345678', 'whatsapp_enabled', false],
+                ['instagram', 'Instagram (Usuario)', '@usuario', 'instagram_enabled', false],
+                ['linkedin', 'LinkedIn', 'perfil-linkedin', 'linkedin_enabled', false],
+                ['facebook', 'Facebook', 'perfil-facebook', 'facebook_enabled', false],
+                ['contact_phone', 'Teléfono Múltiple', '+56 9...', 'contact_phone_enabled', false],
+                ['contact_email', 'Correo Electrónico', 'correo@empresa.com', 'contact_email_enabled', false],
+                ['website_url', 'Sitio Web', 'https://...', 'website_enabled', true],
+                ['portfolio_url', 'URL Portafolio', 'https://...', 'portfolio_enabled', true],
+                ['calendar_url', 'URL Agenda', 'https://calendly.com/...', 'calendar_url_enabled', true],
+              ].map(([field, label, placeholder, toggleField, isUrlField]) => {
                 const isEnabled = profile[toggleField] !== false;
+                const val = profile[field] || '';
+                const detected = isUrlField && val ? detectLinkType(val) : null;
                 return (
                   <div key={field} className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-black uppercase tracking-widest text-zinc-500">{label}</span>
-                      <button 
-                        onClick={() => handleChange(toggleField, !isEnabled)} 
+                      <button
+                        onClick={() => handleChange(toggleField, !isEnabled)}
                         className={`w-10 h-5 rounded-full transition-colors relative ${isEnabled ? 'bg-emerald-500' : 'bg-zinc-300'}`}
                       >
                         <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isEnabled ? 'left-6' : 'left-1'}`}></div>
                       </button>
                     </div>
                     {isEnabled && (
-                      <input 
-                        type="text" 
-                        placeholder={placeholder} 
-                        value={profile[field] || ''} 
-                        onChange={(e) => handleChange(field, e.target.value)} 
-                        className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/10 transition-all" 
-                      />
+                      <>
+                        <div className="flex items-center gap-2">
+                          {isUrlField && val && (
+                            <div className="shrink-0 w-8 h-8 rounded-lg bg-white border border-zinc-200 flex items-center justify-center overflow-hidden">
+                              <LinkIcon url={val} size={20} />
+                            </div>
+                          )}
+                          <input
+                            type="text"
+                            placeholder={placeholder}
+                            value={val}
+                            onChange={(e) => handleChange(field, e.target.value)}
+                            className="flex-1 px-4 py-3 bg-white border border-zinc-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/10 transition-all"
+                          />
+                        </div>
+                        {detected && detected.type !== 'website' && (
+                          <p className="mt-1.5 text-xs text-emerald-600 font-semibold pl-1">
+                            Detectado: {detected.type.charAt(0).toUpperCase() + detected.type.slice(1)}
+                          </p>
+                        )}
+                        {detected && detected.type === 'website' && val && (
+                          <p className="mt-1.5 text-xs text-zinc-400 pl-1">Sitio web — usaremos su favicon</p>
+                        )}
+                      </>
                     )}
                   </div>
                 );
