@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../store/cartStore';
 import { api } from '../services/api';
-import { ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, AlertCircle, Tag } from 'lucide-react';
 import CardPreview from './CardPreview';
 
 export default function CheckoutForm({ onOrderSuccess, onBack }) {
@@ -10,6 +10,10 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const [error, setError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('mercado-pago');
   const [abandonedCartId, setAbandonedCartId] = useState(null);
+  const [couponCode, setCouponCode] = useState(() => new URLSearchParams(window.location.search).get('coupon') || '');
+  const [couponData, setCouponData] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -66,7 +70,44 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   };
 
   const totalCents = getTotalCents();
-  const totalCLP = totalCents.toLocaleString('es-CL');
+
+  useEffect(() => {
+    const urlCoupon = new URLSearchParams(window.location.search).get('coupon');
+    if (urlCoupon) validateCoupon(urlCoupon);
+  }, []);
+
+  const validateCoupon = async (code) => {
+    const trimmed = (code || couponCode).trim().toUpperCase();
+    if (!trimmed) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const result = await api.validateWheelCoupon(trimmed);
+      if (result) {
+        setCouponData(result);
+        setCouponCode(trimmed);
+      } else {
+        setCouponError('Cupón inválido o ya utilizado');
+        setCouponData(null);
+      }
+    } catch {
+      setCouponError('Error al validar el cupón');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const getDiscountCents = () => {
+    if (!couponData) return 0;
+    const { prize } = couponData;
+    if (prize.type === 'discount_percent') return Math.round(totalCents * prize.value / 100);
+    if (prize.type === 'discount_amount') return Math.min(prize.value, totalCents);
+    return 0;
+  };
+
+  const discountCents = getDiscountCents();
+  const finalTotalCents = Math.max(0, totalCents - discountCents);
+  const totalCLP = finalTotalCents.toLocaleString('es-CL');
 
   // Guard: si llegan aquí sin items, redirigir
   if (items.length === 0) {
@@ -142,7 +183,9 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         payment_method: paymentMethod,
         payment_status: 'pending',
         fulfillment_status: 'new',
-        amount_cents: totalCents,
+        amount_cents: finalTotalCents,
+        discount_cents: discountCents || undefined,
+        coupon_code: couponData ? couponCode : undefined,
         currency: 'CLP',
         card_customization: hasCustomization ? {
           full_name: customization.full_name.trim() || formData.customerName.trim(),
@@ -178,7 +221,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 unit_price_cents: item.unit_price_cents,
               })),
               customerEmail: formData.customerEmail,
-              totalCents: totalCents,
+              totalCents: finalTotalCents,
             }),
           });
 
@@ -187,6 +230,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           }
 
           if (abandonedCartId) api.markCartConverted(abandonedCartId);
+          if (couponData?.spinId) api.redeemWheelCoupon(couponData.spinId, result.id).catch(() => {});
           clearCart();
           // Redirigir a Mercado Pago
           window.location.href = data.init_point;
@@ -194,6 +238,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         } else {
           // Transbank — flujo pendiente
           if (abandonedCartId) api.markCartConverted(abandonedCartId);
+          if (couponData?.spinId) api.redeemWheelCoupon(couponData.spinId, result.id).catch(() => {});
           clearCart();
           onOrderSuccess(result);
         }
@@ -638,11 +683,48 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 ))}
               </div>
 
+              {/* Coupon input */}
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponData(null); setCouponError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && validateCoupon()}
+                      placeholder="Código de descuento"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-8 pr-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => validateCoupon()}
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {couponLoading ? '…' : 'Aplicar'}
+                  </button>
+                </div>
+                {couponData && (
+                  <p className="text-emerald-400 text-xs mt-1.5 font-semibold">
+                    ✓ {couponData.prize.label} aplicado
+                  </p>
+                )}
+                {couponError && <p className="text-red-400 text-xs mt-1.5">{couponError}</p>}
+              </div>
+
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between text-zinc-400">
                   <span>Subtotal</span>
-                  <span>${totalCLP}</span>
+                  <span>${totalCents.toLocaleString('es-CL')}</span>
                 </div>
+                {discountCents > 0 && (
+                  <div className="flex justify-between text-emerald-400">
+                    <span>Descuento ({couponCode})</span>
+                    <span>-${discountCents.toLocaleString('es-CL')}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-zinc-400">
                   <span>Envío</span>
                   <span className="text-emerald-400">Gratis</span>
