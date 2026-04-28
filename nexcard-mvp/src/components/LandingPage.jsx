@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone } from 'lucide-react';
+import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone, Linkedin, Mail } from 'lucide-react';
 import { api } from '../services/api';
+import DiscountWheel from './DiscountWheel';
 
 const FEATURES = [
   { icon: <Zap size={22} className="text-emerald-400" />, title: 'Comparte al instante', description: 'Un toque con tu tarjeta NFC y tu contacto completo aparece en el teléfono de tu cliente. Sin apps, sin fricción.' },
@@ -33,16 +34,49 @@ const STEPS = [
   { num: '04', title: 'Comparte al instante', desc: 'Acerca tu tarjeta a cualquier smartphone y comparte tu contacto al toque.' },
 ];
 
+function TeamMemberCard({ member }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  return (
+    <div className="flex flex-col items-center text-center p-6 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl transition-colors">
+      {member.photo_url && !imgError ? (
+        <img src={member.photo_url} alt={member.name} onError={() => setImgError(true)} className="w-24 h-24 rounded-full object-cover mb-4 border-2 border-zinc-800" />
+      ) : (
+        <div className="w-24 h-24 rounded-full bg-emerald-900 border-2 border-emerald-800 flex items-center justify-center mb-4">
+          <span className="text-emerald-300 text-2xl font-bold">{initials}</span>
+        </div>
+      )}
+      <p className="font-bold text-lg mb-0.5">{member.name}</p>
+      <p className="text-zinc-400 text-sm mb-3">{member.role}</p>
+      {member.bio && <p className="text-zinc-500 text-xs mb-4 leading-relaxed">{member.bio}</p>}
+      <div className="flex items-center gap-3 mt-auto">
+        {member.linkedin_url && (
+          <a href={member.linkedin_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors" aria-label="LinkedIn">
+            <Linkedin size={18} />
+          </a>
+        )}
+        {member.email && (
+          <a href={`mailto:${member.email}`} className="text-zinc-400 hover:text-white transition-colors" aria-label="Email">
+            <Mail size={18} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
   const [pricing, setPricing] = useState(() =>
     PRICING_FALLBACK.map((p) => ({ ...p, ...PRICING_META[p.sku], perUnit: Math.round(p.price / (PRICING_META[p.sku]?.cards || 1)) }))
   );
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [showWheel, setShowWheel] = useState(false);
+  const [wheelData, setWheelData] = useState(null);
   const formatPrice = (n) => n.toLocaleString('es-CL');
 
   useEffect(() => {
     api.getProducts().then((products) => {
-      const nexcardSkus = Object.keys(PRICING_META);
       const merged = PRICING_FALLBACK.map((fallback) => {
         const dbProduct = products.find((p) => p.sku === fallback.sku);
         const price = dbProduct ? dbProduct.price_cents : fallback.price;
@@ -51,6 +85,21 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       });
       setPricing(merged);
     }).catch(() => { /* mantener fallback */ });
+  }, []);
+
+  useEffect(() => {
+    api.getTeamMembers().then(({ members }) => setTeamMembers(members)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const hasSpun = localStorage.getItem('nx_wheel_spun');
+    if (hasSpun) return;
+    api.getActiveWheel().then(({ wheel }) => {
+      if (wheel?.show_on_first_visit && (wheel?.wheel_prizes || []).filter(p => p.active).length >= 2) {
+        setWheelData(wheel);
+        setTimeout(() => setShowWheel(true), 2000);
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -203,6 +252,26 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
         </div>
       </section>
+
+      {/* ============ TEAM SECTION ============ */}
+      {teamMembers.length > 0 && (
+        <section className="border-t border-zinc-800/60 py-24 px-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-black mb-4">Quiénes trabajan con nosotros</h2>
+              <p className="text-zinc-400">El equipo detrás de NexCard</p>
+            </div>
+            <div className={`grid gap-6 ${
+              teamMembers.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
+              teamMembers.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-md mx-auto' :
+              teamMembers.length === 3 ? 'grid-cols-1 sm:grid-cols-3' :
+              'grid-cols-2 lg:grid-cols-4'
+            }`}>
+              {teamMembers.map(member => <TeamMemberCard key={member.id} member={member} />)}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="border-t border-zinc-800/60 py-24 px-6" id="precios">
         <div className="max-w-6xl mx-auto">
@@ -424,6 +493,22 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </a>
         </div>
       </footer>
+
+      {/* Wheel modal */}
+      {showWheel && wheelData && (
+        <DiscountWheel wheel={wheelData} onClose={() => setShowWheel(false)} />
+      )}
+
+      {/* Floating gift button */}
+      {wheelData?.show_floating_button && !showWheel && (
+        <button
+          onClick={() => setShowWheel(true)}
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-lg shadow-emerald-900/40 flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95"
+          aria-label="Abrir ruleta de descuentos"
+        >
+          🎁
+        </button>
+      )}
 
     </div>
   );

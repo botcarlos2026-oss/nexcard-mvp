@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useUser, useAuth } from '@clerk/react';
 import LandingPage from './components/LandingPage';
 import ComingSoon from './components/ComingSoon';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -14,6 +15,8 @@ import NexReviewDashboard from './components/NexReviewDashboard';
 import ReviewCardsDashboard from './components/ReviewCardsDashboard';
 import ReviewCardRedirect from './components/ReviewCardRedirect';
 import EmailDashboard from './components/EmailDashboard';
+import TeamDashboard from './components/TeamDashboard';
+import WheelDashboard from './components/WheelDashboard';
 import UnsubscribePage from './components/UnsubscribePage';
 import TrackingPage from './components/TrackingPage';
 import DeliveryConfirmation from './components/DeliveryConfirmation';
@@ -24,15 +27,21 @@ import ProductCatalog from './components/ProductCatalog';
 import Cart from './components/Cart';
 import CheckoutForm from './components/CheckoutForm';
 import OrderConfirmation from './components/OrderConfirmation';
-import { api, getStoredAuth, setStoredAuth } from './services/api';
+import { api, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
-import { supabase, hasSupabase } from './services/supabaseClient';
+import { hasSupabase, setClerkTokenGetter, setClerkUserId } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
 
+const ADMIN_EMAILS = [
+  'bot.carlos.2026@gmail.com',
+  'carlos.alvarez.contreras@gmail.com',
+];
+
 function App() {
+  const { user, isSignedIn, isLoaded } = useUser();
+  const { getToken, signOut } = useAuth();
+
   const [data, setData] = useState(initialMockData);
-  const [user, setUser] = useState(() => getStoredAuth()?.user || null);
-  const [sessionReady, setSessionReady] = useState(false);
   const [path, setPath] = useState(window.location.pathname);
   const [loading, setLoading] = useState(true);
   const [landingContent, setLandingContent] = useState(defaultLandingContent);
@@ -42,7 +51,7 @@ function App() {
   const [profilesAdminData, setProfilesAdminData] = useState([]);
   const [ordersAdminData, setOrdersAdminData] = useState([]);
   const [error, setError] = useState('');
-  
+
   // Checkout state
   const [checkoutStep, setCheckoutStep] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
@@ -54,56 +63,34 @@ function App() {
     setPath(newPath);
   };
 
-  // Checkout handlers
-  const handleCheckoutStart = () => {
-    setCheckoutStep('catalog');
-  };
-
-  const handleProceedToCart = () => {
-    if (getTotalItems() > 0) {
-      setCheckoutStep('cart');
-    }
-  };
-
-  const handleProceedToCheckout = () => {
-    setCheckoutStep('checkout');
-  };
-
-  const handleOrderSuccess = (order) => {
-    setCurrentOrder(order);
-    setCheckoutStep('confirmation');
-  };
-
-  const handleBackToShop = () => {
-    setCheckoutStep('catalog');
-  };
-
-  const handleBackToCart = () => {
-    setCheckoutStep('cart');
-  };
-
+  // Sincronizar Clerk con Supabase client
   useEffect(() => {
-    if (!hasSupabase || !supabase) return;
-    // Leer sesión activa primero
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        setStoredAuth({ user: session.user });
-      }
-      setSessionReady(true);
-    });
+    if (isLoaded && isSignedIn && user) {
+      setClerkTokenGetter(getToken);
+      setClerkUserId(user.id);
+    } else if (isLoaded && !isSignedIn) {
+      setClerkTokenGetter(null);
+      setClerkUserId(null);
+    }
+  }, [isLoaded, isSignedIn, user, getToken]);
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        setStoredAuth({ user: session.user });
-      } else {
-        setUser(null);
-        setStoredAuth(null);
-      }
-    });
-    return () => listener?.subscription?.unsubscribe();
-  }, []);
+  // Redirigir tras login según rol
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || path !== '/login') return;
+    const email = user?.primaryEmailAddress?.emailAddress?.toLowerCase().trim();
+    if (ADMIN_EMAILS.includes(email)) {
+      navigate('/admin');
+    } else {
+      navigate('/edit');
+    }
+  }, [isLoaded, isSignedIn, path]);
+
+  const handleCheckoutStart = () => setCheckoutStep('catalog');
+  const handleProceedToCart = () => { if (getTotalItems() > 0) setCheckoutStep('cart'); };
+  const handleProceedToCheckout = () => setCheckoutStep('checkout');
+  const handleOrderSuccess = (order) => { setCurrentOrder(order); setCheckoutStep('confirmation'); };
+  const handleBackToShop = () => setCheckoutStep('catalog');
+  const handleBackToCart = () => setCheckoutStep('cart');
 
   useEffect(() => {
     const handleLocationChange = () => setPath(window.location.pathname);
@@ -126,7 +113,7 @@ function App() {
 
   useEffect(() => {
     const bootstrap = async () => {
-      if (!sessionReady && hasSupabase) return; // esperar sesión
+      if (!isLoaded) return; // esperar Clerk
       setLoading(true);
       setError('');
       try {
@@ -142,22 +129,13 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards') {
-          if (!hasSupabase || !supabase) {
-            throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
+        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards' || path === '/admin/team' || path === '/admin/wheel') {
+          if (!hasSupabase) {
+            throw new Error('Admin deshabilitado: Supabase es obligatorio');
           }
 
-          // Admin whitelist — verificar sesión de Supabase directamente
-          const ADMIN_EMAILS = [
-            'bot.carlos.2026@gmail.com',
-            'carlos.alvarez.contreras@gmail.com',
-            // 'carlos@nexcard.com',  ← agregar cuando compres el dominio
-          ];
-
-          // Obtener sesión activa de Supabase (más confiable que localStorage)
-          const { data: { session } } = await supabase.auth.getSession();
-          const sessionEmail = session?.user?.email?.toLowerCase().trim();
-          const isAdmin = sessionEmail && ADMIN_EMAILS.includes(sessionEmail);
+          const userEmail = user?.primaryEmailAddress?.emailAddress?.toLowerCase().trim();
+          const isAdmin = userEmail && ADMIN_EMAILS.includes(userEmail);
 
           if (!isAdmin) {
             navigate('/login');
@@ -184,11 +162,10 @@ function App() {
             const profiles = await api.getAdminProfiles();
             setProfilesAdminData(profiles.profiles || []);
           } else if (path === '/admin/emails') {
-            // EmailDashboard carga sus propios datos via supabase directo
+            // EmailDashboard carga sus propios datos
           } else if (path === '/admin/review-cards') {
             // ReviewCardsDashboard carga sus propios datos
           } else {
-            // /admin/orders y /admin/crm comparten la misma fuente de datos
             const orders = await api.getOrders();
             setOrdersAdminData(orders.orders || []);
           }
@@ -197,7 +174,7 @@ function App() {
         }
 
         if (path === '/edit') {
-          if (!user) {
+          if (!isSignedIn) {
             navigate('/login');
             setLoading(false);
             return;
@@ -229,36 +206,20 @@ function App() {
     };
 
     bootstrap();
-  }, [path, user, sessionReady]);
+  }, [path, isSignedIn, isLoaded]);
 
   const handleSave = async (newData) => {
     const saved = await api.updateMyProfile(newData);
     setData(saved);
   };
 
-  const handleAuthSuccess = (authPayload) => {
-    setUser(authPayload.user);
-    setStoredAuth(authPayload);
-    const ADMIN_EMAILS = [
-      'bot.carlos.2026@gmail.com',
-      'carlos.alvarez.contreras@gmail.com',
-    ];
-    const email = authPayload.user?.email?.toLowerCase().trim();
-    if (email && ADMIN_EMAILS.includes(email)) {
-      navigate('/admin');
-    } else {
-      navigate('/edit');
-    }
-  };
-
   const handleLogout = async () => {
-    await api.logout();
-    setUser(null);
+    await signOut();
     setStoredAuth(null);
     navigate('/login');
   };
 
-  if (loading) {
+  if (!isLoaded || loading) {
     return <div className="min-h-screen bg-zinc-950 text-white grid place-items-center font-bold">Cargando NexCard…</div>;
   }
 
@@ -290,7 +251,7 @@ function App() {
   }
 
   // ==================== REGULAR ROUTES ====================
-  if (path === '/login') return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+  if (path === '/login') return <AuthPage />;
 
   if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
   if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />;
@@ -299,6 +260,8 @@ function App() {
   if (path === '/admin/nexreview') return <NexReviewDashboard profiles={profilesAdminData} />;
   if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
   if (path === '/admin/emails') return <EmailDashboard />;
+  if (path === '/admin/team') return <TeamDashboard />;
+  if (path === '/admin/wheel') return <WheelDashboard />;
   if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
 
   if (path.startsWith('/r/')) {
@@ -309,7 +272,7 @@ function App() {
   if (path === '/admin/crm') return <CRMDashboard />;
 
   if (path === '/edit') {
-    if (!user) return null;
+    if (!isSignedIn) return null;
     return <UserEditor data={data} onSave={handleSave} onLogout={handleLogout} />;
   }
 
@@ -320,7 +283,6 @@ function App() {
     }} />;
   }
 
-  // Public tracking routes — no auth required
   if (path.startsWith('/seguimiento/')) {
     const orderId = path.replace('/seguimiento/', '').replace(/\/$/, '');
     return <TrackingPage orderId={orderId} />;

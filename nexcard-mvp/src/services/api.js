@@ -1,4 +1,4 @@
-import { supabase, hasSupabase } from './supabaseClient';
+import { supabase, hasSupabase, getClerkUserId } from './supabaseClient';
 
 const ERROR_MESSAGES = {
   'Failed to fetch': 'Sin conexión. Verifica tu internet e intenta nuevamente.',
@@ -67,8 +67,7 @@ async function supabaseCreateOrder(payload) {
   if (!payload.items?.length) throw new Error('La orden debe tener al menos un producto');
   if (!payload.amount_cents || payload.amount_cents <= 0) throw new Error('Monto inválido');
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData?.session?.user?.id || null;
+  const userId = getClerkUserId() || null;
 
   const orderData = {
     user_id: userId,
@@ -224,29 +223,16 @@ export const api = {
   health: () => request('/health'),
 
   register: async (payload) => {
-    if (hasSupabase) {
-      const { data, error } = await supabase.auth.signUp({ email: payload.email, password: payload.password });
-      if (error) throw new Error(error.message);
-      setStoredAuth({ user: data.user });
-      return { user: data.user };
-    }
+    if (hasSupabase) throw new Error('Registro gestionado por Clerk');
     return request('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
   },
 
   login: async (payload) => {
-    if (hasSupabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: payload.email, password: payload.password });
-      if (error) throw new Error(error.message);
-      const user = data.user || data.session?.user;
-      if (!user) throw new Error('No se pudo obtener el usuario');
-      setStoredAuth({ user });
-      return { user };
-    }
+    if (hasSupabase) throw new Error('Login gestionado por Clerk');
     return request('/auth/login', { method: 'POST', body: JSON.stringify(payload) });
   },
 
   logout: async () => {
-    if (hasSupabase) await supabase.auth.signOut();
     setStoredAuth(null);
   },
 
@@ -279,8 +265,7 @@ export const api = {
 
   getMyProfile: async () => {
     if (!hasSupabase) throw new Error('Perfil privado deshabilitado');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData?.session?.user?.id;
+    const userId = getClerkUserId();
     if (!userId) throw new Error('No hay sesión activa');
     const { data, error } = await supabase
       .from('profiles').select('*').eq('user_id', userId).is('deleted_at', null).single();
@@ -290,8 +275,7 @@ export const api = {
 
   updateMyProfile: async (payload) => {
     if (!hasSupabase) throw new Error('Edición deshabilitada');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData?.session?.user?.id;
+    const userId = getClerkUserId();
     if (!userId) throw new Error('No hay sesión activa');
     const { data, error } = await supabase
       .from('profiles').update(payload).eq('user_id', userId).select().single();
@@ -695,8 +679,7 @@ export const api = {
 
   revokeCard: async (cardId) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data: { session } } = await supabase.auth.getSession();
-    const actorId = session?.user?.id;
+    const actorId = getClerkUserId();
     const { error } = await supabase.rpc('revoke_card', { target_card_id: cardId, actor_id: actorId });
     if (error) throw new Error(error.message);
     return fetchAdminCards();
@@ -704,16 +687,14 @@ export const api = {
 
   archiveCard: async (cardId) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data: { session } } = await supabase.auth.getSession();
-    const actorId = session?.user?.id;
+    const actorId = getClerkUserId();
     const { error } = await supabase.rpc('soft_delete_card', { target_card_id: cardId, actor_id: actorId });
     if (error) throw new Error(error.message);
     return fetchAdminCards();
   },
   archiveProfile: async (profileId) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data: { session } } = await supabase.auth.getSession();
-    const actorId = session?.user?.id;
+    const actorId = getClerkUserId();
     const { error } = await supabase.rpc('soft_delete_profile', {
       target_profile_id: profileId,
       actor_id: actorId,
@@ -724,8 +705,7 @@ export const api = {
 
   restoreProfileVersion: async (profileId, version) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data: { session } } = await supabase.auth.getSession();
-    const actorId = session?.user?.id;
+    const actorId = getClerkUserId();
     const { error } = await supabase.rpc('restore_profile_version', {
       target_profile_id: profileId,
       target_version: version,
@@ -952,5 +932,131 @@ export const api = {
   getCardScans: async (profileSlug) => {
     const { data } = await supabase.from('card_scans').select('*').eq('profile_slug', profileSlug).order('scanned_at', { ascending: false });
     return { scans: data || [] };
+  },
+
+  // ---------------------------------------------------------------------------
+  // Team members
+  // ---------------------------------------------------------------------------
+
+  getTeamMembers: async () => {
+    if (!hasSupabase) return { members: [] };
+    const { data } = await supabase.from('team_members').select('*').eq('active', true).order('display_order', { ascending: true });
+    return { members: data || [] };
+  },
+
+  getAllTeamMembers: async () => {
+    if (!hasSupabase) return { members: [] };
+    const { data } = await supabase.from('team_members').select('*').order('display_order', { ascending: true });
+    return { members: data || [] };
+  },
+
+  createTeamMember: async (member) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.from('team_members').insert(member).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  updateTeamMember: async (id, payload) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('team_members').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+  },
+
+  deleteTeamMember: async (id) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('team_members').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // ---------------------------------------------------------------------------
+  // Wheel promotions
+  // ---------------------------------------------------------------------------
+
+  getActiveWheel: async () => {
+    if (!hasSupabase) return { wheel: null };
+    const now = new Date().toISOString();
+    const { data: configs } = await supabase
+      .from('wheel_config')
+      .select('*, wheel_prizes(*)')
+      .eq('active', true);
+    if (!configs?.length) return { wheel: null };
+    const wheel = configs.find(c => {
+      const afterStart = !c.start_date || c.start_date <= now;
+      const beforeEnd = !c.end_date || c.end_date >= now;
+      return afterStart && beforeEnd;
+    });
+    return { wheel: wheel || null };
+  },
+
+  getAllWheels: async () => {
+    if (!hasSupabase) return { wheels: [] };
+    const { data } = await supabase.from('wheel_config').select('*, wheel_prizes(*)').order('created_at', { ascending: false });
+    return { wheels: data || [] };
+  },
+
+  createWheel: async (config) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.from('wheel_config').insert(config).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  updateWheel: async (id, payload) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('wheel_config').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+  },
+
+  deleteWheel: async (id) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('wheel_config').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  createWheelPrize: async (prize) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.from('wheel_prizes').insert(prize).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  updateWheelPrize: async (id, payload) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('wheel_prizes').update(payload).eq('id', id);
+    if (error) throw error;
+  },
+
+  deleteWheelPrize: async (id) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('wheel_prizes').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  recordWheelSpin: async (spin) => {
+    if (!hasSupabase) return null;
+    const { data, error } = await supabase.from('wheel_spins').insert(spin).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  validateWheelCoupon: async (code) => {
+    if (!hasSupabase || !code) return null;
+    const { data: prize } = await supabase.from('wheel_prizes').select('*').eq('coupon_code', code.toUpperCase()).maybeSingle();
+    if (!prize) return null;
+    const { data: spin } = await supabase.from('wheel_spins').select('*').eq('prize_id', prize.id).eq('redeemed', false).limit(1).maybeSingle();
+    if (!spin) return null;
+    return { prize, spinId: spin.id };
+  },
+
+  redeemWheelCoupon: async (spinId, orderId) => {
+    if (!hasSupabase || !spinId) return;
+    await supabase.from('wheel_spins').update({ redeemed: true, redeemed_at: new Date().toISOString(), order_id: orderId }).eq('id', spinId);
+  },
+
+  getWheelStats: async (wheelId) => {
+    if (!hasSupabase) return { spins: [] };
+    const { data } = await supabase.from('wheel_spins').select('*, wheel_prizes(label, type, value)').eq('wheel_id', wheelId).order('spun_at', { ascending: false }).limit(200);
+    return { spins: data || [] };
   },
 };

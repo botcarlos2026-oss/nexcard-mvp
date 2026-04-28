@@ -9,6 +9,8 @@ const items = [
   { id: 'reviews',   label: 'Review Cards', path: '/admin/review-cards' },
   { id: 'emails',    label: 'Emails',     path: '/admin/emails' },
   { id: 'crm',       label: 'CRM',        path: '/admin/crm' },
+  { id: 'team',      label: 'Equipo',     path: '/admin/team' },
+  { id: 'wheel',     label: 'Ruleta',     path: '/admin/wheel' },
 ];
 
 export default function AdminNav({ active }) {
