@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useUser, useAuth } from '@clerk/react';
 import LandingPage from './components/LandingPage';
 import ComingSoon from './components/ComingSoon';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -15,8 +14,6 @@ import NexReviewDashboard from './components/NexReviewDashboard';
 import ReviewCardsDashboard from './components/ReviewCardsDashboard';
 import ReviewCardRedirect from './components/ReviewCardRedirect';
 import EmailDashboard from './components/EmailDashboard';
-import TeamDashboard from './components/TeamDashboard';
-import WheelDashboard from './components/WheelDashboard';
 import UnsubscribePage from './components/UnsubscribePage';
 import TrackingPage from './components/TrackingPage';
 import DeliveryConfirmation from './components/DeliveryConfirmation';
@@ -27,21 +24,15 @@ import ProductCatalog from './components/ProductCatalog';
 import Cart from './components/Cart';
 import CheckoutForm from './components/CheckoutForm';
 import OrderConfirmation from './components/OrderConfirmation';
-import { api, setStoredAuth } from './services/api';
+import { api, getStoredAuth, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
-import { hasSupabase, setClerkTokenGetter, setClerkUserId } from './services/supabaseClient';
+import { supabase, hasSupabase } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
 
-const ADMIN_EMAILS = [
-  'bot.carlos.2026@gmail.com',
-  'carlos.alvarez.contreras@gmail.com',
-];
-
 function App() {
-  const { user, isSignedIn, isLoaded } = useUser();
-  const { getToken, signOut } = useAuth();
-
   const [data, setData] = useState(initialMockData);
+  const [user, setUser] = useState(() => getStoredAuth()?.user || null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [path, setPath] = useState(window.location.pathname);
   const [loading, setLoading] = useState(true);
   const [landingContent, setLandingContent] = useState(defaultLandingContent);
@@ -51,7 +42,7 @@ function App() {
   const [profilesAdminData, setProfilesAdminData] = useState([]);
   const [ordersAdminData, setOrdersAdminData] = useState([]);
   const [error, setError] = useState('');
-
+  
   // Checkout state
   const [checkoutStep, setCheckoutStep] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
@@ -63,34 +54,56 @@ function App() {
     setPath(newPath);
   };
 
-  // Sincronizar Clerk con Supabase client
-  useEffect(() => {
-    if (isLoaded && isSignedIn && user) {
-      setClerkTokenGetter(getToken);
-      setClerkUserId(user.id);
-    } else if (isLoaded && !isSignedIn) {
-      setClerkTokenGetter(null);
-      setClerkUserId(null);
-    }
-  }, [isLoaded, isSignedIn, user, getToken]);
+  // Checkout handlers
+  const handleCheckoutStart = () => {
+    setCheckoutStep('catalog');
+  };
 
-  // Redirigir tras login según rol
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || path !== '/login') return;
-    const email = user?.primaryEmailAddress?.emailAddress?.toLowerCase().trim();
-    if (ADMIN_EMAILS.includes(email)) {
-      navigate('/admin');
-    } else {
-      navigate('/edit');
+  const handleProceedToCart = () => {
+    if (getTotalItems() > 0) {
+      setCheckoutStep('cart');
     }
-  }, [isLoaded, isSignedIn, path]);
+  };
 
-  const handleCheckoutStart = () => setCheckoutStep('catalog');
-  const handleProceedToCart = () => { if (getTotalItems() > 0) setCheckoutStep('cart'); };
-  const handleProceedToCheckout = () => setCheckoutStep('checkout');
-  const handleOrderSuccess = (order) => { setCurrentOrder(order); setCheckoutStep('confirmation'); };
-  const handleBackToShop = () => setCheckoutStep('catalog');
-  const handleBackToCart = () => setCheckoutStep('cart');
+  const handleProceedToCheckout = () => {
+    setCheckoutStep('checkout');
+  };
+
+  const handleOrderSuccess = (order) => {
+    setCurrentOrder(order);
+    setCheckoutStep('confirmation');
+  };
+
+  const handleBackToShop = () => {
+    setCheckoutStep('catalog');
+  };
+
+  const handleBackToCart = () => {
+    setCheckoutStep('cart');
+  };
+
+  useEffect(() => {
+    if (!hasSupabase || !supabase) return;
+    // Leer sesión activa primero
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        setStoredAuth({ user: session.user });
+      }
+      setSessionReady(true);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        setStoredAuth({ user: session.user });
+      } else {
+        setUser(null);
+        setStoredAuth(null);
+      }
+    });
+    return () => listener?.subscription?.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const handleLocationChange = () => setPath(window.location.pathname);
@@ -113,7 +126,7 @@ function App() {
 
   useEffect(() => {
     const bootstrap = async () => {
-      if (!isLoaded) return; // esperar Clerk
+      if (!sessionReady && hasSupabase) return; // esperar sesión
       setLoading(true);
       setError('');
       try {
@@ -129,13 +142,22 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards' || path === '/admin/team' || path === '/admin/wheel') {
-          if (!hasSupabase) {
-            throw new Error('Admin deshabilitado: Supabase es obligatorio');
+        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards') {
+          if (!hasSupabase || !supabase) {
+            throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
 
-          const userEmail = user?.primaryEmailAddress?.emailAddress?.toLowerCase().trim();
-          const isAdmin = userEmail && ADMIN_EMAILS.includes(userEmail);
+          // Admin whitelist — verificar sesión de Supabase directamente
+          const ADMIN_EMAILS = [
+            'bot.carlos.2026@gmail.com',
+            'carlos.alvarez.contreras@gmail.com',
+            // 'carlos@nexcard.com',  ← agregar cuando compres el dominio
+          ];
+
+          // Obtener sesión activa de Supabase (más confiable que localStorage)
+          const { data: { session } } = await supabase.auth.getSession();
+          const sessionEmail = session?.user?.email?.toLowerCase().trim();
+          const isAdmin = sessionEmail && ADMIN_EMAILS.includes(sessionEmail);
 
           if (!isAdmin) {
             navigate('/login');
@@ -162,10 +184,11 @@ function App() {
             const profiles = await api.getAdminProfiles();
             setProfilesAdminData(profiles.profiles || []);
           } else if (path === '/admin/emails') {
-            // EmailDashboard carga sus propios datos
+            // EmailDashboard carga sus propios datos via supabase directo
           } else if (path === '/admin/review-cards') {
             // ReviewCardsDashboard carga sus propios datos
           } else {
+            // /admin/orders y /admin/crm comparten la misma fuente de datos
             const orders = await api.getOrders();
             setOrdersAdminData(orders.orders || []);
           }
@@ -174,7 +197,7 @@ function App() {
         }
 
         if (path === '/edit') {
-          if (!isSignedIn) {
+          if (!user) {
             navigate('/login');
             setLoading(false);
             return;
@@ -206,20 +229,36 @@ function App() {
     };
 
     bootstrap();
-  }, [path, isSignedIn, isLoaded]);
+  }, [path, user, sessionReady]);
 
   const handleSave = async (newData) => {
     const saved = await api.updateMyProfile(newData);
     setData(saved);
   };
 
+  const handleAuthSuccess = (authPayload) => {
+    setUser(authPayload.user);
+    setStoredAuth(authPayload);
+    const ADMIN_EMAILS = [
+      'bot.carlos.2026@gmail.com',
+      'carlos.alvarez.contreras@gmail.com',
+    ];
+    const email = authPayload.user?.email?.toLowerCase().trim();
+    if (email && ADMIN_EMAILS.includes(email)) {
+      navigate('/admin');
+    } else {
+      navigate('/edit');
+    }
+  };
+
   const handleLogout = async () => {
-    await signOut();
+    await api.logout();
+    setUser(null);
     setStoredAuth(null);
     navigate('/login');
   };
 
-  if (!isLoaded || loading) {
+  if (loading) {
     return <div className="min-h-screen bg-zinc-950 text-white grid place-items-center font-bold">Cargando NexCard…</div>;
   }
 
@@ -251,7 +290,7 @@ function App() {
   }
 
   // ==================== REGULAR ROUTES ====================
-  if (path === '/login') return <AuthPage />;
+  if (path === '/login') return <AuthPage onAuthSuccess={handleAuthSuccess} />;
 
   if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
   if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />;
@@ -260,8 +299,6 @@ function App() {
   if (path === '/admin/nexreview') return <NexReviewDashboard profiles={profilesAdminData} />;
   if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
   if (path === '/admin/emails') return <EmailDashboard />;
-  if (path === '/admin/team') return <TeamDashboard />;
-  if (path === '/admin/wheel') return <WheelDashboard />;
   if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
 
   if (path.startsWith('/r/')) {
@@ -272,7 +309,7 @@ function App() {
   if (path === '/admin/crm') return <CRMDashboard />;
 
   if (path === '/edit') {
-    if (!isSignedIn) return null;
+    if (!user) return null;
     return <UserEditor data={data} onSave={handleSave} onLogout={handleLogout} />;
   }
 
@@ -283,6 +320,7 @@ function App() {
     }} />;
   }
 
+  // Public tracking routes — no auth required
   if (path.startsWith('/seguimiento/')) {
     const orderId = path.replace('/seguimiento/', '').replace(/\/$/, '');
     return <TrackingPage orderId={orderId} />;
@@ -293,7 +331,7 @@ function App() {
     return <DeliveryConfirmation orderId={parts[0]} token={parts[1]} />;
   }
 
-  if (path === '/') return <ComingSoon />;
+  if (path === '/') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
   if (path === '/coming-soon') return <ComingSoon />;
   if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
   if (path === '/privacidad') return <PrivacyPolicy />;
