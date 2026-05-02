@@ -461,8 +461,6 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   {[
                     { id: 'minimal', label: 'Minimalista' },
                     { id: 'dark', label: 'Dark premium' },
-                    { id: 'corporate', label: 'Corporativo' },
-                    { id: 'colorful', label: 'Colorido' },
                   ].map(({ id, label }) => (
                     <button
                       key={id}
