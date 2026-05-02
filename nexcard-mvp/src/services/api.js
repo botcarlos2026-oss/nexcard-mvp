@@ -223,12 +223,26 @@ export const api = {
   health: () => request('/health'),
 
   register: async (payload) => {
-    if (hasSupabase) throw new Error('Registro gestionado por Clerk');
+    if (hasSupabase) {
+      const { data, error } = await supabase.auth.signUp({
+        email: payload.email,
+        password: payload.password,
+      });
+      if (error) throw new Error(error.message);
+      return { user: data.user, session: data.session };
+    }
     return request('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
   },
 
   login: async (payload) => {
-    if (hasSupabase) throw new Error('Login gestionado por Clerk');
+    if (hasSupabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: payload.email,
+        password: payload.password,
+      });
+      if (error) throw new Error(error.message);
+      return { user: data.user, session: data.session };
+    }
     return request('/auth/login', { method: 'POST', body: JSON.stringify(payload) });
   },
 
