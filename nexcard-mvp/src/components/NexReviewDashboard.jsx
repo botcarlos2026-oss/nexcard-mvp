@@ -94,7 +94,7 @@ const NexReviewDashboard = ({ profiles = [] }) => {
               <div className="p-2 bg-amber-50 rounded-2xl text-amber-500">
                 <Star size={22} />
               </div>
-              <h1 className="text-3xl font-black tracking-tight text-zinc-950">NexReview</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-zinc-950">NexReview</h1>
             </div>
             <p className="text-zinc-500 font-medium">
               Configura tarjetas NFC que redirigen directamente a tu página de reseñas de Google.
@@ -159,7 +159,7 @@ const NexReviewDashboard = ({ profiles = [] }) => {
         {/* Tabla de perfiles */}
         <div className="bg-white rounded-[32px] border border-zinc-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-zinc-100">
-            <h2 className="font-black text-lg">Todos los perfiles</h2>
+            <h2 className="font-semibold text-lg">Todos los perfiles</h2>
             <p className="text-zinc-500 text-sm font-medium">Activa NexReview y configura la URL de reseñas por perfil.</p>
           </div>
           <div className="overflow-x-auto">

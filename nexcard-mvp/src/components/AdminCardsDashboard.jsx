@@ -177,7 +177,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:justify-between lg:items-end">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-zinc-950">Cards Control Center</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-zinc-950">Cards Control Center</h1>
             <p className="text-zinc-500 font-medium">Lifecycle mínimo NFC: visibilidad, filtros rápidos y acciones controladas sobre tarjetas.</p>
           </div>
 
@@ -343,7 +343,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
           <div className="w-full max-w-lg rounded-[32px] bg-white p-6 shadow-2xl border border-zinc-100">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-black text-zinc-950">{needsReassign(assigningCard) ? 'Reasignar tarjeta' : 'Asignar tarjeta'}</h3>
+                <h3 className="text-2xl font-bold text-zinc-950">{needsReassign(assigningCard) ? 'Reasignar tarjeta' : 'Asignar tarjeta'}</h3>
                 <p className="text-sm text-zinc-500 font-medium">{needsReassign(assigningCard) ? 'Cambia el perfil de una tarjeta ya asignada, sin permitir cards activas.' : 'Vincula la tarjeta a un perfil real para operar lifecycle con contexto.'}</p>
               </div>
               <button onClick={closeAssignModal} className="p-2 text-zinc-400 hover:text-zinc-950 transition-colors"><X size={20} /></button>

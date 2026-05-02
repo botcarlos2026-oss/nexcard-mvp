@@ -121,7 +121,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     <div className="min-h-screen bg-zinc-950 text-white">
 
       <nav className="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-        <span className="text-xl font-bold tracking-tight font-heading">Nex<span className="text-emerald-400">Card</span></span>
+        <span className="text-xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-400">Card</span></span>
         <div className="flex items-center gap-3">
           <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-3 min-h-[44px] inline-flex items-center">Iniciar sesión</a>
           <button onClick={onCheckoutStart} className="btn-press text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-3 min-h-[44px] rounded-lg transition-colors">Comprar</button>
@@ -161,7 +161,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black mb-4">Todo lo que necesitas para networking profesional</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Todo lo que necesitas para networking profesional</h2>
             <p className="text-zinc-400 max-w-xl mx-auto">Una sola tarjeta reemplaza cientos de tarjetas de papel y siempre está actualizada.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -180,7 +180,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
       <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-xl font-black mb-3">¿Ya eres cliente NexCard? Accede a tu perfil</h2>
+          <h2 className="text-xl font-semibold mb-3">¿Ya eres cliente NexCard? Accede a tu perfil</h2>
           <div className="flex items-center justify-center gap-2">
             <input
               type="text"
@@ -204,7 +204,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       <section className="border-t border-zinc-800/60 py-24 px-6 bg-zinc-900/30">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black mb-4">Cómo funciona</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Cómo funciona</h2>
             <p className="text-zinc-400 max-w-xl mx-auto">De tu pedido a compartir tu contacto en menos de 48 horas</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
@@ -258,7 +258,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         <section className="border-t border-zinc-800/60 py-24 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-black mb-4">Quiénes trabajan con nosotros</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">Quiénes trabajan con nosotros</h2>
               <p className="text-zinc-400">El equipo detrás de NexCard</p>
             </div>
             <div className={`grid gap-6 ${
@@ -276,7 +276,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       <section className="border-t border-zinc-800/60 py-24 px-6" id="precios">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black mb-4">Planes y precios</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Planes y precios</h2>
             <p className="text-zinc-400 max-w-xl mx-auto">A mayor volumen, mejor precio por unidad. Elige el pack que se adapta a tu equipo.</p>
           </div>
           <div className="pricing-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -288,11 +288,11 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                   </div>
                 )}
                 <div className="mb-6">
-                  <h3 className="font-black text-lg mb-1">{plan.name}</h3>
+                  <h3 className="font-semibold text-lg mb-1">{plan.name}</h3>
                   <p className="text-zinc-400 text-xs leading-relaxed">{plan.description}</p>
                 </div>
                 <div className="mb-6">
-                  <span className="text-3xl font-black text-emerald-400">${formatPrice(plan.price)}</span>
+                  <span className="text-3xl font-bold text-emerald-400">${formatPrice(plan.price)}</span>
                   <p className="text-zinc-500 text-xs mt-1.5">${formatPrice(plan.perUnit)} por tarjeta · {plan.cards} unidades</p>
                 </div>
                 <ul className="space-y-2.5 mb-7 flex-1">
@@ -314,7 +314,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
       <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-black mb-4">Listo para modernizar tu networking</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Listo para modernizar tu networking</h2>
           <p className="text-zinc-400 mb-8">Únete a los profesionales que ya dejaron las tarjetas de papel atrás.</p>
           <button onClick={onCheckoutStart} className="btn-press inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-900/40 text-base">
             Ver packs y precios
@@ -333,7 +333,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               <span>★</span>
               Nuevo producto — Google Reviews Card · NexReview
             </div>
-            <h2 className="text-4xl md:text-5xl font-black mb-6 leading-tight">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-[1.05] tracking-[-0.02em]">
               Más reseñas.<br />
               <span className="text-blue-400">Más clientes.</span>
             </h2>
@@ -371,7 +371,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
           {/* Cómo funciona */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 mb-16">
-            <h3 className="text-2xl font-black text-center mb-10">¿Cómo funciona?</h3>
+            <h3 className="text-2xl font-bold text-center mb-10">¿Cómo funciona?</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {[
                 { num: '01', title: 'Cliente paga', desc: 'Selecciona tu pack y recibe tus tarjetas en casa.' },
@@ -380,7 +380,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 { num: '04', title: 'Clientes reseñan', desc: 'Tocan con su teléfono → directo a tu página de reseñas. En 15 segundos.' },
               ].map((step) => (
                 <div key={step.num} className="flex gap-4 items-start">
-                  <div className="text-3xl font-black text-blue-400/30 leading-none shrink-0 w-10">{step.num}</div>
+                  <div className="text-3xl font-bold text-blue-400/30 leading-none shrink-0 w-10">{step.num}</div>
                   <div>
                     <h4 className="font-bold mb-1 text-sm">{step.title}</h4>
                     <p className="text-zinc-400 text-xs leading-relaxed">{step.desc}</p>
@@ -392,7 +392,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
           {/* Precios */}
           <div className="text-center mb-10">
-            <h3 className="text-2xl font-black mb-2">Elige tu pack</h3>
+            <h3 className="text-2xl font-bold mb-2">Elige tu pack</h3>
             <p className="text-zinc-400 text-sm">A mayor volumen, mejor precio por unidad</p>
           </div>
 
@@ -417,11 +417,11 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                   </div>
                 )}
                 <div className="mb-4">
-                  <h4 className="font-black text-lg mb-1">{plan.name}</h4>
+                  <h4 className="font-semibold text-lg mb-1">{plan.name}</h4>
                   <p className="text-zinc-400 text-xs">{plan.units} {plan.units === 1 ? 'tarjeta' : 'tarjetas'} NFC</p>
                 </div>
                 <div className="mb-5">
-                  <span className={`text-3xl font-black ${plan.highlight ? 'text-blue-400' : 'text-blue-400'}`}>
+                  <span className={`text-3xl font-bold ${plan.highlight ? 'text-blue-400' : 'text-blue-400'}`}>
                     ${plan.price.toLocaleString('es-CL')}
                   </span>
                   <p className="text-zinc-500 text-xs mt-1">${plan.perUnit.toLocaleString('es-CL')} por tarjeta</p>
@@ -478,7 +478,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
       <footer className="border-t border-zinc-800/60 py-10 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <span className="text-lg font-black font-heading">Nex<span className="text-emerald-400">Card</span></span>
+          <span className="text-lg font-bold" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-400">Card</span></span>
           <div className="flex items-center gap-4 text-sm text-zinc-500">
             <span>© 2026 NexCard</span>
             <span>·</span>

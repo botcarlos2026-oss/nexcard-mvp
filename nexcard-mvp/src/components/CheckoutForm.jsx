@@ -279,7 +279,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
             <ArrowLeft size={16} />
             Volver
           </button>
-          <h1 className="text-3xl sm:text-4xl font-black">Checkout</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold">Checkout</h1>
         </div>
 
         {/* Stepper */}

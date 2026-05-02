@@ -33,14 +33,14 @@ export default function UnsubscribePage() {
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-zinc-900 rounded-3xl p-10 text-center">
-        <h1 className="text-2xl font-black text-white mb-2">
+        <h1 className="text-2xl font-bold text-white mb-2">
           Nex<span className="text-emerald-400">Card</span>
         </h1>
 
         {confirmed ? (
           <>
             <div className="mt-8 mb-4 text-5xl">✅</div>
-            <h2 className="text-xl font-black text-white mb-3">Listo, te dimos de baja</h2>
+            <h2 className="text-xl font-semibold text-white mb-3">Listo, te dimos de baja</h2>
             <p className="text-zinc-400 text-sm mb-6">
               El email <span className="text-white font-semibold">{emailParam}</span> ya no recibirá comunicaciones de NexCard.
             </p>
@@ -54,7 +54,7 @@ export default function UnsubscribePage() {
         ) : (
           <>
             <div className="mt-8 mb-4 text-5xl">📭</div>
-            <h2 className="text-xl font-black text-white mb-3">¿Deseas darte de baja?</h2>
+            <h2 className="text-xl font-semibold text-white mb-3">¿Deseas darte de baja?</h2>
             <p className="text-zinc-400 text-sm mb-2">
               El siguiente email dejará de recibir comunicaciones de NexCard:
             </p>

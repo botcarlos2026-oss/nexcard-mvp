@@ -48,7 +48,7 @@ export default function ComingSoon() {
 
         {/* Logo */}
         <div className="cs-element mb-10">
-          <span className="text-4xl font-black tracking-tight font-heading">
+          <span className="text-4xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-logo)' }}>
             Nex<span className="text-emerald-400">Card</span>
           </span>
         </div>
@@ -60,7 +60,7 @@ export default function ComingSoon() {
         </div>
 
         {/* Headline */}
-        <h1 className="cs-element text-4xl sm:text-5xl font-black mb-6 leading-tight">
+        <h1 className="cs-element text-4xl sm:text-5xl font-bold mb-6 leading-[1.05] tracking-[-0.02em]">
           Tu tarjeta de visita<br />
           <span className="text-emerald-400">del siglo XXI</span>
         </h1>

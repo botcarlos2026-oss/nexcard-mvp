@@ -139,7 +139,7 @@ const UserEditor = ({ data, onSave, onLogout }) => {
                 <div className="inline-flex p-4 bg-emerald-50 rounded-3xl text-emerald-500 mb-4">
                   <TrendingUp size={32} />
                 </div>
-                <h2 className="text-4xl font-black text-zinc-950">{profile.view_count || 0}</h2>
+                <h2 className="text-4xl font-bold text-zinc-950">{profile.view_count || 0}</h2>
                 <p className="text-zinc-400 font-bold uppercase text-[10px] tracking-widest mt-1">Interacciones Totales (Taps)</p>
               </div>
 
