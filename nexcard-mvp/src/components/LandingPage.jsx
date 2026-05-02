@@ -13,6 +13,7 @@ const FEATURES = [
 // Metadata estático por SKU — precios vienen de Supabase (price_cents)
 // SKUs activos: BASIC-5 ($89.990), PREMIUM-5 ($79.990), PREMIUM-10 ($149.990), PREMIUM-20 ($269.990)
 const PRICING_META = {
+  'NEXCARD-1':  { name: 'Solo',       cards: 1,  description: 'Para empezar a probar el formato', highlight: false, features: ['1 tarjeta NFC', 'Perfil digital', 'Activación guiada', 'Soporte por email'] },
   'BASIC-5':    { name: 'Starter',    cards: 5,  description: 'Ideal para profesionales independientes', highlight: false, features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Activación guiada', 'Soporte por email'] },
   'PREMIUM-5':  { name: 'Plus',       cards: 5,  description: 'El más popular para emprendedores',       highlight: false, features: ['5 tarjetas NFC premium', 'Perfil personalizado', 'Analítica básica', 'Soporte prioritario'] },
   'PREMIUM-10': { name: 'Business',   cards: 10, description: 'Para equipos de ventas en crecimiento',   highlight: true,  badge: 'Más popular', features: ['10 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte prioritario', 'Dashboard de equipo'] },
@@ -21,7 +22,8 @@ const PRICING_META = {
 
 // Fallback si Supabase no responde
 const PRICING_FALLBACK = [
-  { sku: 'BASIC-5',    price: 89990 },
+  { sku: 'NEXCARD-1',  price: 19990 },
+  { sku: 'BASIC-5',    price: 79990 },
   { sku: 'PREMIUM-5',  price: 79990 },
   { sku: 'PREMIUM-10', price: 149990 },
   { sku: 'PREMIUM-20', price: 269990 },
