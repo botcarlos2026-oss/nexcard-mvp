@@ -1,0 +1,8 @@
+begin;
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS popular BOOLEAN DEFAULT false;
+
+commit;

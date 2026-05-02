@@ -1073,4 +1073,45 @@ export const api = {
     const { data } = await supabase.from('wheel_spins').select('*, wheel_prizes(label, type, value)').eq('wheel_id', wheelId).order('spun_at', { ascending: false }).limit(200);
     return { spins: data || [] };
   },
+
+  // ---------------------------------------------------------------------------
+  // Products admin
+  // ---------------------------------------------------------------------------
+
+  getAllProducts: async () => {
+    if (!hasSupabase) return { products: [] };
+    const { data } = await supabase.from('products')
+      .select('*')
+      .order('display_order', { ascending: true });
+    return { products: data || [] };
+  },
+
+  createProduct: async (product) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.from('products')
+      .insert(product).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  updateProduct: async (id, payload) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('products')
+      .update(payload).eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
+  deleteProduct: async (id) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('products')
+      .delete().eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
+  toggleProductStatus: async (id, status) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('products')
+      .update({ status }).eq('id', id);
+    if (error) throw new Error(error.message);
+  },
 };

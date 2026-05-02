@@ -14,6 +14,7 @@ import NexReviewDashboard from './components/NexReviewDashboard';
 import ReviewCardsDashboard from './components/ReviewCardsDashboard';
 import ReviewCardRedirect from './components/ReviewCardRedirect';
 import EmailDashboard from './components/EmailDashboard';
+import ProductsDashboard from './components/ProductsDashboard';
 import UnsubscribePage from './components/UnsubscribePage';
 import TrackingPage from './components/TrackingPage';
 import DeliveryConfirmation from './components/DeliveryConfirmation';
@@ -142,7 +143,7 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards') {
+        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards' || path === '/admin/products') {
           if (!hasSupabase || !supabase) {
             throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
@@ -300,6 +301,7 @@ function App() {
   if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
   if (path === '/admin/emails') return <EmailDashboard />;
   if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
+  if (path === '/admin/products') return <ProductsDashboard />;
 
   if (path.startsWith('/r/')) {
     return <ReviewCardRedirect slug={path.replace('/r/', '').replace(/\/$/, '')} />;

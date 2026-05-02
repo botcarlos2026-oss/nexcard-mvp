@@ -3,6 +3,7 @@ import React from 'react';
 const items = [
   { id: 'dashboard', label: 'Dashboard', path: '/admin' },
   { id: 'orders',    label: 'Orders',     path: '/admin/orders' },
+  { id: 'products',  label: 'Productos',  path: '/admin/products' },
   { id: 'cards',     label: 'Cards',      path: '/admin/cards' },
   { id: 'profiles',  label: 'Profiles',   path: '/admin/profiles' },
   { id: 'inventory', label: 'Inventario', path: '/admin/inventory' },

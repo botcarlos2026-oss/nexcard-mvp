@@ -77,11 +77,19 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
   useEffect(() => {
     api.getProducts().then((products) => {
-      const merged = PRICING_FALLBACK.map((fallback) => {
-        const dbProduct = products.find((p) => p.sku === fallback.sku);
-        const price = dbProduct ? dbProduct.price_cents : fallback.price;
-        const meta = PRICING_META[fallback.sku];
-        return { sku: fallback.sku, price, perUnit: Math.round(price / (meta?.cards || 1)), ...meta };
+      if (!products?.length) return;
+      const sorted = [...products].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      const merged = sorted.map((dbProduct) => {
+        const meta = PRICING_META[dbProduct.sku] || {};
+        const isPopular = dbProduct.popular ?? meta.highlight ?? false;
+        return {
+          sku: dbProduct.sku,
+          price: dbProduct.price_cents,
+          perUnit: Math.round(dbProduct.price_cents / (meta.cards || 1)),
+          ...meta,
+          highlight: isPopular,
+          badge: isPopular ? (meta.badge || 'Más popular') : undefined,
+        };
       });
       setPricing(merged);
     }).catch(() => { /* mantener fallback */ });
