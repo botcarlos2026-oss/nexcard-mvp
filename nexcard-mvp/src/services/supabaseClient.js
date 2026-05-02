@@ -8,3 +8,8 @@ export const supabase = (supabaseUrl && supabaseKey)
   : null;
 
 export const hasSupabase = !!supabase;
+// Stubs de compatibilidad post-rollback de Clerk
+// Estas funciones no hacen nada — devuelven null para que el código existente no rompa
+export const getClerkUserId = () => null;
+export const setClerkTokenGetter = () => {};
+export const setClerkUserId = () => {};
