@@ -11,7 +11,8 @@ const items = [
   { id: 'emails',    label: 'Emails',     path: '/admin/emails' },
   { id: 'crm',       label: 'CRM',        path: '/admin/crm' },
   { id: 'team',      label: 'Equipo',     path: '/admin/team' },
-  { id: 'wheel',     label: 'Ruleta',     path: '/admin/wheel' },
+  { id: 'wheel',       label: 'Ruleta',      path: '/admin/wheel' },
+  { id: 'print-test', label: 'Calibración', path: '/admin/print-test' },
 ];
 
 export default function AdminNav({ active }) {

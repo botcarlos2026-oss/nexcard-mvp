@@ -1218,7 +1218,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                           }
                         );
                         const win = window.open('', '_blank');
-                        win.document.write(`<!DOCTYPE html><html><head><style>@page{size:85.6mm 54mm;margin:0;}body{margin:0;display:flex;align-items:center;justify-content:center;width:85.6mm;height:54mm;}svg{width:85.6mm;height:54mm;}</style></head><body>${svg}</body></html>`);
+                        win.document.write(`<!DOCTYPE html><html><head><style>@page{size:85.6mm 54mm;margin:0;bleed:1mm;}body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;width:85.6mm;height:54mm;overflow:hidden;}.card{width:85.6mm;height:54mm;position:relative;}.safe-area{position:absolute;top:3mm;left:3mm;right:3mm;bottom:3mm;border:1px dashed rgba(255,0,0,0.3);pointer-events:none;}@media print{.safe-area{display:none;}}svg{width:85.6mm;height:54mm;}</style></head><body><div class="card"><div class="safe-area"></div>${svg}</div></body></html>`);
                         win.document.close();
                         win.focus();
                         win.print();
