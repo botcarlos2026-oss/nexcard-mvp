@@ -106,10 +106,9 @@ export default function ComingSoon() {
         )}
 
         {/* Features preview */}
-        <div className="grid grid-cols-3 gap-4 mt-14">
+        <div className="grid grid-cols-2 gap-4 mt-14">
           {[
             { icon: '📱', label: 'Tarjeta NFC' },
-            { icon: '⭐', label: 'Google Reviews' },
             { icon: '🔗', label: 'Perfil digital' },
           ].map((f) => (
             <div key={f.label} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">

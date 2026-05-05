@@ -15,6 +15,7 @@ import ReviewCardsDashboard from './components/ReviewCardsDashboard';
 import ReviewCardRedirect from './components/ReviewCardRedirect';
 import EmailDashboard from './components/EmailDashboard';
 import ProductsDashboard from './components/ProductsDashboard';
+import PrintTestGenerator from './components/PrintTestGenerator';
 import UnsubscribePage from './components/UnsubscribePage';
 import TrackingPage from './components/TrackingPage';
 import DeliveryConfirmation from './components/DeliveryConfirmation';
@@ -143,7 +144,7 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards' || path === '/admin/products') {
+        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards' || path === '/admin/products' || path === '/admin/print-test') {
           if (!hasSupabase || !supabase) {
             throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
@@ -302,6 +303,7 @@ function App() {
   if (path === '/admin/emails') return <EmailDashboard />;
   if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
   if (path === '/admin/products') return <ProductsDashboard />;
+  if (path === '/admin/print-test') return <PrintTestGenerator />;
 
   if (path.startsWith('/r/')) {
     return <ReviewCardRedirect slug={path.replace('/r/', '').replace(/\/$/, '')} />;
@@ -333,9 +335,9 @@ function App() {
     return <DeliveryConfirmation orderId={parts[0]} token={parts[1]} />;
   }
 
-  if (path === '/') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
-  if (path === '/coming-soon') return <ComingSoon />;
+  if (path === '/') return <ComingSoon />;
   if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
+  if (path === '/coming-soon') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
   if (path === '/privacidad') return <PrivacyPolicy />;
   if (path === '/terminos') return <TermsAndConditions />;
 
