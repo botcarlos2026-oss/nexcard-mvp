@@ -15,18 +15,30 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
 
-  const [formData, setFormData] = useState({
-    customerName: '',
-    customerEmail: '',
-    customerPhone: '',
-    customerAddress: '',
-    acceptTerms: false,
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('nx_checkout_form');
+      if (saved) return { ...JSON.parse(saved), acceptTerms: false };
+    } catch {}
+    return {
+      customerName: '',
+      customerEmail: '',
+      customerPhone: '',
+      customerAddress: '',
+      acceptTerms: false,
+    };
   });
 
-  const [invoiceData, setInvoiceData] = useState({
-    requiresInvoice: false,
-    invoiceRut: '',
-    invoiceRazonSocial: '',
+  const [invoiceData, setInvoiceData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('nx_checkout_invoice');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      requiresInvoice: false,
+      invoiceRut: '',
+      invoiceRazonSocial: '',
+    };
   });
   const [rutError, setRutError] = useState('');
 
@@ -55,14 +67,40 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     }));
   };
 
-  const [customization, setCustomization] = useState({
-    full_name: '',
-    job_title: '',
-    company: '',
-    template: 'minimal',
-    primary_color: '#10B981',
-    notes: '',
+  const [customization, setCustomization] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('nx_checkout_customization');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      full_name: '',
+      job_title: '',
+      company: '',
+      template: 'minimal',
+      primary_color: '#10B981',
+      notes: '',
+    };
   });
+
+  // Persistir en sessionStorage al cambiar
+  useEffect(() => {
+    try {
+      const { acceptTerms, ...persistable } = formData;
+      sessionStorage.setItem('nx_checkout_form', JSON.stringify(persistable));
+    } catch {}
+  }, [formData]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('nx_checkout_invoice', JSON.stringify(invoiceData));
+    } catch {}
+  }, [invoiceData]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('nx_checkout_customization', JSON.stringify(customization));
+    } catch {}
+  }, [customization]);
 
   const handleCustomizationChange = (e) => {
     const { name, value } = e.target;
