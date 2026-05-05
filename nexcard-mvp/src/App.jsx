@@ -15,6 +15,8 @@ import ReviewCardsDashboard from './components/ReviewCardsDashboard';
 import ReviewCardRedirect from './components/ReviewCardRedirect';
 import EmailDashboard from './components/EmailDashboard';
 import ProductsDashboard from './components/ProductsDashboard';
+import TeamDashboard from './components/TeamDashboard';
+import WheelDashboard from './components/WheelDashboard';
 import PrintTestGenerator from './components/PrintTestGenerator';
 import UnsubscribePage from './components/UnsubscribePage';
 import TrackingPage from './components/TrackingPage';
@@ -303,6 +305,8 @@ function App() {
   if (path === '/admin/emails') return <EmailDashboard />;
   if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
   if (path === '/admin/products') return <ProductsDashboard />;
+  if (path === '/admin/team') return <TeamDashboard />;
+  if (path === '/admin/wheel') return <WheelDashboard />;
   if (path === '/admin/print-test') return <PrintTestGenerator />;
 
   if (path.startsWith('/r/')) {
