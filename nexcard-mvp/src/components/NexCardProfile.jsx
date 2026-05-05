@@ -45,7 +45,7 @@ const NexCardProfile = ({ data }) => {
 
   useEffect(() => {
     if (data?.slug && supabase) {
-      supabase.from('card_scans').insert({ profile_slug: data.slug, profile_id: data.id || null }).then(() => {});
+      // Scan tracking deshabilitado temporalmente — esquema de tabla pendiente de unificar
     }
   }, [data?.id]);
 
