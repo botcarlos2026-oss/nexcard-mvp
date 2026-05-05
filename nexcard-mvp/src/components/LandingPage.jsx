@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone, Linkedin, Mail } from 'lucide-react';
+import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone, Linkedin, Mail, ChevronDown, MessageCircle } from 'lucide-react';
 import { api } from '../services/api';
 import DiscountWheel from './DiscountWheel';
 
@@ -251,7 +251,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             {[
               { quote: 'Lo instalé en 5 minutos y mis clientes quedaron impresionados. Nunca más olvidé repartir tarjetas.', name: 'Rodrigo M.', role: 'Consultor independiente' },
               { quote: 'Equipamos a todo el equipo de ventas. Profesional, moderno y nada de papel desechable.', name: 'Valentina S.', role: 'Gerenta comercial' },
-              { quote: 'El link de reseñas de Google triplicó nuestros comentarios en un mes. Muy recomendado.', name: 'Felipe A.', role: 'Dueño de café' },
+              { quote: 'La instalé en el mesón y ahora cada cliente que paga me pide el contacto. Increíble herramienta.', name: 'Felipe A.', role: 'Dueño de café' },
             ].map((t, i) => (
               <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-left">
                 <p className="text-zinc-300 text-sm leading-relaxed mb-4">"{t.quote}"</p>
@@ -322,6 +322,49 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         </div>
       </section>
 
+      {/* ============ FAQ ============ */}
+      <section className="border-t border-zinc-800/60 py-20 sm:py-24 px-6 bg-zinc-950">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">Preguntas frecuentes</h2>
+            <p className="text-zinc-400">Todo lo que necesitas saber antes de comprar</p>
+          </div>
+          <div className="divide-y divide-zinc-800">
+            {[
+              { q: '¿Cómo funciona la tarjeta NFC?', a: 'La tarjeta NFC contiene un chip que, al acercarla a un smartphone con NFC activado, abre automáticamente tu perfil digital en el navegador. No necesitas instalar nada.' },
+              { q: '¿Es compatible con iPhone y Android?', a: 'Sí, funciona con todos los iPhones desde el iPhone XS (2018) en adelante con iOS 13+ y prácticamente todos los Android con NFC activado. Si el dispositivo no tiene NFC, también incluye un código QR de respaldo.' },
+              { q: '¿Necesito una app para usarla?', a: 'No. Tu cliente solo acerca su teléfono a la tarjeta y ve tu perfil al instante en su navegador. Tú tampoco necesitas app: gestionas tu perfil desde nexcard.cl en cualquier navegador.' },
+              { q: '¿Qué pasa si pierdo mi tarjeta?', a: 'Tu perfil digital sigue activo. Puedes pedir una tarjeta de reemplazo desde nexcard.cl con un descuento del 50%. Solo escríbenos a hola@nexcard.cl con tu número de orden.' },
+              { q: '¿Puedo actualizar mi información después?', a: 'Sí. Puedes editar tu perfil cuantas veces quieras desde tu cuenta NexCard. Los cambios son inmediatos — la próxima persona que toque tu tarjeta verá la información actualizada.' },
+              { q: '¿Cuánto demora el despacho?', a: 'Entre 5 y 7 días hábiles a todo Chile. Despachamos vía Starken o Chilexpress y recibirás un email con el número de seguimiento cuando salga tu pedido.' },
+              { q: '¿Hacen factura para empresas?', a: 'Sí. En el checkout puedes activar "Necesito factura" e ingresar el RUT y razón social de tu empresa. La factura electrónica te llegará por email después de la compra.' },
+              { q: '¿Qué métodos de pago aceptan?', a: 'Aceptamos pagos vía Mercado Pago: tarjetas de crédito, débito, transferencia bancaria y cuotas sin interés según promociones de tu banco. Próximamente también WebPay.' },
+              { q: '¿Tiene devolución?', a: 'Sí, tienes 10 días hábiles desde la recepción para solicitar devolución según la Ley del Consumidor 19.496. La tarjeta debe estar en buen estado y sin programar.' },
+              { q: '¿La tarjeta tiene QR de respaldo?', a: 'Sí. Cada tarjeta incluye un QR impreso al reverso que apunta al mismo perfil digital, en caso de que el smartphone del receptor no tenga NFC.' },
+            ].map((item, i) => (
+              <details key={i} className="group py-1">
+                <summary className="cursor-pointer flex items-center justify-between py-5 px-4 text-base font-semibold text-white list-none">
+                  {item.q}
+                  <ChevronDown size={18} className="text-zinc-400 shrink-0 transition-transform duration-200 group-open:rotate-180" />
+                </summary>
+                <p className="text-sm text-zinc-400 leading-relaxed pb-5 px-4 pt-0">{item.a}</p>
+              </details>
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <a
+              href="https://wa.me/56993183021?text=Hola,%20tengo%20una%20pregunta%20sobre%20NexCard"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors text-sm font-medium"
+            >
+              <MessageCircle size={16} />
+              ¿Tienes otra pregunta? Escríbenos por WhatsApp
+            </a>
+          </div>
+        </div>
+      </section>
+
       <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Listo para modernizar tu networking</h2>
@@ -330,148 +373,6 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             Ver packs y precios
             <ArrowRight size={18} />
           </button>
-        </div>
-      </section>
-
-      {/* ============ GOOGLE REVIEWS CARD SECTION ============ */}
-      <section className="border-t border-zinc-800/60 py-24 px-6 bg-zinc-900/20" id="reviews-card">
-        <div className="max-w-6xl mx-auto">
-
-          {/* Header */}
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-blue-950 border border-blue-800 text-blue-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-              <span>★</span>
-              Nuevo producto — Google Reviews Card · NexReview
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-[1.05] tracking-[-0.02em]">
-              Más reseñas.<br />
-              <span className="text-blue-400">Más clientes.</span>
-            </h2>
-            <p className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-              Una tarjeta NFC que tus clientes tocan con el teléfono y en segundos están dejando una reseña en Google. Sin fricción, sin buscar, sin olvidar.
-            </p>
-          </div>
-
-          {/* Beneficios */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-            {[
-              {
-                icon: '⭐',
-                title: 'Más reseñas en Google',
-                desc: 'El 90% de los clientes no deja reseñas porque el proceso es tedioso. Con un toque, el proceso dura 15 segundos.',
-              },
-              {
-                icon: '👁️',
-                title: 'Más visibilidad local',
-                desc: 'Más reseñas = mejor posicionamiento en Google Maps. Tus clientes te encuentran antes que a la competencia.',
-              },
-              {
-                icon: '💬',
-                title: 'Más confianza, más ventas',
-                desc: 'El 88% de los consumidores confía en reseñas online igual que en recomendaciones personales.',
-              },
-            ].map((b, i) => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 hover:border-blue-500/40 rounded-xl p-6 transition-colors">
-                <div className="text-3xl mb-4">{b.icon}</div>
-                <h3 className="font-bold text-lg mb-2">{b.title}</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">{b.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Cómo funciona */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 mb-16">
-            <h3 className="text-2xl font-bold text-center mb-10">¿Cómo funciona?</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {[
-                { num: '01', title: 'Cliente paga', desc: 'Selecciona tu pack y recibe tus tarjetas en casa.' },
-                { num: '02', title: 'Tú envías tu link', desc: 'Nos mandas tu URL de reseñas de Google. La programamos en todas tus tarjetas.' },
-                { num: '03', title: 'Ubica la tarjeta', desc: 'Pon la tarjeta en caja, mostrador o mesa. Con logo Google y QR impreso.' },
-                { num: '04', title: 'Clientes reseñan', desc: 'Tocan con su teléfono → directo a tu página de reseñas. En 15 segundos.' },
-              ].map((step) => (
-                <div key={step.num} className="flex gap-4 items-start">
-                  <div className="text-3xl font-bold text-blue-400/30 leading-none shrink-0 w-10">{step.num}</div>
-                  <div>
-                    <h4 className="font-bold mb-1 text-sm">{step.title}</h4>
-                    <p className="text-zinc-400 text-xs leading-relaxed">{step.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Precios */}
-          <div className="text-center mb-10">
-            <h3 className="text-2xl font-bold mb-2">Elige tu pack</h3>
-            <p className="text-zinc-400 text-sm">A mayor volumen, mejor precio por unidad</p>
-          </div>
-
-          <div className="pricing-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-            {[
-              { name: 'Starter', units: 1, price: 5990, perUnit: 5990, highlight: false, features: ['1 tarjeta NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado'] },
-              { name: 'Negocio', units: 3, price: 14990, perUnit: 4997, highlight: false, features: ['3 tarjetas NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado', 'Ahorra $2.980'] },
-              { name: 'Pro', units: 5, price: 22990, perUnit: 4598, highlight: true, badge: 'Más popular', features: ['5 tarjetas NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado', 'Ahorra $6.960'] },
-              { name: 'Equipo', units: 10, price: 39990, perUnit: 3999, highlight: false, features: ['10 tarjetas NFC', 'Logo Google impreso', 'QR personalizado', 'Link programado', 'Ahorra $19.910'] },
-            ].map((plan) => (
-              <div
-                key={plan.name}
-                className={`pricing-card pricing-reveal relative rounded-xl p-7 flex flex-col ${
-                  plan.highlight
-                    ? 'bg-blue-950 border-2 border-blue-500 shadow-lg shadow-blue-900/30'
-                    : 'bg-zinc-900 border border-zinc-800'
-                }`}
-              >
-                {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.badge}</span>
-                  </div>
-                )}
-                <div className="mb-4">
-                  <h4 className="font-semibold text-lg mb-1">{plan.name}</h4>
-                  <p className="text-zinc-400 text-xs">{plan.units} {plan.units === 1 ? 'tarjeta' : 'tarjetas'} NFC</p>
-                </div>
-                <div className="mb-5">
-                  <span className={`text-3xl font-bold ${plan.highlight ? 'text-blue-400' : 'text-blue-400'}`}>
-                    ${plan.price.toLocaleString('es-CL')}
-                  </span>
-                  <p className="text-zinc-500 text-xs mt-1">${plan.perUnit.toLocaleString('es-CL')} por tarjeta</p>
-                </div>
-                <ul className="space-y-2 mb-6 flex-1">
-                  {plan.features.map((f, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-zinc-300">
-                      <span className="text-blue-400 text-xs">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={onCheckoutStart}
-                  className={`btn-press w-full py-3 rounded-lg font-bold text-sm transition-colors ${
-                    plan.highlight
-                      ? 'bg-blue-500 hover:bg-blue-400 text-white'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'
-                  }`}
-                >
-                  Pedir pack
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* CTA reviews */}
-          <div className="text-center bg-zinc-900 border border-zinc-800 rounded-2xl p-10">
-            <p className="text-zinc-400 text-sm mb-2">¿Tienes preguntas sobre Google Reviews Card?</p>
-            <p className="text-white font-bold text-lg mb-6">Escríbenos y te ayudamos a configurar tu primer tarjeta.</p>
-            <a
-              href="https://wa.me/56993183021"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-colors text-sm"
-            >
-              💬 Contactar por WhatsApp
-            </a>
-          </div>
-
         </div>
       </section>
 
