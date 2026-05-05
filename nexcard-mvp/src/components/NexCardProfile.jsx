@@ -321,22 +321,37 @@ const NexCardProfile = ({ data }) => {
             </button>
             
             {isBankOpen && (
-              <div className={`mt-2 p-5 rounded-2xl shadow-sm border space-y-4 animate-in slide-in-from-top-2 duration-300 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
-                <div className={`text-sm ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
-                  <p><strong>Banco:</strong> {data.bank_name}</p>
-                  <p><strong>Tipo:</strong> {data.bank_type}</p>
-                  <p><strong>Cuenta:</strong> {data.bank_number}</p>
-                  <p><strong>RUT:</strong> {data.bank_rut}</p>
-                  <p><strong>Nombre:</strong> {data.full_name}</p>
-                  <p><strong>Email:</strong> {data.contact_email}</p>
+              <div className={`mt-2 p-5 rounded-2xl shadow-sm border space-y-3 animate-in slide-in-from-top-2 duration-300 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                {[
+                  { label: 'Banco', value: data.bank_name, field: 'bank_name' },
+                  { label: 'Tipo', value: data.bank_type, field: 'bank_type' },
+                  { label: 'Cuenta', value: data.bank_number, field: 'bank_number' },
+                  { label: 'RUT', value: data.bank_rut, field: 'bank_rut' },
+                  { label: 'Nombre', value: data.full_name, field: 'bank_full_name' },
+                  { label: 'Email', value: data.contact_email, field: 'bank_email' },
+                ].filter(row => row.value).map(row => (
+                  <div key={row.field} className="flex items-center justify-between gap-3 text-sm">
+                    <div className="flex gap-2 min-w-0">
+                      <span className={`shrink-0 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{row.label}:</span>
+                      <span className={`font-medium truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>{row.value}</span>
+                    </div>
+                    <button
+                      onClick={() => handleCopy(row.value, row.field)}
+                      className={`shrink-0 p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700'}`}
+                    >
+                      {copiedField === row.field ? <Check size={14} /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                ))}
+                <div className="pt-2">
+                  <button
+                    onClick={handleCopyAllBankData}
+                    className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center gap-2 hover:bg-emerald-500 transition-colors text-sm"
+                  >
+                    {copiedField === 'all_bank' ? <Check size={18} /> : <Copy size={18} />}
+                    {copiedField === 'all_bank' ? '¡Copiado!' : 'Copiar todos los datos'}
+                  </button>
                 </div>
-                <button 
-                  onClick={handleCopyAllBankData}
-                  className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
-                >
-                  {copiedField === 'all_bank' ? <Check size={18} /> : <Copy size={18} />}
-                  {copiedField === 'all_bank' ? '¡Copiado!' : 'Copiar Todos los Datos'}
-                </button>
               </div>
             )}
           </div>
