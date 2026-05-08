@@ -51,7 +51,7 @@ serve(async (req) => {
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, folio, customer_name, customer_email, carrier, tracking_code, delivery_token, delivery_address, amount_cents')
+      .select('id, folio, customer_name, customer_email, carrier, tracking_code, delivery_token, customer_address, amount_cents')
       .eq('id', orderId)
       .single();
 
@@ -106,10 +106,10 @@ serve(async (req) => {
             <td style="padding:6px 0;color:#71717a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Código</td>
             <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right;font-family:monospace">${order.tracking_code}</td>
           </tr>` : ''}
-          ${order.delivery_address ? `
+          ${order.customer_address ? `
           <tr>
             <td style="padding:6px 0;color:#71717a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Dirección</td>
-            <td style="padding:6px 0;color:#09090b;font-size:13px;font-weight:600;text-align:right">${order.delivery_address}</td>
+            <td style="padding:6px 0;color:#09090b;font-size:13px;font-weight:600;text-align:right">${order.customer_address}</td>
           </tr>` : ''}
         </table>
       </div>

@@ -276,8 +276,10 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     } catch (err) {
       const message = err?.message || 'Error inesperado al procesar la orden';
       setError(
-        message.includes('duplicate')
-          ? 'Ya existe una orden con estos datos. Revisa tu email.'
+        message.includes('orders_folio_key') || message.includes('Key (folio)=')
+          ? 'Error interno al generar el número de orden. Reintenta en unos minutos.'
+          : message.includes('duplicate')
+          ? 'Se detectó un conflicto al crear la orden. Reintenta en unos minutos.'
           : message.includes('network') || message.includes('fetch')
           ? 'Error de conexión. Verifica tu internet e intenta nuevamente.'
           : message

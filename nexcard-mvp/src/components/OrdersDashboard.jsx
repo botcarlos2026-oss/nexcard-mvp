@@ -237,7 +237,7 @@ const OrdersDashboard = ({ orders = [] }) => {
     setDraftOrder({
       customer_phone: selectedOrder.customer_phone || '',
       customer_email: selectedOrder.customer_email || '',
-      delivery_address: selectedOrder.delivery_address || '',
+      customer_address: selectedOrder.customer_address || selectedOrder.delivery_address || '',
       notes: selectedOrder.notes || '',
     });
     setDraftShipping({
@@ -679,7 +679,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                     ))}
                   </select>
                   <p className="text-sm font-semibold text-zinc-300 mt-3">Entrega: {selectedOrder.delivery_type || '—'}</p>
-                  <p className="text-xs text-zinc-500 mt-1">Dirección: {selectedOrder.delivery_address || '—'}</p>
+                  <p className="text-xs text-zinc-500 mt-1">Dirección: {selectedOrder.customer_address || selectedOrder.delivery_address || '—'}</p>
                 </div>
               </div>
 
@@ -977,8 +977,8 @@ const OrdersDashboard = ({ orders = [] }) => {
                 <div>
                   <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Dirección / retiro</label>
                   <textarea
-                    value={draftOrder?.delivery_address || ''}
-                    onChange={(event) => setDraftOrder((prev) => ({ ...(prev || {}), delivery_address: event.target.value }))}
+                    value={draftOrder?.customer_address || ''}
+                    onChange={(event) => setDraftOrder((prev) => ({ ...(prev || {}), customer_address: event.target.value }))}
                     disabled={busyOrderId === selectedOrder.id}
                     rows="3"
                     placeholder="Dirección de despacho o instrucción de retiro"
@@ -1005,7 +1005,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                   onClick={() => setDraftOrder({
                     customer_phone: selectedOrder.customer_phone || '',
                     customer_email: selectedOrder.customer_email || '',
-                    delivery_address: selectedOrder.delivery_address || '',
+                    customer_address: selectedOrder.customer_address || selectedOrder.delivery_address || '',
                     notes: selectedOrder.notes || '',
                   })}
                   disabled={busyOrderId === selectedOrder.id}

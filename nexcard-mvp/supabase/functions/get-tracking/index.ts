@@ -156,13 +156,13 @@ serve(async (req) => {
     // Load carrier + tracking_code from the order
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, carrier, tracking_code, fulfillment_status, customer_name, delivery_address, shipped_at, delivered_at')
+      .select('id, carrier, tracking_code, fulfillment_status, customer_name, customer_address, shipped_at, delivered_at')
       .eq('id', orderId)
       .eq('delivery_token', deliveryToken)
       .maybeSingle();
 
     if (orderError || !order) {
-      log('warn', 'order_not_found', { order_id: orderId });
+      log('warn', 'order_not_found', { order_id: orderId, error: orderError?.message || null });
       return new Response(JSON.stringify({ error: 'Orden no encontrada' }), {
         status: 404,
         headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -176,7 +176,7 @@ serve(async (req) => {
         fulfillment_status: order.fulfillment_status,
         carrier: order.carrier,
         tracking_code: order.tracking_code,
-        delivery_address: order.delivery_address,
+        delivery_address: order.customer_address,
         shipped_at: order.shipped_at,
         delivered_at: order.delivered_at,
         tracking_available: false,
@@ -197,7 +197,7 @@ serve(async (req) => {
       fulfillment_status: order.fulfillment_status,
       carrier: order.carrier,
       tracking_code: order.tracking_code,
-      delivery_address: order.delivery_address,
+      delivery_address: order.customer_address,
       shipped_at: order.shipped_at,
       delivered_at: order.delivered_at,
       tracking_available: true,
