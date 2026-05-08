@@ -26,9 +26,16 @@ El proyecto remoto mostraba múltiples migraciones locales históricas no aplica
 - Tracking público exigiendo `delivery_token`
 - Links de seguimiento tokenizados en email de despacho
 
+## Validación posterior ejecutada
+- Checkout: orden creada + folio correlativo recuperado + redirección a Mercado Pago OK.
+- Tracking tokenizado: validado con `order_id + delivery_token`; responde 200 y ya no expone por `order_id` solo.
+- Email de despacho: envío real ejecutado a `bot.carlos.2026@gmail.com` usando orden smoke `NX-2026-022`.
+- `resend_id` validado: `657bc0bd-b4b7-49ca-99ce-af44d240195b`.
+
 ## Riesgo residual
 - Quedan migraciones locales antiguas no aplicadas en remoto; no fueron tocadas en esta intervención.
-- Aún falta validación funcional manual post-deploy.
+- Falta validar pago real end-to-end cuando Mercado Pago productivo esté activo.
+- Falta probar despacho completo desde admin con `carrier` y `tracking_code` reales.
 
 ## Incidencia detectada post-deploy
 - El tracking tokenizado falló inicialmente porque las functions consultaban `orders.delivery_address`, pero el esquema remoto usa `orders.customer_address`.
