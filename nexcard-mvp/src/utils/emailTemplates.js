@@ -78,9 +78,9 @@ export function templateShipping(order, trackingNumber) {
       </p>
     </div>
 
-    ${order?.id ? `
+    ${order?.id && order?.delivery_token ? `
     <div style="text-align:center;margin-top:24px">
-      <a href="https://nexcard.cl/seguimiento/${order.id}"
+      <a href="https://nexcard.cl/seguimiento/${order.id}/${order.delivery_token}"
          style="display:inline-block;background:#10B981;color:white;font-weight:900;font-size:14px;padding:14px 28px;border-radius:14px;text-decoration:none">
         Rastrear pedido →
       </a>

@@ -330,8 +330,8 @@ function App() {
 
   // Public tracking routes — no auth required
   if (path.startsWith('/seguimiento/')) {
-    const orderId = path.replace('/seguimiento/', '').replace(/\/$/, '');
-    return <TrackingPage orderId={orderId} />;
+    const [orderId, token] = path.replace('/seguimiento/', '').replace(/\/$/, '').split('/');
+    return <TrackingPage orderId={orderId} token={token} />;
   }
 
   if (path.startsWith('/confirmar/')) {

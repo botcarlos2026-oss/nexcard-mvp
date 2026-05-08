@@ -65,7 +65,6 @@ async function supabaseCreateOrder(payload) {
   if (!payload.customer_name?.trim()) throw new Error('Nombre del cliente requerido');
   if (!payload.customer_email?.trim()) throw new Error('Email del cliente requerido');
   if (!payload.items?.length) throw new Error('La orden debe tener al menos un producto');
-  if (!payload.amount_cents || payload.amount_cents <= 0) throw new Error('Monto inválido');
 
   const userId = getClerkUserId() || null;
 
@@ -77,6 +76,7 @@ async function supabaseCreateOrder(payload) {
     customer_address: payload.customer_address?.trim() || null,
     payment_method: payload.payment_method,
     amount_cents: payload.amount_cents,
+    coupon_code: payload.coupon_code || null,
     currency: payload.currency || 'CLP',
     card_customization: payload.card_customization || null,
     requires_invoice: payload.requires_invoice || false,
@@ -87,7 +87,6 @@ async function supabaseCreateOrder(payload) {
   const orderItems = payload.items.map((item) => ({
     product_id: item.product_id,
     quantity: Number(item.quantity) || 1,
-    unit_price_cents: Number(item.unit_price_cents),
     currency: payload.currency || 'CLP',
   }));
 
@@ -107,14 +106,23 @@ async function supabaseCreateOrder(payload) {
 
   if (fetchError || !createdOrder) throw new Error('Orden creada pero no se pudo recuperar');
 
+  const { data: storedItems } = await supabase
+    .from('order_items')
+    .select('product_id, quantity, unit_price_cents')
+    .eq('order_id', orderId);
+
+  const productNameMap = Object.fromEntries(
+    (payload.items || []).map((item) => [item.product_id, item.product_name || item.product_id])
+  );
+
   // Enviar email de confirmación vía Edge Function
   try {
     const emailPayload = {
       order: createdOrder,
       card_customization: payload.card_customization || null,
-      items: payload.items.map(item => ({
+      items: (storedItems?.length ? storedItems : payload.items).map(item => ({
         product_id: item.product_id,
-        product_name: item.product_name || item.product_id,
+        product_name: productNameMap[item.product_id] || item.product_id,
         quantity: item.quantity,
         unit_price_cents: item.unit_price_cents,
       })),

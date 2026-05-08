@@ -140,11 +140,12 @@ serve(async (req) => {
     const SUPABASE_URL             = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const url        = new URL(req.url);
-    const orderId    = url.searchParams.get('order_id');
+    const url           = new URL(req.url);
+    const orderId       = url.searchParams.get('order_id');
+    const deliveryToken = url.searchParams.get('delivery_token');
 
-    if (!orderId) {
-      return new Response(JSON.stringify({ error: 'order_id requerido' }), {
+    if (!orderId || !deliveryToken) {
+      return new Response(JSON.stringify({ error: 'order_id y delivery_token son requeridos' }), {
         status: 400,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
@@ -155,9 +156,10 @@ serve(async (req) => {
     // Load carrier + tracking_code from the order
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, carrier, tracking_code, fulfillment_status, customer_name, amount_cents, delivery_address')
+      .select('id, carrier, tracking_code, fulfillment_status, customer_name, delivery_address, shipped_at, delivered_at')
       .eq('id', orderId)
-      .single();
+      .eq('delivery_token', deliveryToken)
+      .maybeSingle();
 
     if (orderError || !order) {
       log('warn', 'order_not_found', { order_id: orderId });
@@ -170,7 +172,13 @@ serve(async (req) => {
     if (!order.carrier || !order.tracking_code) {
       return new Response(JSON.stringify({
         order_id: orderId,
+        customer_name: order.customer_name,
         fulfillment_status: order.fulfillment_status,
+        carrier: order.carrier,
+        tracking_code: order.tracking_code,
+        delivery_address: order.delivery_address,
+        shipped_at: order.shipped_at,
+        delivered_at: order.delivered_at,
         tracking_available: false,
         message: 'Esta orden aún no tiene código de seguimiento asignado.',
       }), {
@@ -187,6 +195,11 @@ serve(async (req) => {
       order_id: orderId,
       customer_name: order.customer_name,
       fulfillment_status: order.fulfillment_status,
+      carrier: order.carrier,
+      tracking_code: order.tracking_code,
+      delivery_address: order.delivery_address,
+      shipped_at: order.shipped_at,
+      delivered_at: order.delivered_at,
       tracking_available: true,
       ...result,
     }), {

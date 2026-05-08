@@ -250,17 +250,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           // Crear preferencia en MP vía Edge Function
           const { supabase } = await import('../services/supabaseClient');
           const { data, error } = await supabase.functions.invoke('create-mp-preference', {
-            body: JSON.stringify({
-              orderId: result.id,
-              items: items.map(item => ({
-                product_id: item.product_id,
-                product_name: item.product_name,
-                quantity: item.quantity,
-                unit_price_cents: item.unit_price_cents,
-              })),
-              customerEmail: formData.customerEmail,
-              totalCents: finalTotalCents,
-            }),
+            body: JSON.stringify({ orderId: result.id }),
           });
 
           if (error || !data?.init_point) {

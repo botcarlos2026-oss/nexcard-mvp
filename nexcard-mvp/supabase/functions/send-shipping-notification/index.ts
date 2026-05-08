@@ -72,7 +72,7 @@ serve(async (req) => {
     }
 
     const carrierName   = CARRIER_NAMES[order.carrier] || order.carrier || 'Courier';
-    const trackingUrl   = `${APP_URL}/seguimiento/${orderId}`;
+    const trackingUrl   = `${APP_URL}/seguimiento/${orderId}/${order.delivery_token}`;
     const confirmUrl    = `${APP_URL}/confirmar/${orderId}/${order.delivery_token}`;
     const shortOrderId  = String(orderId).slice(0, 8).toUpperCase();
     const folio         = order.folio || null;

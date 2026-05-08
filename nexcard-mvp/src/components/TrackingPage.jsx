@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Package, MapPin, CheckCircle2, Clock, Truck, AlertCircle, ArrowLeft, Loader2, ExternalLink } from 'lucide-react';
-import { supabase } from '../services/supabaseClient';
 
 const CARRIER_NAMES = {
   blueexpress: 'BlueExpress',
@@ -34,7 +33,7 @@ const formatDate = (value) => {
 const PIPELINE = ['in_production', 'ready', 'shipped', 'delivered'];
 const PIPELINE_LABELS = { in_production: 'Producción', ready: 'Listo', shipped: 'Despachado', delivered: 'Entregado' };
 
-const TrackingPage = ({ orderId }) => {
+const TrackingPage = ({ orderId, token }) => {
   const [tracking, setTracking] = useState(null);
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,42 +46,46 @@ const TrackingPage = ({ orderId }) => {
       setLoading(true);
       setError('');
       try {
-        // Load order basic info — handle invalid UUID gracefully
-        const { data: orderData, error: orderErr } = await supabase
-          .from('orders')
-          .select('id, customer_name, fulfillment_status, carrier, tracking_code, shipped_at, delivered_at, delivery_address')
-          .eq('id', orderId)
-          .maybeSingle(); // maybeSingle returns null instead of throwing when not found
-
-        if (orderErr) {
-          // Invalid UUID or other query error — treat as not found
+        if (!token) {
           setOrder(null);
+          setError('Este enlace de seguimiento ya no es válido. Usa el link completo enviado por email.');
           setLoading(false);
           return;
         }
 
-        setOrder(orderData || null);
-
-        if (!orderData) {
-          setLoading(false);
-          return;
-        }
-
-        // Load live tracking from Edge Function
         const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
         const ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-        if (SUPABASE_URL && ANON_KEY) {
-          const res = await fetch(
-            `${SUPABASE_URL}/functions/v1/get-tracking?order_id=${orderId}`,
-            { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } }
-          );
-
-          if (res.ok) {
-            const data = await res.json();
-            setTracking(data);
-          }
+        if (!SUPABASE_URL || !ANON_KEY) {
+          throw new Error('Seguimiento no disponible');
         }
+
+        const res = await fetch(
+          `${SUPABASE_URL}/functions/v1/get-tracking?order_id=${encodeURIComponent(orderId)}&delivery_token=${encodeURIComponent(token)}`,
+          { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } }
+        );
+
+        if (!res.ok) {
+          setOrder(null);
+          if (res.status === 404) {
+            setError('No encontramos un seguimiento válido para este enlace.');
+            return;
+          }
+          throw new Error('Seguimiento no disponible');
+        }
+
+        const data = await res.json();
+        setTracking(data);
+        setOrder({
+          id: data.order_id,
+          customer_name: data.customer_name,
+          fulfillment_status: data.fulfillment_status,
+          carrier: data.carrier,
+          tracking_code: data.tracking_code,
+          shipped_at: data.shipped_at,
+          delivered_at: data.delivered_at,
+          delivery_address: data.delivery_address,
+        });
       } catch (err) {
         setError('No se pudo cargar el seguimiento. Intenta nuevamente.');
       } finally {
@@ -91,7 +94,7 @@ const TrackingPage = ({ orderId }) => {
     };
 
     load();
-  }, [orderId]);
+  }, [orderId, token]);
 
   if (loading) {
     return (
@@ -111,8 +114,8 @@ const TrackingPage = ({ orderId }) => {
           <div className="w-16 h-16 rounded-3xl bg-rose-50 flex items-center justify-center mx-auto mb-4">
             <AlertCircle size={28} className="text-rose-500" />
           </div>
-          <h1 className="text-xl font-black text-zinc-950 mb-2">Orden no encontrada</h1>
-          <p className="text-zinc-500 font-medium text-sm">Verifica que el enlace sea correcto.</p>
+          <h1 className="text-xl font-black text-zinc-950 mb-2">{error ? 'Seguimiento no disponible' : 'Orden no encontrada'}</h1>
+          <p className="text-zinc-500 font-medium text-sm">{error || 'Verifica que el enlace sea correcto.'}</p>
         </div>
       </div>
     );

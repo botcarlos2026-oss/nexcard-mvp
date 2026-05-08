@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,7 +17,7 @@ serve(async (req) => {
 
   try {
     const text = await req.text();
-    const { orderId, items, customerEmail, totalCents } = JSON.parse(text);
+    const { orderId } = JSON.parse(text);
 
     if (!orderId) {
       log('warn', 'missing_order_id');
@@ -26,30 +27,81 @@ serve(async (req) => {
       );
     }
 
-    if (!items || items.length === 0) {
-      log('warn', 'empty_items', { order_id: orderId });
+    const MP_ACCESS_TOKEN = Deno.env.get('MP_ACCESS_TOKEN');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!MP_ACCESS_TOKEN) throw new Error('MP_ACCESS_TOKEN no configurado');
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('Supabase service role no configurado');
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, customer_email, amount_cents, currency, payment_status')
+      .eq('id', orderId)
+      .single();
+
+    if (orderError || !order) {
+      log('warn', 'order_not_found', { order_id: orderId, order_error: orderError?.message });
       return new Response(
-        JSON.stringify({ error: 'items no puede estar vacío' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Orden no encontrada' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const MP_ACCESS_TOKEN = Deno.env.get('MP_ACCESS_TOKEN');
+    const { data: orderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('product_id, quantity, unit_price_cents')
+      .eq('order_id', orderId);
 
-    if (!MP_ACCESS_TOKEN) throw new Error('MP_ACCESS_TOKEN no configurado');
+    if (itemsError || !orderItems?.length) {
+      log('warn', 'order_items_missing', { order_id: orderId, items_error: itemsError?.message });
+      return new Response(
+        JSON.stringify({ error: 'La orden no tiene ítems válidos' }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    log('info', 'creating_preference', { order_id: orderId, total_cents: totalCents });
+    const productIds = [...new Set(orderItems.map((item: any) => item.product_id).filter(Boolean))];
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, name')
+      .in('id', productIds);
+
+    const productNameMap = Object.fromEntries((products || []).map((product: any) => [product.id, product.name]));
+    const subtotal = orderItems.reduce(
+      (sum: number, item: any) => sum + (Number(item.unit_price_cents) || 0) * (Number(item.quantity) || 0),
+      0,
+    );
+    const totalUnits = orderItems.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
+    const firstItem = orderItems[0];
+    const finalTotal = Number(order.amount_cents) || 0;
+
+    if (finalTotal <= 0 || finalTotal > subtotal) {
+      log('error', 'order_total_mismatch', { order_id: orderId, order_amount: order.amount_cents, subtotal });
+      return new Response(
+        JSON.stringify({ error: 'La orden quedó desalineada. Revisa el total antes de cobrar.' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const preferenceTitle = totalUnits <= 1
+      ? (productNameMap[firstItem?.product_id] || 'NexCard Pack')
+      : `Pedido NexCard (${totalUnits} ítems)`;
+
+    log('info', 'creating_preference', { order_id: orderId, subtotal_cents: subtotal, total_cents: finalTotal });
 
     const preference = {
-      items: items.map((item: any) => ({
-        id: item.product_id,
-        title: item.product_name || 'NexCard Pack',
-        quantity: Number(item.quantity),
-        unit_price: Math.round(item.unit_price_cents),
-        currency_id: 'CLP',
-      })),
+      items: [{
+        id: orderId,
+        title: preferenceTitle,
+        quantity: 1,
+        unit_price: Math.round(finalTotal),
+        currency_id: order.currency || 'CLP',
+      }],
       payer: {
-        email: customerEmail,
+        email: order.customer_email,
       },
       external_reference: orderId,
       back_urls: {

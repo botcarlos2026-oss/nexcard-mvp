@@ -1042,10 +1042,10 @@ const OrdersDashboard = ({ orders = [] }) => {
                       <p className="font-bold text-sm text-white font-mono">{selectedOrder.tracking_code}</p>
                     </div>
                     <a
-                      href={`/seguimiento/${selectedOrder.id}`}
+                      href={selectedOrder.delivery_token ? `/seguimiento/${selectedOrder.id}/${selectedOrder.delivery_token}` : '#'}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold"
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold ${selectedOrder.delivery_token ? 'bg-blue-600' : 'bg-zinc-700 pointer-events-none opacity-60'}`}
                     >
                       <ExternalLink size={12} />
                       Ver seguimiento
