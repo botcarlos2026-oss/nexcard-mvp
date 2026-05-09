@@ -58,7 +58,7 @@ const NexCardProfile = ({ data }) => {
     ? (websiteValue.startsWith('http://') || websiteValue.startsWith('https://') ? websiteValue : `https://${websiteValue}`)
     : '';
   const bankEmailValue = data.bank_email || data.contact_email || '';
-  const isBusinessProfile = ['company', 'business'].includes(data.account_type) || (!!data.company && (!!websiteValue || !!data.contact_phone));
+  const profileContext = `${data.profession || ''} ${data.bio || ''} ${data.company || ''}`.toLowerCase();
   const hasWhatsapp = data.whatsapp_enabled !== false && !!data.whatsapp;
   const hasPhone = data.contact_phone_enabled !== false && !!data.contact_phone;
   const hasEmail = data.contact_email_enabled !== false && !!data.contact_email;
@@ -66,7 +66,15 @@ const NexCardProfile = ({ data }) => {
   const hasCalendar = data.calendar_url_enabled !== false && !!data.calendar_url;
   const hasPortfolio = data.portfolio_enabled !== false && !!data.portfolio_url;
   const hasLocation = !!data.location;
+  const explicitBusinessProfile = ['company', 'business'].includes(data.account_type);
+  const inferredBusinessProfile = !!data.company && (hasWebsite || hasPhone || hasWhatsapp || hasLocation || /tienda|local|ventas|comercial|cat[aá]logo|restaurant|restaurante|barber|sal[oó]n|spa|inmobiliaria|distribuid|servicio t[eé]cnico/.test(profileContext));
+  const isBusinessProfile = explicitBusinessProfile || inferredBusinessProfile;
   const showTopFallbackContact = !hasWhatsapp && !hasCalendar;
+  const businessPrimaryLinkHref = hasWebsite ? websiteHref : (hasPortfolio ? data.portfolio_url : '');
+  const businessPrimaryLinkLabel = hasWebsite ? 'Ver sitio web' : (hasPortfolio ? 'Ver catálogo' : '');
+  const phoneCtaLabel = isBusinessProfile && hasLocation ? 'Llamar al local' : 'Llamar ahora';
+  const whatsappCtaLabel = isBusinessProfile ? 'Escribir por WhatsApp' : (hasCalendar ? 'Escribirme por WhatsApp' : 'Hablemos por WhatsApp');
+  const saveContactLabel = isBusinessProfile ? 'Guardar contacto comercial' : 'Guardar mi contacto';
 
   const handleSaveContact = async () => {
     trackClick(slug, 'vcard');
@@ -174,7 +182,7 @@ const NexCardProfile = ({ data }) => {
                   style={{ backgroundColor: themeColor }}
                 >
                   <Phone size={20} />
-                  Escribir por WhatsApp
+                  {whatsappCtaLabel}
                 </a>
               )}
               {hasPhone && (
@@ -184,19 +192,19 @@ const NexCardProfile = ({ data }) => {
                   className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
                 >
                   <Phone size={20} />
-                  Llamar ahora
+                  {phoneCtaLabel}
                 </a>
               )}
-              {hasWebsite && (
+              {businessPrimaryLinkHref && (
                 <a
-                  href={websiteHref}
-                  onClick={() => handleLinkClick('website')}
+                  href={businessPrimaryLinkHref}
+                  onClick={() => handleLinkClick(hasWebsite ? 'website' : 'portfolio')}
                   target="_blank"
                   rel="noreferrer"
                   className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
                 >
                   <Globe size={20} />
-                  Ver sitio web
+                  {businessPrimaryLinkLabel}
                 </a>
               )}
               {data.vcard_enabled !== false && (
@@ -205,7 +213,7 @@ const NexCardProfile = ({ data }) => {
                   className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
                 >
                   <UserPlus size={20} />
-                  Guardar Contacto
+                  {saveContactLabel}
                 </button>
               )}
             </>
@@ -218,7 +226,7 @@ const NexCardProfile = ({ data }) => {
                   style={{ backgroundColor: themeColor, color: '#fff' }}
                 >
                   <UserPlus size={20} />
-                  Guardar Contacto
+                  {saveContactLabel}
                 </button>
               )}
               {hasWhatsapp && (
@@ -230,7 +238,7 @@ const NexCardProfile = ({ data }) => {
                   className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
                 >
                   <Phone size={20} />
-                  Escribir por WhatsApp
+                  {whatsappCtaLabel}
                 </a>
               )}
               {hasCalendar && (
