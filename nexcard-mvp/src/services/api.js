@@ -273,7 +273,7 @@ const buildProfilePayload = (payload = {}, { userId, email, existingProfile } = 
   const baseSlug = slugify(payload.slug || payload.full_name || email?.split('@')[0] || 'perfil');
   const normalizedPayload = {
     ...payload,
-    website: payload.website || payload.website_url || existingProfile?.website || null,
+    website: payload.website || payload.website_url || existingProfile?.website || existingProfile?.website_url || null,
     user_id: userId,
     slug: baseSlug || `perfil-${Date.now()}`,
     full_name: payload.full_name?.trim() || existingProfile?.full_name || email?.split('@')[0] || 'Nuevo perfil NexCard',

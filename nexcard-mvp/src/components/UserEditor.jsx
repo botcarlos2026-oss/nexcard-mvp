@@ -263,9 +263,9 @@ const UserEditor = ({ data, onSave, onLogout }) => {
                 ['instagram', 'Instagram (Usuario)', '@usuario', 'instagram_enabled', false],
                 ['linkedin', 'LinkedIn', 'perfil-linkedin', 'linkedin_enabled', false],
                 ['facebook', 'Facebook', 'perfil-facebook', 'facebook_enabled', false],
-                ['contact_phone', 'Teléfono Múltiple', '+56 9...', 'contact_phone_enabled', false],
+                ['contact_phone', 'Teléfono', '+56 9...', 'contact_phone_enabled', false],
                 ['contact_email', 'Correo Electrónico', 'correo@empresa.com', 'contact_email_enabled', false],
-                ['website_url', 'Sitio Web', 'https://...', 'website_enabled', true],
+                ['website', 'Sitio Web', 'https://...', 'website_enabled', true],
                 ['portfolio_url', 'URL Portafolio', 'https://...', 'portfolio_enabled', true],
                 ['calendar_url', 'URL Agenda', 'https://calendly.com/...', 'calendar_url_enabled', true],
               ].map(([field, label, placeholder, toggleField, isUrlField]) => {

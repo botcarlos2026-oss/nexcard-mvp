@@ -53,6 +53,11 @@ const NexCardProfile = ({ data }) => {
   const themeColor = data.theme_color || '#10B981';
   const isDark = data.is_dark_mode !== undefined ? data.is_dark_mode : true;
   const slug = data.slug || 'carlos';
+  const websiteValue = data.website || data.website_url || '';
+  const websiteHref = websiteValue
+    ? (websiteValue.startsWith('http://') || websiteValue.startsWith('https://') ? websiteValue : `https://${websiteValue}`)
+    : '';
+  const bankEmailValue = data.bank_email || data.contact_email || '';
 
   const handleSaveContact = async () => {
     trackClick(slug, 'vcard');
@@ -80,7 +85,7 @@ const NexCardProfile = ({ data }) => {
   };
 
   const handleCopyAllBankData = () => {
-    const textToCopy = `Datos de Transferencia:\nBanco: ${data.bank_name || ''}\nTipo: ${data.bank_type || ''}\nCuenta: ${data.bank_number || ''}\nRUT: ${data.bank_rut || ''}\nNombre: ${data.full_name || ''}\nEmail: ${data.contact_email || ''}`;
+    const textToCopy = `Datos de Transferencia:\nBanco: ${data.bank_name || ''}\nTipo: ${data.bank_type || ''}\nCuenta: ${data.bank_number || ''}\nRUT: ${data.bank_rut || ''}\nNombre: ${data.full_name || ''}\nEmail: ${bankEmailValue}`;
     navigator.clipboard.writeText(textToCopy);
     setCopiedField('all_bank');
     setTimeout(() => setCopiedField(null), 2000);
@@ -158,12 +163,14 @@ const NexCardProfile = ({ data }) => {
               Guardar Contacto
             </button>
           )}
-          <button
-            onClick={() => setContactModal(true)}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
-          >
-            💬 Conectemos
-          </button>
+          {!data.whatsapp && !data.calendar_url && (
+            <button
+              onClick={() => setContactModal(true)}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+            >
+              💬 Conectemos
+            </button>
+          )}
         </div>
 
         {/* Modal Conectemos */}
@@ -267,39 +274,53 @@ const NexCardProfile = ({ data }) => {
         {/* Contact Info Blocks */}
         <div className="space-y-3">
           {(data.contact_phone_enabled !== false && data.contact_phone) && (
-            <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+            <a
+              href={`tel:${data.contact_phone}`}
+              onClick={() => handleLinkClick('phone')}
+              className={`flex items-center p-4 rounded-2xl shadow-sm border transition-all group ${isDark ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-700' : 'bg-white border-zinc-100 hover:border-zinc-300'}`}
+            >
               <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
                 <Phone size={18} />
               </div>
-              <div>
-                <p className="text-xs text-zinc-400 font-medium">Teléfono Múltiple</p>
-                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.contact_phone}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-zinc-400 font-medium">Teléfono</p>
+                <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.contact_phone}</p>
               </div>
-            </div>
+            </a>
           )}
           
           {(data.contact_email_enabled !== false && data.contact_email) && (
-            <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+            <a
+              href={`mailto:${data.contact_email}`}
+              onClick={() => handleLinkClick('email')}
+              className={`flex items-center p-4 rounded-2xl shadow-sm border transition-all group ${isDark ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-700' : 'bg-white border-zinc-100 hover:border-zinc-300'}`}
+            >
               <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
                 <Mail size={18} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-zinc-400 font-medium">Correo Electrónico</p>
-                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.contact_email}</p>
+                <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.contact_email}</p>
               </div>
-            </div>
+            </a>
           )}
 
-          {(data.website_enabled !== false && data.website_url) && (
-            <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+          {(data.website_enabled !== false && websiteValue) && (
+            <a
+              href={websiteHref}
+              onClick={() => handleLinkClick('website')}
+              target="_blank"
+              rel="noreferrer"
+              className={`flex items-center p-4 rounded-2xl shadow-sm border transition-all group ${isDark ? 'bg-zinc-900 border-zinc-800 hover:border-zinc-700' : 'bg-white border-zinc-100 hover:border-zinc-300'}`}
+            >
               <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
                 <Globe size={18} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-zinc-400 font-medium">Sitio Web</p>
-                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.website_url.replace(/^https?:\/\//, '')}</p>
+                <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>{websiteValue.replace(/^https?:\/\//, '')}</p>
               </div>
-            </div>
+            </a>
           )}
         </div>
 
@@ -328,7 +349,7 @@ const NexCardProfile = ({ data }) => {
                   { label: 'Cuenta', value: data.bank_number, field: 'bank_number' },
                   { label: 'RUT', value: data.bank_rut, field: 'bank_rut' },
                   { label: 'Nombre', value: data.full_name, field: 'bank_full_name' },
-                  { label: 'Email', value: data.contact_email, field: 'bank_email' },
+                  { label: 'Email', value: bankEmailValue, field: 'bank_email' },
                 ].filter(row => row.value).map(row => (
                   <div key={row.field} className="flex items-center justify-between gap-3 text-sm">
                     <div className="flex gap-2 min-w-0">
@@ -398,13 +419,16 @@ const NexCardProfile = ({ data }) => {
             )}
           </div>
         </div>
-      </div>
 
-      {/* Footer / Branding */}
-      <footer className="max-w-md mx-auto pb-12 text-center opacity-30 flex flex-col items-center gap-2">
-        <p className="text-xs font-bold tracking-widest uppercase">NexCard Sentinel</p>
-        <div className="h-px w-8 bg-current opacity-20"></div>
-      </footer>
+        <div className="pt-2">
+          <button
+            onClick={() => setContactModal(true)}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+          >
+            💬 Conectemos
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
