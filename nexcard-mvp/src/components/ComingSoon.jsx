@@ -44,7 +44,7 @@ export default function ComingSoon() {
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-3xl -translate-x-1/3 translate-y-1/4" />
       </div>
 
-      <div className="relative z-10 max-w-lg w-full text-center">
+      <div className="relative z-10 max-w-2xl w-full text-center">
 
         {/* Logo */}
         <div className="cs-element mb-10">
@@ -71,29 +71,31 @@ export default function ComingSoon() {
 
         {/* Form */}
         {!submitted ? (
-          <form onSubmit={handleSubmit} className="cs-element flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <div className="flex-1 flex flex-col gap-1">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
-                onBlur={(e) => setEmailError(validateEmail(e.target.value))}
-                placeholder="tu@email.com"
-                className={`w-full bg-zinc-900 border rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none text-sm transition-colors ${emailError ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-emerald-500'}`}
-              />
-              {emailError && <p className="text-red-400 text-xs px-1">{emailError}</p>}
+          <form onSubmit={handleSubmit} className="cs-element max-w-xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-3 items-start">
+              <div className="flex-1 w-full flex flex-col gap-1">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
+                  onBlur={(e) => setEmailError(validateEmail(e.target.value))}
+                  placeholder="tu@email.com"
+                  className={`w-full min-h-[56px] bg-zinc-900 border rounded-2xl px-5 py-4 text-white placeholder-zinc-500 focus:outline-none text-base transition-colors ${emailError ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-emerald-500'}`}
+                />
+                {emailError && <p className="text-red-400 text-xs px-1 text-left">{emailError}</p>}
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-press w-full sm:w-auto min-h-[56px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold px-8 py-4 rounded-2xl transition-colors text-base whitespace-nowrap flex items-center justify-center gap-2"
+              >
+                {loading ? <><span className="spinner" />Guardando...</> : 'Notifícame'}
+              </button>
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-press bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold px-6 py-3 rounded-xl transition-colors text-sm whitespace-nowrap flex items-center justify-center gap-2"
-            >
-              {loading ? <><span className="spinner" />Guardando...</> : 'Notifícame'}
-            </button>
-        <p className="text-zinc-600 text-xs mt-3 text-center max-w-md mx-auto">
-          Al registrarte aceptas recibir novedades de NexCard. Puedes cancelar cuando quieras.{' '}
-          <a href="/privacidad" className="text-zinc-500 hover:text-zinc-400 underline">Política de privacidad</a>
-        </p>
+            <p className="text-zinc-600 text-xs mt-3 text-center max-w-xl mx-auto">
+              Al registrarte aceptas recibir novedades de NexCard. Puedes cancelar cuando quieras.{' '}
+              <a href="/privacidad" className="text-zinc-500 hover:text-zinc-400 underline">Política de privacidad</a>
+            </p>
           </form>
         ) : (
           <div className="flex items-center justify-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 px-6 py-4 rounded-xl max-w-md mx-auto">
