@@ -57,6 +57,8 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
   const order = claimData?.order;
   const claim = claimData?.claim;
   const alreadyClaimed = claim?.already_claimed || claim?.status === 'claimed';
+  const canRetryClaim = !!user;
+  const disableActivate = busy || (alreadyClaimed && !canRetryClaim);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">
@@ -86,7 +88,11 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
               <CheckCircle2 className="text-emerald-400" />
               <div>
                 <p className="font-bold">Esta NexCard ya fue reclamada.</p>
-                <p className="text-sm text-emerald-200">Si tu perfil ya existe, entra con tu cuenta para seguir editándolo.</p>
+                <p className="text-sm text-emerald-200">
+                  {user
+                    ? 'Si esta activación quedó a medio camino, vuelve a continuar con tu cuenta para completar el perfil.'
+                    : 'Ingresa con la cuenta que hizo la activación para continuar editando o terminar el setup.'}
+                </p>
               </div>
             </div>
           ) : null}
@@ -95,14 +101,15 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
 
           <button
             onClick={handleActivate}
-            disabled={busy || alreadyClaimed}
+            disabled={disableActivate}
             className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-white p-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all"
           >
-            {busy ? <Loader2 className="animate-spin" /> : 'Activar mi NexCard'}
+            {busy ? <Loader2 className="animate-spin" /> : alreadyClaimed && user ? 'Continuar activación' : 'Activar mi NexCard'}
             {!busy ? <ArrowRight size={20} /> : null}
           </button>
 
           {!user ? <p className="text-xs text-zinc-500 text-center">Si aún no tienes cuenta, te pediremos registrarte antes de activar.</p> : null}
+          {alreadyClaimed && user ? <p className="text-xs text-zinc-500 text-center">Reintentaremos el vínculo con tu perfil actual para que puedas terminar el setup.</p> : null}
         </div>
       </div>
     </div>

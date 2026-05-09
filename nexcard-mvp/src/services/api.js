@@ -319,6 +319,10 @@ export const api = {
   },
 
   logout: async () => {
+    if (hasSupabase && supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw new Error(error.message || 'No fue posible cerrar la sesión');
+    }
     setStoredAuth(null);
     setPendingClaimToken(null);
   },
