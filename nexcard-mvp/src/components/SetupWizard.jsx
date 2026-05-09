@@ -24,6 +24,24 @@ const SetupWizard = ({ onComplete }) => {
     whatsapp: '',
   });
 
+  const profilePreset = formData.account_type === 'business'
+    ? {
+        title: 'Perfil Negocio',
+        subtitle: 'Para vender más rápido, recibir contactos y ordenar la atención comercial.',
+        namePlaceholder: 'Nombre del negocio o marca',
+        professionPlaceholder: 'Rubro / propuesta comercial',
+        bioPlaceholder: 'Ej: Ayudamos a empresas a resolver necesidades con una atención rápida y profesional...',
+        whatsappHint: 'Ingresa el WhatsApp comercial donde quieres recibir oportunidades.',
+      }
+    : {
+        title: 'Perfil Profesional',
+        subtitle: 'Para networking, reuniones, marca personal y relaciones de largo plazo.',
+        namePlaceholder: 'Tu nombre completo',
+        professionPlaceholder: 'Profesión / especialidad',
+        bioPlaceholder: 'Ej: Ayudo a empresas a ordenar procesos, vender mejor o tomar mejores decisiones...',
+        whatsappHint: 'Ingresa tu WhatsApp principal para conversaciones y reuniones.',
+      };
+
   const nextStep = () => setStep(s => s + 1);
   const prevStep = () => setStep(s => s - 1);
 
@@ -70,8 +88,8 @@ const SetupWizard = ({ onComplete }) => {
         {/* STEP 0: Account Type */}
         {step === 0 && (
           <div className="animate-in slide-in-from-right-4 duration-500">
-            <h1 className="text-4xl font-black tracking-tighter leading-tight">¿Para quién es esta NexCard?</h1>
-            <p className="mt-4 text-zinc-400 font-medium">Personalizaremos tu experiencia según tu perfil.</p>
+            <h1 className="text-4xl font-black tracking-tighter leading-tight">Elige tu línea NexCard.</h1>
+            <p className="mt-4 text-zinc-400 font-medium">Configuraremos tu experiencia base según el tipo de perfil que quieres vender.</p>
             
             <div className="mt-10 space-y-4">
               <button 
@@ -82,8 +100,8 @@ const SetupWizard = ({ onComplete }) => {
                   <User size={24} />
                 </div>
                 <div>
-                  <p className="font-black text-lg">Uso Personal</p>
-                  <p className="text-sm text-zinc-400 font-medium">Para profesionales independientes y networking.</p>
+                  <p className="font-black text-lg">Perfil Profesional</p>
+                  <p className="text-sm text-zinc-400 font-medium">Para consultores, ejecutivos, freelancers y networking profesional.</p>
                 </div>
               </button>
 
@@ -95,8 +113,8 @@ const SetupWizard = ({ onComplete }) => {
                   <Building2 size={24} />
                 </div>
                 <div>
-                  <p className="font-black text-lg">Empresa / Pyme</p>
-                  <p className="text-sm text-zinc-400 font-medium">Para equipos de ventas, locales o flotas corporativas.</p>
+                  <p className="font-black text-lg">Perfil Negocio</p>
+                  <p className="text-sm text-zinc-400 font-medium">Para pymes, equipos comerciales, locales y atención orientada a conversión.</p>
                 </div>
               </button>
             </div>
@@ -109,14 +127,14 @@ const SetupWizard = ({ onComplete }) => {
             <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-500 mb-8">
               <Briefcase size={32} />
             </div>
-            <h1 className="text-4xl font-black tracking-tighter leading-tight">Comencemos con lo básico.</h1>
-            <p className="mt-4 text-zinc-400 font-medium">¿Cómo quieres aparecer en tu perfil?</p>
+            <h1 className="text-4xl font-black tracking-tighter leading-tight">{profilePreset.title}</h1>
+            <p className="mt-4 text-zinc-400 font-medium">{profilePreset.subtitle}</p>
             
             <div className="mt-10 space-y-4">
               <input 
                 data-cy="wizard-name"
                 type="text" 
-                placeholder={formData.account_type === 'personal' ? "Tu Nombre Completo" : "Nombre de la Empresa"}
+                placeholder={profilePreset.namePlaceholder}
                 value={formData.full_name}
                 onChange={e => setFormData({...formData, full_name: e.target.value})}
                 className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl px-6 py-5 text-lg font-bold focus:border-emerald-500 outline-none transition-all"
@@ -124,7 +142,7 @@ const SetupWizard = ({ onComplete }) => {
               <input 
                 data-cy="wizard-profession"
                 type="text" 
-                placeholder={formData.account_type === 'personal' ? "Tu Profesión / Cargo" : "Rubro / Especialidad"}
+                placeholder={profilePreset.professionPlaceholder}
                 value={formData.profession}
                 onChange={e => setFormData({...formData, profession: e.target.value})}
                 className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl px-6 py-5 text-lg font-bold focus:border-emerald-500 outline-none transition-all"
@@ -139,12 +157,12 @@ const SetupWizard = ({ onComplete }) => {
             <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-500 mb-8">
               <Zap size={32} />
             </div>
-            <h1 className="text-4xl font-black tracking-tighter leading-tight">Cuéntales algo más.</h1>
-            <p className="mt-4 text-zinc-400 font-medium">Bio corta (Opcional). Puedes saltar este paso.</p>
+            <h1 className="text-4xl font-black tracking-tighter leading-tight">Refina tu propuesta.</h1>
+            <p className="mt-4 text-zinc-400 font-medium">Una bio breve ayuda a que tu perfil se entienda mejor desde el primer toque.</p>
             
             <div className="mt-10">
               <textarea 
-                placeholder="Ej: Ayudo a pymes a optimizar sus procesos digitales..."
+                placeholder={profilePreset.bioPlaceholder}
                 value={formData.bio}
                 onChange={e => setFormData({...formData, bio: e.target.value})}
                 rows="4"
@@ -194,8 +212,8 @@ const SetupWizard = ({ onComplete }) => {
             <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-500 mb-8">
               <LinkIcon size={32} />
             </div>
-            <h1 className="text-4xl font-black tracking-tighter leading-tight">Línea Directa.</h1>
-            <p className="mt-4 text-zinc-400 font-medium">Ingresa tu número de WhatsApp para recibir contactos.</p>
+            <h1 className="text-4xl font-black tracking-tighter leading-tight">Línea directa.</h1>
+            <p className="mt-4 text-zinc-400 font-medium">{profilePreset.whatsappHint}</p>
             
             <div className="mt-10">
               <input 

@@ -149,19 +149,29 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             Tarjeta NFC · Compatible con iPhone y Android
           </div>
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-[1.05] tracking-tight">
-            Tu tarjeta de visita<br />
-            <span className="text-emerald-400">del siglo XXI</span>
+            Una NexCard para tu<br />
+            <span className="text-emerald-400">perfil profesional o tu negocio</span>
           </h1>
-          <p className="text-lg md:text-xl text-zinc-400 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Comparte tu contacto completo con un solo toque. Sin apps, sin papel, sin quedarte sin tarjetas. Actualiza tu información cuando quieras.
+          <p className="text-lg md:text-xl text-zinc-400 mb-6 max-w-3xl mx-auto leading-relaxed">
+            Comparte tu contacto completo con un solo toque. Sin apps, sin papel y con una experiencia pensada para dos líneas claras: <strong className="text-white">Perfil Profesional</strong> y <strong className="text-white">Perfil Negocio</strong>.
           </p>
+          <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto text-left">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+              <p className="text-sm font-black text-white mb-2">Perfil Profesional</p>
+              <p className="text-sm text-zinc-400">Para consultores, ejecutivos, freelancers y networking: guardar contacto, WhatsApp, agenda y presencia profesional.</p>
+            </div>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+              <p className="text-sm font-black text-white mb-2">Perfil Negocio</p>
+              <p className="text-sm text-zinc-400">Para pymes, ventas y atención comercial: WhatsApp, llamada, sitio web y conversión más rápida.</p>
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-900/40 text-base">
               Ver precios y packs
               <ArrowRight size={18} />
             </button>
             <button onClick={() => window.location.href = '/carlos'} className="btn-press inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-colors border border-zinc-700 text-base">
-              Ver perfil demo
+              Ver demo en vivo
             </button>
           </div>
           <p className="mt-10 text-sm text-zinc-500">Despacho a todo Chile · Activación en minutos · Sin contratos</p>
@@ -171,8 +181,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Todo lo que necesitas para networking profesional</h2>
-            <p className="text-zinc-400 max-w-xl mx-auto">Una sola tarjeta reemplaza cientos de tarjetas de papel y siempre está actualizada.</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Dos líneas, una sola plataforma</h2>
+            <p className="text-zinc-400 max-w-2xl mx-auto">NexCard se adapta tanto a relaciones profesionales de alto valor como a escenarios de venta y atención comercial donde importa responder rápido.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {FEATURES.map((f, i) => (
@@ -367,8 +377,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
       <section className="border-t border-zinc-800/60 py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Listo para modernizar tu networking</h2>
-          <p className="text-zinc-400 mb-8">Únete a los profesionales que ya dejaron las tarjetas de papel atrás.</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Elige la línea que mejor vende tu perfil</h2>
+          <p className="text-zinc-400 mb-8">Activa una NexCard para networking profesional o para conversión comercial, con la misma base tecnológica y distinta prioridad de UX.</p>
           <button onClick={onCheckoutStart} className="btn-press inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-900/40 text-base">
             Ver packs y precios
             <ArrowRight size={18} />
