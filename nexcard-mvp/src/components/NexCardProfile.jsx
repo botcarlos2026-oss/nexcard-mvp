@@ -58,6 +58,15 @@ const NexCardProfile = ({ data }) => {
     ? (websiteValue.startsWith('http://') || websiteValue.startsWith('https://') ? websiteValue : `https://${websiteValue}`)
     : '';
   const bankEmailValue = data.bank_email || data.contact_email || '';
+  const isBusinessProfile = ['company', 'business'].includes(data.account_type) || (!!data.company && (!!websiteValue || !!data.contact_phone));
+  const hasWhatsapp = data.whatsapp_enabled !== false && !!data.whatsapp;
+  const hasPhone = data.contact_phone_enabled !== false && !!data.contact_phone;
+  const hasEmail = data.contact_email_enabled !== false && !!data.contact_email;
+  const hasWebsite = data.website_enabled !== false && !!websiteValue;
+  const hasCalendar = data.calendar_url_enabled !== false && !!data.calendar_url;
+  const hasPortfolio = data.portfolio_enabled !== false && !!data.portfolio_url;
+  const hasLocation = !!data.location;
+  const showTopFallbackContact = !hasWhatsapp && !hasCalendar;
 
   const handleSaveContact = async () => {
     trackClick(slug, 'vcard');
@@ -153,17 +162,92 @@ const NexCardProfile = ({ data }) => {
 
         {/* Action Buttons (Primary) */}
         <div className="mt-6 flex flex-col gap-3">
-          {data.vcard_enabled !== false && (
-            <button
-              onClick={handleSaveContact}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-black/10"
-              style={{ backgroundColor: themeColor, color: '#fff' }}
-            >
-              <UserPlus size={20} />
-              Guardar Contacto
-            </button>
+          {isBusinessProfile ? (
+            <>
+              {hasWhatsapp && (
+                <a
+                  href={`https://wa.me/${data.whatsapp}`}
+                  onClick={() => handleLinkClick('whatsapp')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-black/10 text-white"
+                  style={{ backgroundColor: themeColor }}
+                >
+                  <Phone size={20} />
+                  Escribir por WhatsApp
+                </a>
+              )}
+              {hasPhone && (
+                <a
+                  href={`tel:${data.contact_phone}`}
+                  onClick={() => handleLinkClick('phone')}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+                >
+                  <Phone size={20} />
+                  Llamar ahora
+                </a>
+              )}
+              {hasWebsite && (
+                <a
+                  href={websiteHref}
+                  onClick={() => handleLinkClick('website')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+                >
+                  <Globe size={20} />
+                  Ver sitio web
+                </a>
+              )}
+              {data.vcard_enabled !== false && (
+                <button
+                  onClick={handleSaveContact}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+                >
+                  <UserPlus size={20} />
+                  Guardar Contacto
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {data.vcard_enabled !== false && (
+                <button
+                  onClick={handleSaveContact}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-black/10"
+                  style={{ backgroundColor: themeColor, color: '#fff' }}
+                >
+                  <UserPlus size={20} />
+                  Guardar Contacto
+                </button>
+              )}
+              {hasWhatsapp && (
+                <a
+                  href={`https://wa.me/${data.whatsapp}`}
+                  onClick={() => handleLinkClick('whatsapp')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+                >
+                  <Phone size={20} />
+                  Escribir por WhatsApp
+                </a>
+              )}
+              {hasCalendar && (
+                <a
+                  href={data.calendar_url}
+                  onClick={() => handleLinkClick('calendar')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+                >
+                  <Calendar size={20} />
+                  Agendar reunión
+                </a>
+              )}
+            </>
           )}
-          {!data.whatsapp && !data.calendar_url && (
+          {showTopFallbackContact && (
             <button
               onClick={() => setContactModal(true)}
               className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
@@ -223,6 +307,8 @@ const NexCardProfile = ({ data }) => {
 
       <div className="max-w-md mx-auto px-6 space-y-6 pb-12">
         
+        {!isBusinessProfile && (
+        <>
         {/* Social Grid */}
         <div className="grid grid-cols-4 gap-3">
           {(data.whatsapp_enabled !== false && data.whatsapp) && (
@@ -270,9 +356,23 @@ const NexCardProfile = ({ data }) => {
             </a>
           )}
         </div>
+        </>
+        )}
 
         {/* Contact Info Blocks */}
         <div className="space-y-3">
+          {isBusinessProfile && hasLocation && (
+            <div className={`flex items-center p-4 rounded-2xl shadow-sm border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mr-4">
+                <MapPin size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-zinc-400 font-medium">Ubicación</p>
+                <p className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>{data.location}</p>
+              </div>
+            </div>
+          )}
+
           {(data.contact_phone_enabled !== false && data.contact_phone) && (
             <a
               href={`tel:${data.contact_phone}`}
@@ -382,7 +482,7 @@ const NexCardProfile = ({ data }) => {
         <div className="pt-4">
           <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-4 px-2">Enlaces Útiles</h3>
           <div className="space-y-3">
-            {(data.calendar_url_enabled !== false && data.calendar_url) && (
+            {!isBusinessProfile && (data.calendar_url_enabled !== false && data.calendar_url) && (
               <a
                 href={data.calendar_url}
                 onClick={() => handleLinkClick('calendar')}
@@ -420,14 +520,65 @@ const NexCardProfile = ({ data }) => {
           </div>
         </div>
 
-        <div className="pt-2">
-          <button
-            onClick={() => setContactModal(true)}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
-          >
-            💬 Conectemos
-          </button>
-        </div>
+        {isBusinessProfile && (
+          <>
+            <div className="grid grid-cols-4 gap-3">
+              {(data.instagram_enabled !== false && data.instagram) && (
+                <a 
+                  href={`https://instagram.com/${data.instagram}`}
+                  onClick={() => handleLinkClick('instagram')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
+                >
+                  <Instagram size={24} className="text-pink-500" />
+                </a>
+              )}
+              {(data.facebook_enabled !== false && data.facebook) && (
+                <a 
+                  href={data.facebook.startsWith('http') ? data.facebook : `https://facebook.com/${data.facebook}`}
+                  onClick={() => handleLinkClick('facebook')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
+                >
+                  <Facebook size={24} className="text-blue-500" />
+                </a>
+              )}
+              {(data.linkedin_enabled !== false && data.linkedin) && (
+                <a 
+                  href={data.linkedin.startsWith('http') ? data.linkedin : `https://linkedin.com/in/${data.linkedin}`}
+                  onClick={() => handleLinkClick('linkedin')}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
+                >
+                  <Linkedin size={24} className="text-blue-600" />
+                </a>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => setContactModal(true)}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+              >
+                💬 Conectemos
+              </button>
+            </div>
+          </>
+        )}
+
+        {!isBusinessProfile && (
+          <div className="pt-2">
+            <button
+              onClick={() => setContactModal(true)}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800' : 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-50'}`}
+            >
+              💬 Conectemos
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
