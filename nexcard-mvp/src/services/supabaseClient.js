@@ -8,8 +8,21 @@ export const supabase = (supabaseUrl && supabaseKey)
   : null;
 
 export const hasSupabase = !!supabase;
-// Stubs de compatibilidad post-rollback de Clerk
-// Estas funciones no hacen nada — devuelven null para que el código existente no rompa
-export const getClerkUserId = () => null;
+
+const readStoredUser = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const auth = JSON.parse(window.localStorage.getItem('nexcard_auth') || 'null');
+    return auth?.user || null;
+  } catch {
+    return null;
+  }
+};
+
+// Compatibilidad temporal post-rollback de Clerk.
+// Conservamos el nombre para evitar refactors masivos, pero ahora resuelve
+// contra la sesión/estado local de Supabase.
+export const getClerkUserId = () => readStoredUser()?.id || null;
+export const getCurrentUserEmail = () => readStoredUser()?.email?.toLowerCase?.().trim?.() || null;
 export const setClerkTokenGetter = () => {};
 export const setClerkUserId = () => {};

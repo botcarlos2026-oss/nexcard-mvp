@@ -207,7 +207,18 @@ function App() {
             return;
           }
           const profile = await api.getMyProfile();
+          if (!profile) {
+            navigate('/setup');
+            setLoading(false);
+            return;
+          }
           setData(profile);
+          setLoading(false);
+          return;
+        }
+
+        if (path === '/setup' && !user) {
+          navigate('/login');
           setLoading(false);
           return;
         }
