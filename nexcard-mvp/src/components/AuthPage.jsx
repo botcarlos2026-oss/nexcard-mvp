@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 
-const AuthPage = ({ onAuthSuccess }) => {
+const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,6 +53,7 @@ const AuthPage = ({ onAuthSuccess }) => {
             {mode === 'login'
               ? 'Accede a tu panel y administra tu perfil, pedidos y operación.'
               : 'Registro habilitado con Supabase.'}
+            {pendingClaimToken ? ' Estás entrando para activar una NexCard comprada.' : ''}
           </p>
         </div>
 

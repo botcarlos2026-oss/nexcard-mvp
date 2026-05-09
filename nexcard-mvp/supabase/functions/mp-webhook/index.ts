@@ -115,6 +115,64 @@ serve(async (req) => {
 
     log('info', 'order_updated', { order_id: orderId, mapped_status: mappedStatus });
 
+    if (mappedStatus === 'paid') {
+      const { data: existingClaim } = await supabase
+        .from('profile_claims')
+        .select('id, claim_token, status')
+        .eq('order_id', orderId)
+        .maybeSingle();
+
+      let claimToken = existingClaim?.claim_token;
+
+      if (!existingClaim) {
+        const { data: orderRow } = await supabase
+          .from('orders')
+          .select('customer_email')
+          .eq('id', orderId)
+          .single();
+
+        const { data: orderItems } = await supabase
+          .from('order_items')
+          .select('quantity')
+          .eq('order_id', orderId);
+
+        const totalQuantity = (orderItems || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+        claimToken = crypto.randomUUID().replaceAll('-', '');
+
+        const { error: claimInsertError } = await supabase
+          .from('profile_claims')
+          .insert({
+            order_id: orderId,
+            customer_email: orderRow?.customer_email || payment.payer?.email || 'sin-email@nexcard.cl',
+            claim_token: claimToken,
+            quantity: Math.max(totalQuantity, 1),
+            status: 'pending',
+          });
+
+        if (claimInsertError) {
+          log('error', 'profile_claim_insert_failed', { order_id: orderId, error: claimInsertError.message });
+        } else {
+          log('info', 'profile_claim_created', { order_id: orderId });
+        }
+      }
+
+      if (claimToken && existingClaim?.status !== 'claimed') {
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/send-profile-activation`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ order_id: orderId }),
+          });
+          log('info', 'profile_activation_triggered', { order_id: orderId });
+        } catch (notifyError) {
+          log('warn', 'profile_activation_trigger_failed', { order_id: orderId, error: notifyError.message });
+        }
+      }
+    }
+
     return new Response('ok', { status: 200 });
 
   } catch (error) {

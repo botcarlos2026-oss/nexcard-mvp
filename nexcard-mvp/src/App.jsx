@@ -21,6 +21,7 @@ import PrintTestGenerator from './components/PrintTestGenerator';
 import UnsubscribePage from './components/UnsubscribePage';
 import TrackingPage from './components/TrackingPage';
 import DeliveryConfirmation from './components/DeliveryConfirmation';
+import ActivationPage from './components/ActivationPage';
 import UserEditor from './components/UserEditor';
 import SetupWizard from './components/SetupWizard';
 import AuthPage from './components/AuthPage';
@@ -28,7 +29,7 @@ import ProductCatalog from './components/ProductCatalog';
 import Cart from './components/Cart';
 import CheckoutForm from './components/CheckoutForm';
 import OrderConfirmation from './components/OrderConfirmation';
-import { api, getStoredAuth, setStoredAuth } from './services/api';
+import { api, getPendingClaimToken, getStoredAuth, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { supabase, hasSupabase } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
@@ -51,6 +52,7 @@ function App() {
   const [checkoutStep, setCheckoutStep] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
   const [paymentResult, setPaymentResult] = useState(null);
+  const [pendingClaimToken, setPendingClaimTokenState] = useState(() => getPendingClaimToken());
   const { getTotalItems } = useCart();
 
   const navigate = (newPath) => {
@@ -226,7 +228,7 @@ function App() {
         if (path === '/login' || path === '/setup' || path === '/privacidad' || path === '/preview' || path === '/terminos'
             || path === '/baja'
             || path.startsWith('/r/')
-            || path.startsWith('/seguimiento/') || path.startsWith('/confirmar/')) {
+            || path.startsWith('/seguimiento/') || path.startsWith('/confirmar/') || path.startsWith('/activar/')) {
           setLoading(false);
           return;
         }
@@ -249,6 +251,29 @@ function App() {
   const handleSave = async (newData) => {
     const saved = await api.updateMyProfile(newData);
     setData(saved);
+
+    const claimToken = getPendingClaimToken();
+    if (claimToken) {
+      try {
+        await api.claimProfile(claimToken);
+        setPendingClaimToken(null);
+        setPendingClaimTokenState(null);
+      } catch (_) {
+        // no bloquear guardado del perfil
+      }
+    }
+  };
+
+  const handleClaimAuthRequired = (token) => {
+    setPendingClaimToken(token);
+    setPendingClaimTokenState(token);
+    navigate('/login');
+  };
+
+  const handleContinueSetup = (token) => {
+    setPendingClaimToken(token);
+    setPendingClaimTokenState(token);
+    navigate('/setup');
   };
 
   const handleAuthSuccess = (authPayload) => {
@@ -259,6 +284,11 @@ function App() {
       'carlos.alvarez.contreras@gmail.com',
     ];
     const email = authPayload.user?.email?.toLowerCase().trim();
+    const claimToken = getPendingClaimToken();
+    if (claimToken) {
+      navigate(`/activar/${claimToken}`);
+      return;
+    }
     if (email && ADMIN_EMAILS.includes(email)) {
       navigate('/admin');
     } else {
@@ -305,7 +335,7 @@ function App() {
   }
 
   // ==================== REGULAR ROUTES ====================
-  if (path === '/login') return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+  if (path === '/login') return <AuthPage onAuthSuccess={handleAuthSuccess} pendingClaimToken={pendingClaimToken} />;
 
   if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
   if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />;
@@ -333,10 +363,15 @@ function App() {
   }
 
   if (path === '/setup') {
-    return <SetupWizard onComplete={(wizardData) => {
-      handleSave({ ...data, ...wizardData });
+    return <SetupWizard onComplete={async (wizardData) => {
+      await handleSave({ ...data, ...wizardData });
       navigate('/edit');
     }} />;
+  }
+
+  if (path.startsWith('/activar/')) {
+    const token = path.replace('/activar/', '').replace(/\/$/, '');
+    return <ActivationPage token={token} user={user} onAuthRequired={handleClaimAuthRequired} onContinueSetup={handleContinueSetup} />;
   }
 
   // Public tracking routes — no auth required

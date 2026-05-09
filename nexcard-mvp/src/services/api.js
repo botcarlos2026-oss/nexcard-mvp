@@ -36,6 +36,23 @@ export const setStoredAuth = (auth) => {
   localStorage.setItem('nexcard_auth', JSON.stringify(auth));
 };
 
+export const getPendingClaimToken = () => {
+  try {
+    return localStorage.getItem('nexcard_pending_claim_token') || null;
+  } catch {
+    return null;
+  }
+};
+
+export const setPendingClaimToken = (token) => {
+  try {
+    if (!token) localStorage.removeItem('nexcard_pending_claim_token');
+    else localStorage.setItem('nexcard_pending_claim_token', token);
+  } catch {
+    // ignore
+  }
+};
+
 async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -303,6 +320,29 @@ export const api = {
 
   logout: async () => {
     setStoredAuth(null);
+    setPendingClaimToken(null);
+  },
+
+  previewProfileClaim: async (token) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.functions.invoke('claim-profile', {
+      body: JSON.stringify({ action: 'preview', token }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (error) throw new Error(error.message || 'No fue posible validar tu activación');
+    if (data?.error) throw new Error(data.error);
+    return data;
+  },
+
+  claimProfile: async (token) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.functions.invoke('claim-profile', {
+      body: JSON.stringify({ action: 'claim', token }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (error) throw new Error(error.message || 'No fue posible activar tu perfil');
+    if (data?.error) throw new Error(data.error);
+    return data;
   },
 
   getLandingContent: async () => {
