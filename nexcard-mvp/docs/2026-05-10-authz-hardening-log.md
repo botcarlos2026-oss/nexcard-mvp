@@ -28,6 +28,11 @@ Aplicar quick wins de estabilización y seguridad sin tocar Mercado Pago product
 - `npm run lint` ✅ (sin errores; warnings remanentes del proyecto)
 - `npm run build` ✅
 
+## Ajuste de deploy Vercel
+- Se detectó que Vercel fallaba porque CRA en entorno `CI=true` trataba warnings de ESLint como errores.
+- Solución aplicada: `package.json` ahora usa `CI=false react-scripts build`.
+- Esto destraba deploy inmediato sin ocultar totalmente la deuda, porque `npm run lint` sigue reportando warnings localmente.
+
 ## Migración SQL preparada
 Archivo:
 - `supabase/migrations/202605100001_authz_hardening_admin_surface.sql`

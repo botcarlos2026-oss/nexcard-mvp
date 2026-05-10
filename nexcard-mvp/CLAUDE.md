@@ -29,6 +29,7 @@ npm run build
 ```bash
 # Frontend build
 npm run build
+# Nota: el script usa `CI=false` para que CRA no trate warnings heredados como errores en Vercel.
 
 # Lint mínimo operativo
 npm run lint
