@@ -25,8 +25,26 @@ npm run server
 npm run build
 ```
 
-**Tests E2E (Cypress):**
+**Quality gates / tests:**
 ```bash
+# Frontend build
+npm run build
+
+# Lint mínimo operativo
+npm run lint
+
+# Unit tests mínimos (Jest vía react-scripts)
+npm test
+
+# Check rápido
+npm run check:fast
+
+# Check con smoke E2E
+npm run check:smoke
+
+# Check completo local
+npm run check
+
 # Abrir Cypress interactivo
 npm run cypress:open
 
@@ -44,7 +62,11 @@ npm run test:e2e:cards-lifecycle
 npm run test:e2e:profiles-full
 ```
 
-No hay unit tests ni linting configurado. Los únicos tests son Cypress e2e en `cypress/e2e/`.
+Ya existe una capa mínima de calidad:
+- lint básico (`.eslintrc.json`)
+- unit test mínimo en `src/services/api.test.js`
+- build verificado
+- smoke/checks listos para uso manual o pre-merge
 
 ---
 
@@ -154,11 +176,23 @@ La función DB `mark_order_fulfillment_status` usa valores distintos (`printing`
 ---
 
 ## Admin acceso
-Whitelist en `App.jsx` (solo protege UI):
-- `bot.carlos.2026@gmail.com`
-- `carlos.alvarez.contreras@gmail.com`
+La configuración UI admin ahora está centralizada en:
+- `src/config/admin.js`
 
-Agregar un nuevo admin requiere: (1) añadir el email a la whitelist en App.jsx, y (2) ejecutar la migración `202604150002` o insertar manualmente en `memberships`.
+Incluye:
+- `ADMIN_EMAILS`
+- `isAdminEmail()`
+- `ADMIN_ROUTES`
+
+**Importante:** la whitelist frontend sigue siendo solo protección visual/transitoria. La autorización real sigue dependiendo de `public.memberships` + `public.has_role('admin')`.
+
+Agregar un nuevo admin requiere:
+1. actualizar `memberships`
+2. revisar `src/config/admin.js` si la whitelist UI transitoria sigue activa
+3. validar acceso real en `/admin`
+
+Runbook operativo:
+- `docs/admin-access-runbook.md`
 
 ---
 
@@ -175,8 +209,20 @@ return nexcard.cl?payment=success&order=ID
 ## Migraciones
 
 Directorio: `supabase/migrations/`. Convención de nombres: `YYYYMMDDNNNN_descripcion.sql`.
-Las migraciones son SQL puro — aplicar manualmente en Supabase Dashboard → SQL Editor.
+Las migraciones son SQL puro y deben quedar documentadas antes de aplicar.
 Todas las migraciones llevan `begin; ... commit;` y son idempotentes donde es posible.
+
+### Migración de hardening reciente
+- `supabase/migrations/202605100001_authz_hardening_admin_surface.sql`
+
+Objetivo:
+- ignorar `memberships.deleted_at` en `has_role()` e `is_org_member()`
+- cerrar policies abiertas de backoffice/CRM/review cards/refunds
+
+Antes de aplicar en producción:
+1. validar en staging o ventana controlada
+2. probar `/admin`, CRM, refunds, review cards
+3. confirmar que no existan usuarios no-admin dependiendo de esas tablas
 
 ---
 
@@ -184,6 +230,9 @@ Todas las migraciones llevan `begin; ... commit;` y son idempotentes donde es po
 - [ ] Cambiar `MP_ACCESS_TOKEN` a credenciales de producción
 - [ ] Eliminar producto TEST-1 ($19.990)
 - [ ] Remover `console.log` de debug en `api.js`
+- [ ] Endurecer Edge Functions con `SUPABASE_SERVICE_ROLE_KEY` (JWT + rol admin explícito)
+- [ ] Seguir partiendo `src/services/api.js` por dominio
+- [ ] Limpiar warnings de lint más sensibles del frontend
 - [ ] Panel configuración Google Reviews Card (NexReview)
 - [ ] Transbank WebPay (segunda integración de pago)
 - [ ] CRM con pipeline Kanban

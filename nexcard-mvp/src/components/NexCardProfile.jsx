@@ -15,27 +15,13 @@ import {
   MapPin,
   Mail,
   Facebook,
-  CreditCard,
-  FileText
+  CreditCard
 } from 'lucide-react';
 import { generateVCard } from '../utils/vCardEngine';
 import { trackClick } from '../utils/analyticsEngine';
 import LinkIcon from './LinkIcon';
 
 const NexCardProfile = ({ data }) => {
-  // NexReview: si es tarjeta de reseñas, redirigir inmediatamente
-  if (data.card_type === 'review' && data.review_url) {
-    window.location.replace(data.review_url);
-    return (
-      <div className="min-h-screen bg-zinc-950 grid place-items-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white font-bold text-sm">Redirigiendo a reseñas…</p>
-        </div>
-      </div>
-    );
-  }
-
   const [copiedField, setCopiedField] = useState(null);
   const [isBankOpen, setIsBankOpen] = useState(false);
   const [contactModal, setContactModal] = useState(false);
@@ -44,10 +30,15 @@ const NexCardProfile = ({ data }) => {
   const [contactLoading, setContactLoading] = useState(false);
 
   useEffect(() => {
+    if (data?.card_type === 'review' && data?.review_url) {
+      window.location.replace(data.review_url);
+      return;
+    }
+
     if (data?.slug && supabase) {
       // Scan tracking deshabilitado temporalmente — esquema de tabla pendiente de unificar
     }
-  }, [data?.id]);
+  }, [data?.card_type, data?.review_url, data?.slug, data?.id]);
 
   // Default theme settings
   const themeColor = data.theme_color || '#10B981';
@@ -107,6 +98,17 @@ const NexCardProfile = ({ data }) => {
     setCopiedField('all_bank');
     setTimeout(() => setCopiedField(null), 2000);
   };
+
+  if (data.card_type === 'review' && data.review_url) {
+    return (
+      <div className="min-h-screen bg-zinc-950 grid place-items-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white font-bold text-sm">Redirigiendo a reseñas…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen font-sans ${isDark ? 'bg-zinc-950 text-white' : 'bg-gray-50 text-zinc-900'}`}>

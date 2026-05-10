@@ -33,6 +33,7 @@ import { api, getPendingClaimToken, getStoredAuth, setPendingClaimToken, setStor
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { supabase, hasSupabase } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
+import { ADMIN_ROUTES, isAdminEmail } from './config/admin';
 
 function App() {
   const [data, setData] = useState(initialMockData);
@@ -148,22 +149,15 @@ function App() {
           return;
         }
 
-        if (path === '/admin' || path === '/admin/inventory' || path === '/admin/cards' || path === '/admin/profiles' || path === '/admin/orders' || path === '/admin/crm' || path === '/admin/nexreview' || path === '/admin/emails' || path === '/admin/review-cards' || path === '/admin/products' || path === '/admin/print-test' || path === '/admin/team' || path === '/admin/wheel') {
+        if (ADMIN_ROUTES.has(path)) {
           if (!hasSupabase || !supabase) {
             throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
           }
 
-          // Admin whitelist — verificar sesión de Supabase directamente
-          const ADMIN_EMAILS = [
-            'bot.carlos.2026@gmail.com',
-            'carlos.alvarez.contreras@gmail.com',
-            // 'carlos@nexcard.com',  ← agregar cuando compres el dominio
-          ];
-
           // Obtener sesión activa de Supabase (más confiable que localStorage)
           const { data: { session } } = await supabase.auth.getSession();
-          const sessionEmail = session?.user?.email?.toLowerCase().trim();
-          const isAdmin = sessionEmail && ADMIN_EMAILS.includes(sessionEmail);
+          const sessionEmail = session?.user?.email;
+          const isAdmin = isAdminEmail(sessionEmail);
 
           if (!isAdmin) {
             navigate('/login');
@@ -279,17 +273,13 @@ function App() {
   const handleAuthSuccess = (authPayload) => {
     setUser(authPayload.user);
     setStoredAuth(authPayload);
-    const ADMIN_EMAILS = [
-      'bot.carlos.2026@gmail.com',
-      'carlos.alvarez.contreras@gmail.com',
-    ];
-    const email = authPayload.user?.email?.toLowerCase().trim();
+    const email = authPayload.user?.email;
     const claimToken = getPendingClaimToken();
     if (claimToken) {
       navigate(`/activar/${claimToken}`);
       return;
     }
-    if (email && ADMIN_EMAILS.includes(email)) {
+    if (isAdminEmail(email)) {
       navigate('/admin');
     } else {
       navigate('/edit');

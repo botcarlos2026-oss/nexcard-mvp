@@ -20,6 +20,11 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "test": "react-scripts test --watchAll=false",
+    "lint": "eslint src/App.jsx src/services src/config server --ext js,jsx",
+    "check:fast": "npm run build",
+    "check:smoke": "npm run build && npm run test:e2e:smoke",
+    "check": "npm run build && npm run test:e2e:env-check && npm run test:e2e:smoke",
     "server": "node server/index.js",
     "dev": "concurrently \"npm run server\" \"npm start\"",
     "cypress:open": "cypress open",
