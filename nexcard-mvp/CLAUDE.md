@@ -331,6 +331,24 @@ Resultado funcional:
 Documentación específica:
 - `docs/ALERTA_PROACTIVA_OPERATIVA_2026-05-11.md`
 
+### 2026-05-11 — digest operativo reutilizable
+Se agregó una capa de salida ejecutiva para preparar el envío de alertas/resúmenes fuera del dashboard sin duplicar lógica.
+
+Cambios concretos:
+- `src/services/api.js`
+  - `getAdminDashboard()` ahora genera `operationalDigest`
+  - el digest incluye prioridad, severidad, casos, funnel, SLA promedio, acciones sugeridas y recomendación principal
+- `src/components/AdminDashboard.jsx`
+  - ahora muestra bloque `Resumen ejecutivo listo para enviar`
+  - se agregó botón `Copiar` para reutilizar el texto en canales externos
+
+Resultado funcional:
+- el panel no solo detecta, mide y prioriza
+- también entrega un resumen ejecutivo reutilizable para futura automatización por cron/webhook/mensajería
+
+Documentación específica:
+- `docs/DIGEST_OPERATIVO_REUTILIZABLE_2026-05-11.md`
+
 ---
 
 ## Stack

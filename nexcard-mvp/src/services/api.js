@@ -765,6 +765,34 @@ export const api = {
           action: 'Sin excepciones prioritarias en este momento.',
           secondary_count: 0,
         };
+    const stageSlaDigest = Object.entries(stageSla)
+      .filter(([, value]) => value?.avg_hours != null)
+      .map(([key, value]) => {
+        const labels = {
+          paid_to_ready: 'Paid→Ready',
+          ready_to_shipped: 'Ready→Shipped',
+          shipped_to_delivered: 'Shipped→Delivered',
+          delivered_to_activated: 'Delivered→Activated',
+        };
+        return `${labels[key] || key}: ${value.avg_hours}h (${value.sample_size})`;
+      });
+    const digestLines = [
+      `Resumen operativo NexCard`,
+      `- Prioridad: ${proactiveSummary.headline}`,
+      `- Severidad: ${proactiveSummary.severity}`,
+      `- Casos prioritarios: ${proactiveSummary.count}`,
+      `- Alertas operativas: ${operationalAlerts.length}`,
+      `- SLA rotos: ${slaBreaches.length}`,
+      `- Funnel hoy: paid ${funnel.paid} | ready ${funnel.ready} | shipped ${funnel.shipped} | delivered ${funnel.delivered} | activated ${funnel.activated}`,
+      stageSlaDigest.length > 0 ? `- SLA promedio: ${stageSlaDigest.join(' | ')}` : '- SLA promedio: sin muestra cerrada suficiente',
+      proactiveQueue.length > 0 ? `- Acciones sugeridas: ${proactiveQueue.map((item) => `${item.title} (${item.count})`).join(' · ')}` : '- Acciones sugeridas: sin excepciones prioritarias',
+      `- Recomendación: ${proactiveSummary.action}`,
+    ];
+    const operationalDigest = {
+      generated_at: new Date().toISOString(),
+      text: digestLines.join('\n'),
+      lines: digestLines,
+    };
     const users = (profiles || []).map(p => ({
       id: p.id,
       name: p.name || p.slug || 'Sin nombre',
@@ -796,6 +824,7 @@ export const api = {
       weeklyFunnelTrend,
       proactiveSummary,
       proactiveQueue,
+      operationalDigest,
     };
   },
 

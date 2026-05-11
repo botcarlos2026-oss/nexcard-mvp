@@ -11,6 +11,7 @@ import {
   Siren,
   ShieldAlert,
   BellRing,
+  Copy,
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
 import { api } from '../services/api';
@@ -110,6 +111,7 @@ const AdminDashboard = ({ dashboard }) => {
   const [lowStockItems, setLowStockItems] = useState([]);
   const [lowStockDismissed, setLowStockDismissed] = useState(false);
   const [pendingRefundsCount, setPendingRefundsCount] = useState(0);
+  const [digestCopied, setDigestCopied] = useState(false);
 
   useEffect(() => {
     api.checkLowStock().then(({ lowStockItems: items }) => setLowStockItems(items)).catch(() => {});
@@ -124,6 +126,7 @@ const AdminDashboard = ({ dashboard }) => {
   const weeklyFunnelTrend = dashboard?.weeklyFunnelTrend || [];
   const proactiveSummary = dashboard?.proactiveSummary || null;
   const proactiveQueue = dashboard?.proactiveQueue || [];
+  const operationalDigest = dashboard?.operationalDigest || null;
 
   const handleGlobalSearch = async (term) => {
     if (!term.trim()) { setGlobalResults(null); return; }
@@ -185,6 +188,16 @@ const AdminDashboard = ({ dashboard }) => {
   }, [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const handleCopyDigest = async () => {
+    if (!operationalDigest?.text || !navigator?.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(operationalDigest.text);
+      setDigestCopied(true);
+      window.setTimeout(() => setDigestCopied(false), 1800);
+    } catch {
+      setDigestCopied(false);
+    }
+  };
   const proactiveTone = proactiveSummary?.severity === 'critical'
     ? 'border-red-800 bg-red-950/30 text-red-200'
     : proactiveSummary?.severity === 'high'
@@ -464,6 +477,26 @@ const AdminDashboard = ({ dashboard }) => {
               </div>
             </div>
           ))}
+        </div>
+      </AdminCard>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4 gap-3">
+          <div>
+            <h2 className="font-bold text-lg text-white">Resumen ejecutivo listo para enviar</h2>
+            <p className="text-sm text-zinc-400 font-medium">Digest reutilizable para cron, WhatsApp, mail o alerta externa</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyDigest}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors"
+          >
+            <Copy size={14} />
+            {digestCopied ? 'Copiado' : 'Copiar'}
+          </button>
+        </div>
+        <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4 overflow-x-auto">
+          <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{operationalDigest?.text || 'Sin digest disponible.'}</pre>
         </div>
       </AdminCard>
 
