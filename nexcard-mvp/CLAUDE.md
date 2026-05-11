@@ -372,6 +372,113 @@ Evidencia adicional levantada:
 
 ---
 
+## Auditoría 5 frentes post-pago sin MP real — 2026-05-10
+
+### 1. Activación post-compra
+Estado real:
+- `claim-profile` y `send-profile-activation` existen y están desplegadas
+- el preview público del claim funciona con anon key
+- el claim real exige sesión, como corresponde
+- `mp-webhook` ya contiene lógica para crear `profile_claims` y disparar `send-profile-activation` cuando el pago queda `paid`
+
+Validación hecha:
+- invocación pública de `claim-profile` con token inválido devolvió `404` funcional (`Link de activación inválido o expirado`), no bloqueo por gateway
+- tabla `profile_claims` existe en DB, pero actualmente no tenía filas en la muestra revisada
+
+Lectura operativa:
+- el flujo está montado
+- sigue faltando la prueba con pago aprobado real para confirmar creación automática de claim + email en producción
+
+### 2. Emails operativos
+Cobertura existente confirmada:
+- confirmación de orden
+- activación de perfil
+- despacho / tracking
+- carrito abandonado
+
+Riesgos detectados:
+- desalineación entre documentación vieja y código actual
+- trazabilidad de emails inconsistente
+- faltan tipos homogéneos para `profile_activation` / `abandoned_cart` en el esquema histórico
+- duplicación de templates/lógica entre frontend y edge functions
+- inconsistencia de rutas de baja (`/baja` vs `/unsubscribe`)
+
+### 3. Tracking / post-despacho
+Hallazgo principal:
+- UI/admin/email ofrecen múltiples carriers, pero tracking detallado backend real solo existe para `blueexpress`
+
+Fix aplicado:
+- `supabase/functions/get-tracking/index.ts`
+- para carriers no soportados ya no rompe con `500`
+- ahora responde degradado de forma segura, mantiene datos de orden/código y devuelve mensaje claro al cliente
+
+Deploy ejecutado:
+- `supabase functions deploy get-tracking --project-ref ghiremuuyprohdqfrxsy`
+
+Riesgos que siguen abiertos:
+- token de tracking no expira ni rota
+- confirmación de entrega sigue dependiendo de policies/RLS correctas
+- falta soporte real por carrier si se quiere prometer multi-courier de verdad
+
+### 4. UX móvil público
+Hallazgo principal:
+- el checkout móvil era usable, pero el resumen mobile ocultaba demasiado contexto económico
+
+Fix aplicado:
+- `src/components/CheckoutForm.jsx`
+- el bloque mobile `Tu pedido` ahora muestra:
+  - subtotal
+  - descuento cuando aplica
+  - envío
+  - total
+
+Validación agregada:
+- nuevo spec `cypress/e2e/mobile-checkout-summary.cy.js`
+- prueba que en viewport iPhone el resumen móvil aparece y muestra subtotal/envío/total
+
+### 5. Admin orders / guardrails
+Hallazgos fuertes:
+- cambios manuales de estado siguen demasiado libres
+- despacho no es atómico end-to-end
+- checklist sigue siendo solo frontend
+- refund tenía guardrails incompletos
+- vinculación de cards y programación NFC necesitaban barreras más duras
+
+Fixes aplicados:
+- `src/services/api.js`
+  - `updateShipping()` y `dispatchOrder()` ahora calculan historial contra el estado previo real, no después del update
+  - normalizan `tracking_code` a uppercase antes de persistir
+  - `createRefund()` ahora revalida:
+    - orden pagada
+    - no entregada
+    - monto > 0
+    - monto <= total orden
+  - `linkOrderCard()` ahora bloquea cards:
+    - archivadas
+    - ya vinculadas a otra orden
+    - ya asignadas a un perfil
+    - revocadas/archivadas por estado
+- `src/components/OrdersDashboard.jsx`
+  - validación de `nfcSlug`: solo minúsculas, números y guiones
+
+### Gates ejecutados
+- `npm run lint ...` ✅
+- `npm run build` ✅
+- `npx cypress run --spec cypress/e2e/mobile-checkout-summary.cy.js` ✅
+
+### Conclusión ejecutiva
+Sin pago real de Mercado Pago todavía, los riesgos más caros después del cobro quedaron mejor acotados:
+- activación está montada y accesible
+- tracking ya no rompe por carrier no soportado
+- admin tiene guardrails algo más serios
+- mobile checkout muestra mejor el contexto de compra
+
+Lo que sigue siendo estructural y no cosmético:
+- transición server-side de estados de orden
+- despacho realmente atómico
+- política clara de carriers soportados
+- cierre real de `profile_claims` con un pago aprobado
+
 ## Pendientes para lanzamiento
 - [ ] Cambiar `MP_ACCESS_TOKEN` a credenciales de producción
 - [ ] Eliminar producto TEST-1 ($19.990)

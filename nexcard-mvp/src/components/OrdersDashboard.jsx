@@ -309,12 +309,17 @@ const OrdersDashboard = ({ orders = [] }) => {
 
   const confirmNfcProgramming = async () => {
     if (!selectedOrder || !nfcSlug) return;
+    const normalizedSlug = nfcSlug.trim().toLowerCase();
+    if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
+      setFeedback({ type: 'error', message: 'El slug NFC solo puede contener letras minúsculas, números y guiones.' });
+      return;
+    }
     const linkedCard = selectedOrder.related_cards?.find(c => c.order_id === selectedOrder.id) || selectedOrder.related_cards?.[0];
     if (!linkedCard) {
       setFeedback({ type: 'error', message: 'Vincula primero una card a la orden.' });
       return;
     }
-    const nfc_url = `https://nexcard.cl/${nfcSlug}`;
+    const nfc_url = `https://nexcard.cl/${normalizedSlug}`;
     setNfcBusy(true);
     setFeedback({ type: '', message: '' });
     try {

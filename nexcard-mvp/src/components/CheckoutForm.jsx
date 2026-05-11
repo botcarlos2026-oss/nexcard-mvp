@@ -341,11 +341,27 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           <h3 className="font-bold text-sm mb-3">Tu pedido</h3>
           <div className="space-y-2">
             {items.map((item) => (
-              <div key={item.product_id} className="flex justify-between text-sm">
+              <div key={item.product_id} className="flex justify-between text-sm gap-3">
                 <span className="text-zinc-300">{item.product_name} <span className="text-zinc-500">×{item.quantity}</span></span>
-                <span className="font-bold">${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}</span>
+                <span className="font-bold shrink-0">${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}</span>
               </div>
             ))}
+          </div>
+          <div className="space-y-1.5 pt-3 mt-3 border-t border-zinc-800 text-sm">
+            <div className="flex justify-between text-zinc-400">
+              <span>Subtotal</span>
+              <span>${totalCents.toLocaleString('es-CL')}</span>
+            </div>
+            {discountCents > 0 && (
+              <div className="flex justify-between text-emerald-400">
+                <span>Descuento ({couponCode})</span>
+                <span>-${discountCents.toLocaleString('es-CL')}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-zinc-400">
+              <span>Envío</span>
+              <span className="text-emerald-400">Gratis</span>
+            </div>
           </div>
           <div className="flex justify-between items-baseline pt-3 mt-3 border-t border-zinc-800">
             <span className="text-sm font-semibold">Total</span>

@@ -584,20 +584,21 @@ export const api = {
     if (!carrier) throw new Error('Carrier requerido');
     if (!tracking_code?.trim()) throw new Error('Código de seguimiento requerido');
 
+    const trackingCode = tracking_code.trim().toUpperCase();
+    const { data: current } = await supabase
+      .from('orders').select('carrier, tracking_code, fulfillment_status, shipped_at').eq('id', orderId).single();
+
     const payload = {
       carrier,
-      tracking_code: tracking_code.trim(),
+      tracking_code: trackingCode,
       fulfillment_status: 'shipped',
-      shipped_at: new Date().toISOString(),
+      shipped_at: current?.shipped_at || new Date().toISOString(),
     };
 
     const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
     if (error) throw new Error(error.message);
 
     // Historial
-    const { data: current } = await supabase
-      .from('orders').select('carrier, tracking_code, fulfillment_status').eq('id', orderId).single();
-
     const historyEntries = Object.keys(payload)
       .filter(key => current && String(current[key]) !== String(payload[key]))
       .map(key => ({
@@ -629,19 +630,21 @@ export const api = {
     if (!carrier) throw new Error('Carrier requerido');
     if (!tracking_code?.trim()) throw new Error('Código de seguimiento requerido');
 
+    const trackingCode = tracking_code.trim().toUpperCase();
+    const { data: current } = await supabase
+      .from('orders').select('carrier, tracking_code, fulfillment_status, shipped_at').eq('id', orderId).single();
+
     const payload = {
       carrier,
-      tracking_code: tracking_code.trim(),
+      tracking_code: trackingCode,
       fulfillment_status: 'shipped',
-      shipped_at: new Date().toISOString(),
+      shipped_at: current?.shipped_at || new Date().toISOString(),
     };
 
     const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
     if (error) throw new Error(error.message);
 
     // Historial
-    const { data: current } = await supabase
-      .from('orders').select('carrier, tracking_code, fulfillment_status').eq('id', orderId).single();
     const historyEntries = Object.keys(payload)
       .filter(key => current && String(current[key]) !== String(payload[key]))
       .map(key => ({
@@ -749,6 +752,18 @@ export const api = {
 
   linkOrderCard: async (orderId, cardId) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data: card, error: fetchError } = await supabase
+      .from('cards')
+      .select('id, order_id, profile_id, status, deleted_at')
+      .eq('id', cardId)
+      .maybeSingle();
+    if (fetchError) throw new Error(fetchError.message);
+    if (!card) throw new Error('Card no encontrada');
+    if (card.deleted_at) throw new Error('No puedes vincular una card archivada');
+    if (card.order_id && card.order_id !== orderId) throw new Error('Esta card ya está vinculada a otra orden');
+    if (card.profile_id) throw new Error('Esta card ya está asignada a un perfil');
+    if (['revoked', 'archived'].includes(card.status)) throw new Error(`No puedes vincular una card en estado ${card.status}`);
+
     const { error } = await supabase
       .from('cards')
       .update({ order_id: orderId, updated_at: new Date().toISOString() })
@@ -987,6 +1002,17 @@ export const api = {
 
   createRefund: async ({ orderId, reason, amount_cents, notes }) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('payment_status, fulfillment_status, amount_cents')
+      .eq('id', orderId)
+      .single();
+    if (orderError) throw new Error(orderError.message);
+    if (order?.payment_status !== 'paid') throw new Error('Solo puedes reembolsar órdenes pagadas');
+    if (order?.fulfillment_status === 'delivered') throw new Error('No puedes reembolsar una orden ya entregada desde este flujo');
+    if (Number(amount_cents) <= 0) throw new Error('Monto de reembolso inválido');
+    if (Number(amount_cents) > Number(order?.amount_cents || 0)) throw new Error('El reembolso no puede superar el total de la orden');
 
     // Insertar refund en estado pending
     const { data: refund, error: insertError } = await supabase

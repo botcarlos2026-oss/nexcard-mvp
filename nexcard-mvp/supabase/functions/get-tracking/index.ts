@@ -123,9 +123,16 @@ function mapBxStatus(raw: string): string {
 
 async function getTracking(carrier: string, trackingCode: string): Promise<TrackingResult> {
   switch (carrier) {
-    case 'blueexpress': return fetchBlueExpress(trackingCode);
+    case 'blueexpress':
+      return fetchBlueExpress(trackingCode);
     default:
-      throw new Error(`Carrier "${carrier}" no soportado todavía`);
+      log('warn', 'unsupported_carrier_tracking_fallback', { carrier, tracking_code: trackingCode });
+      return {
+        carrier,
+        tracking_code: trackingCode,
+        current_status: 'unknown',
+        events: [],
+      };
   }
 }
 
@@ -190,6 +197,7 @@ serve(async (req) => {
     log('info', 'tracking_requested', { order_id: orderId, carrier: order.carrier, tracking_code: order.tracking_code });
 
     const result = await getTracking(order.carrier, order.tracking_code);
+    const carrierSupported = order.carrier === 'blueexpress';
 
     return new Response(JSON.stringify({
       order_id: orderId,
@@ -200,7 +208,8 @@ serve(async (req) => {
       delivery_address: order.customer_address,
       shipped_at: order.shipped_at,
       delivered_at: order.delivered_at,
-      tracking_available: true,
+      tracking_available: carrierSupported,
+      message: carrierSupported ? undefined : `Seguimiento detallado no disponible aún para ${order.carrier}. Usa tu código de envío directamente con el courier.`,
       ...result,
     }), {
       status: 200,
