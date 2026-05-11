@@ -108,12 +108,15 @@ serve(async (req) => {
     // Registrar en email_log
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      await supabase.from('email_log').insert([{
-        email_type: 'campaign',
-        recipient: 'carlos.alvarez.contreras@gmail.com',
-        subject: `⚠️ Stock bajo — ${items.length} items`,
-        metadata: { items },
-      }]);
+      await supabase.rpc('log_email_event', {
+        p_recipient_email: 'carlos.alvarez.contreras@gmail.com',
+        p_email_type: 'low_stock_alert',
+        p_subject: `⚠️ Stock bajo — ${items.length} items`,
+        p_status: 'sent',
+        p_provider: 'resend',
+        p_provider_message_id: resendData?.id || null,
+        p_metadata: { items, audience: 'internal' },
+      });
     } catch {
       // email_log no crítico
     }

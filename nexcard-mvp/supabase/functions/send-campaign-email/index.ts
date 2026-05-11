@@ -89,12 +89,17 @@ serve(async (req) => {
     }
 
     // Registrar en email_log
-    await supabase.from('email_log').insert({
-      recipient_email: to.toLowerCase().trim(),
-      email_type,
-      order_id: order_id || null,
-      subject,
-      status: 'sent',
+    await supabase.rpc('log_email_event', {
+      p_recipient_email: to.toLowerCase().trim(),
+      p_email_type: email_type,
+      p_order_id: order_id || null,
+      p_subject: subject,
+      p_status: 'sent',
+      p_provider: 'resend',
+      p_provider_message_id: resendData?.id || null,
+      p_metadata: {
+        audience: 'campaign',
+      },
     });
 
     return new Response(

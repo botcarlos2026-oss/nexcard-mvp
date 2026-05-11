@@ -131,6 +131,30 @@ serve(async (req) => {
 
     log('info', 'customer_email_sent', { order_id: order.id, resend_id: resendData?.id });
 
+    try {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        await supabase.rpc('log_email_event', {
+          p_recipient_email: order.customer_email,
+          p_email_type: 'order_confirmation',
+          p_order_id: order.id,
+          p_subject: folio ? `✅ Orden confirmada ${folio}` : `✅ Orden confirmada #${order.id?.slice(0, 8).toUpperCase()}`,
+          p_status: 'sent',
+          p_provider: 'resend',
+          p_provider_message_id: resendData?.id || null,
+          p_metadata: {
+            audience: 'customer',
+            items_count: Array.isArray(items) ? items.length : 0,
+          },
+        });
+      }
+    } catch (logErr) {
+      log('warn', 'customer_email_log_failed', { order_id: order.id, error: logErr.message });
+    }
+
     // Notificación interna
     const internalResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -152,6 +176,29 @@ serve(async (req) => {
       log('warn', 'resend_internal_email_failed', { order_id: order.id, status: internalResponse.status, resend_error: internalData });
     } else {
       log('info', 'internal_notification_sent', { order_id: order.id, resend_id: internalData?.id });
+      try {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        if (supabaseUrl && supabaseKey) {
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          await supabase.rpc('log_email_event', {
+            p_recipient_email: 'carlos.alvarez.contreras@gmail.com',
+            p_email_type: 'internal_notification',
+            p_order_id: order.id,
+            p_subject: `🛒 Nueva orden — ${order.customer_name} $${(order.amount_cents || 0).toLocaleString('es-CL')}`,
+            p_status: 'sent',
+            p_provider: 'resend',
+            p_provider_message_id: internalData?.id || null,
+            p_metadata: {
+              audience: 'internal',
+              notification_kind: 'new_order',
+            },
+          });
+        }
+      } catch (logErr) {
+        log('warn', 'internal_email_log_failed', { order_id: order.id, error: logErr.message });
+      }
     }
 
     // Emitir boleta/factura Bsale (NO-OP hasta configurar BSALE_ACCESS_TOKEN)

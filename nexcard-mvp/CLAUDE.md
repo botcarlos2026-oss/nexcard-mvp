@@ -708,6 +708,119 @@ Este frente ya quedó saneado:
 - el token rota con cada despacho nuevo
 - tracking y confirmación comparten una política temporal coherente
 
+---
+
+## Unificación de logging/auditoría de emails — 2026-05-10
+
+### Problema real detectado
+El stack de emails existía, pero la trazabilidad estaba rota o desalineada:
+- `email_log` real en DB no tenía todas las columnas que el código/dash suponían
+- faltaban tipos operativos como `profile_activation` y `abandoned_cart`
+- `send-abandoned-cart` registraba `campaign` en vez de un tipo propio
+- `send-low-stock-alert` intentaba escribir columnas inexistentes (`recipient`, `metadata`) sobre un schema más corto
+- varias functions operativas ni siquiera escribían log homogéneo
+
+### Cambios aplicados
+#### 1. Endurecimiento de schema `email_log`
+**Archivo:** `supabase/migrations/202605102400_email_log_hardening.sql`
+
+Se agregó a `email_log`:
+- `subject`
+- `provider`
+- `provider_message_id`
+- `metadata jsonb`
+
+Se reemplazó el check de `email_type` para soportar un set operativo real:
+- `order_confirmation`
+- `shipping`
+- `profile_activation`
+- `abandoned_cart`
+- `followup`
+- `upsell`
+- `campaign`
+- `waitlist_launch`
+- `low_stock_alert`
+- `internal_notification`
+
+#### 2. Helper único de logging
+En la misma migración se creó:
+- `public.log_email_event(...)`
+
+Objetivo:
+- normalizar inserciones
+- bajar duplicación
+- asegurar lowercase del email
+- mantener provider / message id / metadata consistente
+
+#### 3. Functions alineadas
+**Archivos actualizados:**
+- `supabase/functions/send-order-confirmation/index.ts`
+- `supabase/functions/send-shipping-notification/index.ts`
+- `supabase/functions/send-profile-activation/index.ts`
+- `supabase/functions/send-abandoned-cart/index.ts`
+- `supabase/functions/send-campaign-email/index.ts`
+- `supabase/functions/send-low-stock-alert/index.ts`
+
+Nuevo comportamiento:
+- **order confirmation** registra:
+  - email cliente → `order_confirmation`
+  - email interno → `internal_notification`
+- **shipping** registra → `shipping`
+- **profile activation** registra → `profile_activation`
+- **abandoned cart** registra → `abandoned_cart`
+- **campaign email** sigue registrando `campaign`, pero ahora con provider/message id/metadata homogéneos
+- **low stock** registra → `low_stock_alert` y deja de intentar columnas inexistentes
+
+#### 4. Ruta de baja alineada
+En `send-abandoned-cart` se corrigió el footer:
+- de `/unsubscribe?email=...`
+- a `/baja?email=...`
+
+#### 5. Dashboard admin alineado
+**Archivo:** `src/components/EmailDashboard.jsx`
+
+Se ampliaron labels para mostrar correctamente los nuevos tipos:
+- activación de perfil
+- carrito abandonado
+- alerta de stock bajo
+- notificación interna
+
+### Aplicación real en producción
+Se aplicó directo en base remota y se registró versión:
+- `202605102400_email_log_hardening`
+
+Deploys ejecutados:
+- `send-order-confirmation`
+- `send-shipping-notification`
+- `send-profile-activation`
+- `send-abandoned-cart`
+- `send-campaign-email`
+- `send-low-stock-alert`
+
+### Evidencia de validación
+#### Prueba real de DB
+Se invocó `log_email_event(...)` directamente con un caso QA:
+- insertó fila correctamente
+- persistió:
+  - `recipient_email`
+  - `email_type`
+  - `subject`
+  - `provider`
+  - `provider_message_id`
+  - `metadata`
+- luego se eliminó la fila QA
+
+#### Gate técnico
+- `npm run lint ...` → OK
+- `npm run build` → OK
+
+### Resultado ejecutivo
+La auditoría de emails quedó mucho más confiable:
+- los tipos ya representan eventos reales
+- el schema ya soporta el dato que las functions necesitan
+- desaparece el falso logging genérico de campañas para eventos operativos
+- `email_log` pasa de “registro parcial” a bitácora usable para operación y análisis
+
 ## Pendientes para lanzamiento
 - [ ] Cambiar `MP_ACCESS_TOKEN` a credenciales de producción
 - [ ] Eliminar producto TEST-1 ($19.990)

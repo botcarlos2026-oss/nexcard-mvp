@@ -166,7 +166,7 @@ async function sendReminderEmail(supabase: any, cart: any, RESEND_API_KEY: strin
     <div style="background:#09090B;padding:20px 32px;border-top:1px solid #27272a;text-align:center">
       <p style="margin:0;color:#4b5563;font-size:12px">
         © 2026 NexCard · nexcard.cl<br>
-        <a href="https://nexcard.cl/unsubscribe?email=${encodeURIComponent(cart.email)}"
+        <a href="https://nexcard.cl/baja?email=${encodeURIComponent(cart.email)}"
            style="color:#4b5563;text-decoration:underline">Darse de baja de recordatorios</a>
       </p>
     </div>
@@ -204,11 +204,18 @@ async function sendReminderEmail(supabase: any, cart: any, RESEND_API_KEY: strin
     .eq('id', cart.id);
 
   // Registrar en email_log
-  await supabase.from('email_log').insert([{
-    recipient_email: cart.email,
-    email_type: 'campaign',
-    subject: '¿Olvidaste algo? Tu tarjeta NexCard te está esperando',
-    status: 'sent',
-    sent_at: new Date().toISOString(),
-  }]);
+  await supabase.rpc('log_email_event', {
+    p_recipient_email: cart.email,
+    p_email_type: 'abandoned_cart',
+    p_subject: '¿Olvidaste algo? Tu tarjeta NexCard te está esperando',
+    p_status: 'sent',
+    p_provider: 'resend',
+    p_provider_message_id: resendData?.id || null,
+    p_metadata: {
+      abandoned_cart_id: cart.id,
+      mode: 'reminder',
+      total_cents: cart.total_cents,
+      items_count: items.length,
+    },
+  });
 }

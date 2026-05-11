@@ -166,6 +166,25 @@ serve(async (req) => {
 
     log('info', 'shipping_email_sent', { order_id: orderId, resend_id: resendData.id, customer_email: order.customer_email });
 
+    try {
+      await supabase.rpc('log_email_event', {
+        p_recipient_email: order.customer_email,
+        p_email_type: 'shipping',
+        p_order_id: orderId,
+        p_subject: `Tu tarjeta NexCard está en camino — ${folio || '#' + shortOrderId} · ${carrierName}`,
+        p_status: 'sent',
+        p_provider: 'resend',
+        p_provider_message_id: resendData?.id || null,
+        p_metadata: {
+          carrier: order.carrier,
+          tracking_code: order.tracking_code,
+          audience: 'customer',
+        },
+      });
+    } catch (logErr) {
+      log('warn', 'shipping_email_log_failed', { order_id: orderId, error: logErr.message });
+    }
+
     return new Response(JSON.stringify({ success: true, resend_id: resendData.id }), {
       status: 200,
       headers: { ...CORS, 'Content-Type': 'application/json' },

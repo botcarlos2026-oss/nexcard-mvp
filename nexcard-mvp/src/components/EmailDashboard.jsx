@@ -15,6 +15,10 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 const EMAIL_TYPE_LABELS = {
   order_confirmation: 'Confirmación de orden',
   shipping: 'Despacho',
+  profile_activation: 'Activación de perfil',
+  abandoned_cart: 'Carrito abandonado',
+  low_stock_alert: 'Alerta de stock bajo',
+  internal_notification: 'Notificación interna',
   followup: 'Seguimiento',
   upsell: 'Upsell',
   campaign: 'Campaña',

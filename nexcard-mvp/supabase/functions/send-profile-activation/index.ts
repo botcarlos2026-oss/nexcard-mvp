@@ -81,6 +81,26 @@ serve(async (req) => {
     }
 
     log('info', 'profile_activation_email_sent', { order_id, resend_id: resendData.id, email: claim.customer_email });
+
+    try {
+      await supabase.rpc('log_email_event', {
+        p_recipient_email: claim.customer_email,
+        p_email_type: 'profile_activation',
+        p_order_id: order_id,
+        p_subject: `Activa tu NexCard — ${folio}`,
+        p_status: 'sent',
+        p_provider: 'resend',
+        p_provider_message_id: resendData?.id || null,
+        p_metadata: {
+          audience: 'customer',
+          claim_status: claim.status,
+          quantity: claim.quantity,
+        },
+      });
+    } catch (logErr) {
+      log('warn', 'profile_activation_email_log_failed', { order_id, error: logErr.message });
+    }
+
     return new Response(JSON.stringify({ success: true, resend_id: resendData.id, activation_url: activationUrl }), {
       status: 200,
       headers: { ...CORS, 'Content-Type': 'application/json' },
