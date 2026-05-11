@@ -8,6 +8,8 @@ import {
   Search,
   AlertTriangle,
   X,
+  Siren,
+  ShieldAlert,
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
 import { api } from '../services/api';
@@ -74,6 +76,8 @@ const AdminDashboard = ({ dashboard }) => {
   const users = dashboard?.users || [];
   const statsSource = useMemo(() => dashboard?.stats || {}, [dashboard]);
   const recentOrders = dashboard?.recentOrders || [];
+  const operationalAlerts = dashboard?.operationalAlerts || [];
+  const slaBreaches = dashboard?.slaBreaches || [];
 
   const handleGlobalSearch = async (term) => {
     if (!term.trim()) { setGlobalResults(null); return; }
@@ -105,6 +109,17 @@ const AdminDashboard = ({ dashboard }) => {
     { label: 'Pedidos abiertos', value: `${statsSource.pendingOrders || 0}`, accent: 'amber' },
     { label: 'Devoluciones pendientes', value: `${pendingRefundsCount}`, accent: pendingRefundsCount > 0 ? 'red' : null, hint: pendingRefundsCount > 0 ? 'Requiere revisión' : null, href: '/admin/orders' },
   ]), [statsSource, pendingRefundsCount]);
+
+  const funnelStats = useMemo(() => {
+    const funnel = statsSource.funnel || { paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 };
+    return [
+      { label: 'Paid', value: funnel.paid || 0, accent: 'emerald' },
+      { label: 'Ready', value: funnel.ready || 0, accent: 'amber' },
+      { label: 'Shipped', value: funnel.shipped || 0, accent: 'blue' },
+      { label: 'Delivered', value: funnel.delivered || 0, accent: 'emerald' },
+      { label: 'Activated', value: funnel.activated || 0, accent: 'emerald' },
+    ];
+  }, [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -225,6 +240,12 @@ const AdminDashboard = ({ dashboard }) => {
         <SalesChart orders={recentOrders} />
       </AdminCard>
 
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {funnelStats.map((stat) => (
+          <AdminStat key={stat.label} label={stat.label} value={stat.value} accent={stat.accent} />
+        ))}
+      </div>
+
       {/* Métricas conversión */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <AdminStat
@@ -245,6 +266,64 @@ const AdminDashboard = ({ dashboard }) => {
             : '$0'}
           accent="amber"
         />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6 mb-6">
+        <AdminCard>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-bold text-lg text-white">Alertas operativas</h2>
+              <p className="text-sm text-zinc-400 font-medium">Órdenes grises detectadas por la nueva observabilidad</p>
+            </div>
+            <AdminBadge variant={operationalAlerts.length > 0 ? 'warning' : 'success'}>
+              {statsSource.operationalAlertsCount || 0}
+            </AdminBadge>
+          </div>
+          <div className="space-y-3">
+            {operationalAlerts.length === 0 ? (
+              <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm font-medium text-zinc-400">Sin excepciones visibles en este momento.</div>
+            ) : operationalAlerts.map((order) => (
+              <a key={order.id} href="/admin/orders" className="block rounded-xl bg-zinc-800 border border-zinc-700 p-4 hover:bg-zinc-700/60 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-sm text-white">{order.customer_name || 'Sin nombre'}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">{order.id}</p>
+                  </div>
+                  <Siren size={16} className="text-amber-400 shrink-0" />
+                </div>
+                <p className="text-xs text-amber-300 font-semibold mt-3">{order.alerts?.[0]}</p>
+              </a>
+            ))}
+          </div>
+        </AdminCard>
+
+        <AdminCard>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-bold text-lg text-white">SLA en riesgo</h2>
+              <p className="text-sm text-zinc-400 font-medium">Pagadas hace 24h+ sin activación cerrada</p>
+            </div>
+            <AdminBadge variant={slaBreaches.length > 0 ? 'danger' : 'success'}>
+              {statsSource.slaBreachesCount || 0}
+            </AdminBadge>
+          </div>
+          <div className="space-y-3">
+            {slaBreaches.length === 0 ? (
+              <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm font-medium text-zinc-400">Sin brechas SLA detectadas.</div>
+            ) : slaBreaches.map((order) => (
+              <a key={order.id} href="/admin/orders" className="block rounded-xl bg-zinc-800 border border-zinc-700 p-4 hover:bg-zinc-700/60 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-sm text-white">{order.customer_name || 'Sin nombre'}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">{order.id}</p>
+                  </div>
+                  <ShieldAlert size={16} className="text-red-400 shrink-0" />
+                </div>
+                <p className="text-xs text-red-300 font-semibold mt-3">{order.age_hours}h desde pago · estado {order.fulfillment_status}</p>
+              </a>
+            ))}
+          </div>
+        </AdminCard>
       </div>
 
       <div className="grid lg:grid-cols-[1.6fr,1fr] gap-6">

@@ -261,6 +261,26 @@ Resultado validado:
 Documentación específica:
 - `docs/SMOKE_TEST_OBSERVABILIDAD_CAPA2_2026-05-11.md`
 
+### 2026-05-11 — KPIs, alertas y SLA básicos
+Se montó la siguiente capa rentable sobre la observabilidad ya validada: convertir trazabilidad en señales operativas visibles dentro del dashboard.
+
+Cambios concretos:
+- `getAdminDashboard()` en `src/services/api.js` ahora reutiliza `fetchOrders()` enriquecido para calcular:
+  - funnel `paid / ready / shipped / delivered / activated`
+  - `operationalAlerts`
+  - `slaBreaches`
+- `src/components/AdminDashboard.jsx` ahora muestra:
+  - KPIs del embudo operativo
+  - bloque de alertas operativas
+  - bloque de SLA en riesgo
+
+Regla SLA inicial:
+- órdenes pagadas hace `24h+`
+- sin activación cerrada
+
+Documentación específica:
+- `docs/KPIS_ALERTAS_SLA_OBSERVABILIDAD_2026-05-11.md`
+
 ---
 
 ## Stack

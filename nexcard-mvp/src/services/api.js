@@ -609,16 +609,47 @@ export const api = {
   getAdminDashboard: async () => {
     if (!hasSupabase) throw new Error('Admin deshabilitado');
     const { data: profiles } = await supabase.from('profiles').select('*');
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (error) throw new Error(error.message);
+    const { orders, error } = await (async () => {
+      try {
+        const result = await fetchOrders();
+        return { orders: result.orders || [], error: null };
+      } catch (err) {
+        return { orders: null, error: err };
+      }
+    })();
+    if (error) throw new Error(error.message || error);
     const paidOrders = (orders || []).filter(o => o.payment_status === 'paid');
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const pendingOrders = (orders || []).filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
     const paidOrdersCount = paidOrders.length;
+    const funnel = {
+      paid: paidOrdersCount,
+      ready: paidOrders.filter(o => ['ready', 'shipped', 'delivered'].includes(o.fulfillment_status)).length,
+      shipped: paidOrders.filter(o => ['shipped', 'delivered'].includes(o.fulfillment_status)).length,
+      delivered: paidOrders.filter(o => o.fulfillment_status === 'delivered').length,
+      activated: paidOrders.filter(o => o.activation_completed).length,
+    };
+    const nowMs = Date.now();
+    const operationalAlerts = (orders || []).filter((order) => (order.observability_alerts || []).length > 0).map((order) => ({
+      id: order.id,
+      customer_name: order.customer_name,
+      customer_email: order.customer_email,
+      funnel_stage: order.funnel_stage,
+      alerts: order.observability_alerts,
+    }));
+    const slaBreaches = paidOrders.filter((order) => {
+      const paidAtMs = new Date(order.paid_at || order.updated_at || order.created_at).getTime();
+      if (Number.isNaN(paidAtMs)) return false;
+      const ageHours = (nowMs - paidAtMs) / (1000 * 60 * 60);
+      return ageHours >= 24 && !order.activation_completed;
+    }).map((order) => ({
+      id: order.id,
+      customer_name: order.customer_name,
+      customer_email: order.customer_email,
+      age_hours: Math.round((nowMs - new Date(order.paid_at || order.updated_at || order.created_at).getTime()) / (1000 * 60 * 60)),
+      fulfillment_status: order.fulfillment_status,
+      activation_completed: order.activation_completed,
+    }));
     const users = (profiles || []).map(p => ({
       id: p.id,
       name: p.name || p.slug || 'Sin nombre',
@@ -637,9 +668,14 @@ export const api = {
         totalRevenue,
         pendingOrders,
         paidOrders: paidOrdersCount,
+        funnel,
+        operationalAlertsCount: operationalAlerts.length,
+        slaBreachesCount: slaBreaches.length,
       },
       users,
       recentOrders: (orders || []).slice(0, 5),
+      operationalAlerts: operationalAlerts.slice(0, 8),
+      slaBreaches: slaBreaches.slice(0, 8),
     };
   },
 
