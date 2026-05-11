@@ -305,6 +305,32 @@ Resultado funcional:
 Documentación específica:
 - `docs/SLA_ETAPAS_Y_TENDENCIA_FUNNEL_2026-05-11.md`
 
+### 2026-05-11 — alerta proactiva operativa
+Se agregó una capa de priorización automática sobre el dashboard admin para convertir excepciones observadas en una cola de ataque sugerida.
+
+Cambios concretos:
+- `src/services/api.js`
+  - `getAdminDashboard()` ahora agrupa excepciones en buckets operativos
+  - calcula `proactiveQueue` ordenada por severidad e impacto
+  - genera `proactiveSummary` con la prioridad principal del momento
+- `src/components/AdminDashboard.jsx`
+  - ahora muestra banner superior `Prioridad operativa ahora`
+  - ahora muestra bloque `Cola proactiva sugerida`
+
+Criterio de priorización implementado:
+1. `sla_breaches`
+2. `delivered_pending_activation`
+3. `advanced_without_card`
+4. `paid_without_production`
+5. `pending_claim_post_delivery`
+
+Resultado funcional:
+- el panel ya no solo muestra observabilidad, SLA y tendencia
+- ahora también propone el orden de ataque operativo más rentable
+
+Documentación específica:
+- `docs/ALERTA_PROACTIVA_OPERATIVA_2026-05-11.md`
+
 ---
 
 ## Stack

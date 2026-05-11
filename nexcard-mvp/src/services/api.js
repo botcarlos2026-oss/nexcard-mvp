@@ -703,6 +703,68 @@ export const api = {
         activated: dayOrders.filter((order) => order.activation_completed).length,
       };
     });
+    const alertBuckets = {
+      paid_without_production: operationalAlerts.filter((order) => order.alerts?.includes('Pagada sin entrar a producción')),
+      advanced_without_card: operationalAlerts.filter((order) => order.alerts?.includes('Orden avanzada sin card vinculada')),
+      delivered_pending_activation: operationalAlerts.filter((order) => order.alerts?.includes('Entregada sin activación cerrada')),
+      pending_claim_post_delivery: operationalAlerts.filter((order) => order.alerts?.includes('Claim pendiente post-entrega')),
+    };
+    const proactiveCandidates = [
+      {
+        key: 'sla_breaches',
+        title: 'SLA roto: órdenes pagadas sin cierre',
+        count: slaBreaches.length,
+        severity: slaBreaches.length >= 5 ? 'critical' : 'high',
+        action: 'Priorizar activación/cierre de órdenes con mayor aging.',
+      },
+      {
+        key: 'delivered_pending_activation',
+        title: 'Entregas sin activación final',
+        count: alertBuckets.delivered_pending_activation.length,
+        severity: alertBuckets.delivered_pending_activation.length >= 3 ? 'high' : 'medium',
+        action: 'Revisar claims y activación final antes de que escale soporte.',
+      },
+      {
+        key: 'advanced_without_card',
+        title: 'Órdenes avanzadas sin card vinculada',
+        count: alertBuckets.advanced_without_card.length,
+        severity: alertBuckets.advanced_without_card.length >= 2 ? 'high' : 'medium',
+        action: 'Corregir vínculo order-card para evitar quiebre del flujo físico.',
+      },
+      {
+        key: 'paid_without_production',
+        title: 'Pagos atrapados antes de producción',
+        count: alertBuckets.paid_without_production.length,
+        severity: alertBuckets.paid_without_production.length >= 3 ? 'high' : 'medium',
+        action: 'Mover a producción o corregir excepción operativa de origen.',
+      },
+      {
+        key: 'pending_claim_post_delivery',
+        title: 'Claims pendientes después de entrega',
+        count: alertBuckets.pending_claim_post_delivery.length,
+        severity: alertBuckets.pending_claim_post_delivery.length >= 3 ? 'medium' : 'low',
+        action: 'Empujar activación del cliente antes de enfriar la conversión.',
+      },
+    ].filter((item) => item.count > 0);
+    const severityRank = { critical: 4, high: 3, medium: 2, low: 1 };
+    const proactiveQueue = proactiveCandidates
+      .sort((a, b) => (severityRank[b.severity] - severityRank[a.severity]) || (b.count - a.count))
+      .slice(0, 5);
+    const proactiveSummary = proactiveQueue[0]
+      ? {
+          headline: proactiveQueue[0].title,
+          severity: proactiveQueue[0].severity,
+          count: proactiveQueue[0].count,
+          action: proactiveQueue[0].action,
+          secondary_count: proactiveQueue.slice(1).reduce((sum, item) => sum + item.count, 0),
+        }
+      : {
+          headline: 'Operación estable',
+          severity: 'ok',
+          count: 0,
+          action: 'Sin excepciones prioritarias en este momento.',
+          secondary_count: 0,
+        };
     const users = (profiles || []).map(p => ({
       id: p.id,
       name: p.name || p.slug || 'Sin nombre',
@@ -725,12 +787,15 @@ export const api = {
         operationalAlertsCount: operationalAlerts.length,
         slaBreachesCount: slaBreaches.length,
         stageSla,
+        proactiveSeverity: proactiveSummary.severity,
       },
       users,
       recentOrders: (orders || []).slice(0, 5),
       operationalAlerts: operationalAlerts.slice(0, 8),
       slaBreaches: slaBreaches.slice(0, 8),
       weeklyFunnelTrend,
+      proactiveSummary,
+      proactiveQueue,
     };
   },
 

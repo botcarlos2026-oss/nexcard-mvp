@@ -10,6 +10,7 @@ import {
   X,
   Siren,
   ShieldAlert,
+  BellRing,
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
 import { api } from '../services/api';
@@ -121,6 +122,8 @@ const AdminDashboard = ({ dashboard }) => {
   const operationalAlerts = dashboard?.operationalAlerts || [];
   const slaBreaches = dashboard?.slaBreaches || [];
   const weeklyFunnelTrend = dashboard?.weeklyFunnelTrend || [];
+  const proactiveSummary = dashboard?.proactiveSummary || null;
+  const proactiveQueue = dashboard?.proactiveQueue || [];
 
   const handleGlobalSearch = async (term) => {
     if (!term.trim()) { setGlobalResults(null); return; }
@@ -182,9 +185,39 @@ const AdminDashboard = ({ dashboard }) => {
   }, [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const proactiveTone = proactiveSummary?.severity === 'critical'
+    ? 'border-red-800 bg-red-950/30 text-red-200'
+    : proactiveSummary?.severity === 'high'
+      ? 'border-amber-800 bg-amber-950/30 text-amber-200'
+      : proactiveSummary?.severity === 'medium'
+        ? 'border-yellow-800 bg-yellow-950/30 text-yellow-200'
+        : 'border-emerald-800 bg-emerald-950/20 text-emerald-200';
 
   return (
     <AdminShell active="dashboard" title="NexCard Control Center" subtitle="Conversión, perfiles, pedidos y salud operativa desde un solo panel">
+      {proactiveSummary && (
+        <div className="mb-6">
+          <div className={`rounded-xl border px-5 py-4 ${proactiveTone}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <BellRing size={16} className="shrink-0" />
+                  <p className="text-xs uppercase tracking-widest font-bold opacity-80">Prioridad operativa ahora</p>
+                </div>
+                <p className="font-bold text-base">{proactiveSummary.headline}</p>
+                <p className="text-sm mt-1 opacity-90">
+                  {proactiveSummary.count > 0 ? `${proactiveSummary.count} caso(s) prioritarios.` : 'Sin casos prioritarios.'} {proactiveSummary.action}
+                </p>
+                {proactiveSummary.secondary_count > 0 && (
+                  <p className="text-xs mt-2 opacity-80">Además hay {proactiveSummary.secondary_count} caso(s) más en cola secundaria.</p>
+                )}
+              </div>
+              <a href="/admin/orders" className="text-xs font-bold underline underline-offset-2 shrink-0">Ir a órdenes</a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!lowStockDismissed && lowStockItems.length > 0 && (
         <div className="mb-6">
           <div className="flex items-start gap-3 rounded-xl border border-amber-800 bg-amber-950/40 px-5 py-4">
@@ -402,6 +435,37 @@ const AdminDashboard = ({ dashboard }) => {
           </div>
         </AdminCard>
       </div>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">Cola proactiva sugerida</h2>
+            <p className="text-sm text-zinc-400 font-medium">Orden de ataque sugerido según severidad e impacto operativo</p>
+          </div>
+          <BellRing size={20} className="text-amber-400" />
+        </div>
+        <div className="space-y-3">
+          {proactiveQueue.length === 0 ? (
+            <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm font-medium text-zinc-400">Sin cola prioritaria. La operación está limpia.</div>
+          ) : proactiveQueue.map((item, index) => (
+            <div key={item.key} className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-zinc-500 font-bold">Prioridad #{index + 1}</p>
+                  <p className="font-bold text-sm text-white mt-1">{item.title}</p>
+                  <p className="text-xs text-zinc-400 mt-2">{item.action}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-lg text-white">{item.count}</p>
+                  <AdminBadge variant={item.severity === 'critical' ? 'danger' : item.severity === 'high' ? 'warning' : item.severity === 'medium' ? 'info' : 'default'}>
+                    {item.severity}
+                  </AdminBadge>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </AdminCard>
 
       <div className="grid lg:grid-cols-[1.6fr,1fr] gap-6">
         {/* Tabla perfiles */}
