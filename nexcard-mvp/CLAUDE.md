@@ -231,6 +231,36 @@ Resultado final verificado en producción:
 - triggers operativos creados ✅
 - versión `202605110950` registrada en `supabase_migrations.schema_migrations` ✅
 
+### 2026-05-11 — smoke test funcional de observabilidad capa 2
+Se ejecutó un smoke test real en producción, pero con enfoque controlado y limpieza posterior.
+
+Método usado:
+- creación de orden sintética efímera
+- avance controlado por etapas usando el bypass interno `app.order_transition_bypass`
+- validación read-only por Management API
+- limpieza explícita de la orden y sus dependencias
+
+Orden usada:
+- `SMOKE OBS L2 2026-05-11T10:16`
+
+Resultado validado:
+- timestamps completos generados:
+  - `paid_at`
+  - `ready_at`
+  - `shipped_at`
+  - `delivered_at`
+  - `activated_at`
+- `order_operational_events` registró exactamente 5 hitos:
+  - `paid:payment_status_paid`
+  - `ready:fulfillment_ready`
+  - `shipped:fulfillment_shipped`
+  - `delivered:fulfillment_delivered`
+  - `activated:activation_completed`
+- limpieza final verificada con `remaining_orders = 0`
+
+Documentación específica:
+- `docs/SMOKE_TEST_OBSERVABILIDAD_CAPA2_2026-05-11.md`
+
 ---
 
 ## Stack
