@@ -338,12 +338,25 @@ Resultado de evidencia levantada:
 - consulta directa reciente a `orders` mostró órdenes nuevas `pending` con `mp_payment_id = NULL`
 - la preferencia de test creada en validación también quedó `pending` porque no se completó pago interactivo
 
+Intento operativo ejecutado:
+- se intentó redeploy real con:
+  - `supabase functions deploy mp-webhook --project-ref ghiremuuyprohdqfrxsy`
+- resultado:
+  - `401 Unauthorized` desde `https://api.supabase.com/v1/projects/ghiremuuyprohdqfrxsy/functions/deploy?slug=mp-webhook`
+- lectura operativa:
+  - el `SUPABASE_ACCESS_TOKEN` disponible en workspace no tiene permisos válidos vigentes para deploy, está vencido o fue revocado
+- consecuencia:
+  - el fix quedó **listo en repo y pushado**, pero **no confirmado en producción**
+- siguiente acción necesaria:
+  - renovar/rotar `SUPABASE_ACCESS_TOKEN` con permisos válidos y redeployar `mp-webhook`
+
 ---
 
 ## Pendientes para lanzamiento
 - [ ] Cambiar `MP_ACCESS_TOKEN` a credenciales de producción
 - [ ] Eliminar producto TEST-1 ($19.990)
 - [ ] Remover `console.log` de debug en `api.js`
+- [ ] Rotar/renovar `SUPABASE_ACCESS_TOKEN` con permisos válidos de deploy
 - [ ] Redeploy de `mp-webhook` con `verify_jwt = false` para permitir webhook real desde Mercado Pago
 - [ ] Validar pago aprobado end-to-end (sandbox o producción controlada) y confirmar cambio a `orders.payment_status = paid` + `mp_payment_id` persistido
 - [ ] Endurecer Edge Functions con `SUPABASE_SERVICE_ROLE_KEY` (JWT + rol admin explícito) donde aplique a funciones no públicas
