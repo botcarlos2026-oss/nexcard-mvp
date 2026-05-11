@@ -281,6 +281,30 @@ Regla SLA inicial:
 Documentación específica:
 - `docs/KPIS_ALERTAS_SLA_OBSERVABILIDAD_2026-05-11.md`
 
+### 2026-05-11 — SLA por etapa y tendencia semanal del funnel
+Se agregó una capa adicional de control operativo sobre el dashboard admin.
+
+Cambios concretos:
+- `src/services/api.js`
+  - `getAdminDashboard()` ahora calcula `stageSla` por etapa:
+    - `paid_to_ready`
+    - `ready_to_shipped`
+    - `shipped_to_delivered`
+    - `delivered_to_activated`
+  - además calcula `weeklyFunnelTrend` para una ventana móvil de 7 días
+- `src/components/AdminDashboard.jsx`
+  - ahora muestra cards con SLA promedio por etapa
+  - ahora muestra gráfico compacto con tendencia semanal del funnel
+- `src/components/ui/AdminStat.jsx`
+  - se extendieron acentos visuales para soportar nuevos estados de color (`blue`, `violet`, `fuchsia`)
+
+Resultado funcional:
+- el panel ahora muestra no solo volumen y alertas
+- también muestra velocidad de avance entre etapas y posible persistencia del cuello operacional
+
+Documentación específica:
+- `docs/SLA_ETAPAS_Y_TENDENCIA_FUNNEL_2026-05-11.md`
+
 ---
 
 ## Stack

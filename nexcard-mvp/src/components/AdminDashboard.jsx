@@ -59,6 +59,48 @@ const SalesChart = ({ orders }) => {
   );
 };
 
+const FunnelTrendChart = ({ data }) => {
+  const maxValue = Math.max(...data.flatMap((day) => [day.paid, day.ready, day.shipped, day.delivered, day.activated]), 1);
+  const stages = [
+    { key: 'paid', color: 'bg-emerald-500', label: 'Paid' },
+    { key: 'ready', color: 'bg-amber-500', label: 'Ready' },
+    { key: 'shipped', color: 'bg-sky-500', label: 'Shipped' },
+    { key: 'delivered', color: 'bg-violet-500', label: 'Delivered' },
+    { key: 'activated', color: 'bg-fuchsia-500', label: 'Activated' },
+  ];
+
+  return (
+    <div>
+      <div className="grid grid-cols-5 gap-2 mb-4 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+        {stages.map((stage) => (
+          <div key={stage.key} className="flex items-center gap-2">
+            <span className={`inline-block w-2 h-2 rounded-full ${stage.color}`} />
+            <span>{stage.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-3 items-end h-40">
+        {data.map((day) => (
+          <div key={day.label} className="flex flex-col items-center gap-2 h-full">
+            <div className="flex items-end gap-1 h-full w-full justify-center">
+              {stages.map((stage) => (
+                <div key={stage.key} className="w-3 h-full flex items-end">
+                  <div
+                    className={`w-full rounded-t ${stage.color}`}
+                    style={{ height: `${Math.max(((day[stage.key] || 0) / maxValue) * 100, day[stage.key] ? 8 : 0)}%` }}
+                    title={`${stage.label}: ${day[stage.key] || 0}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <span className="text-[10px] font-bold text-zinc-400 text-center leading-tight">{day.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const AdminDashboard = ({ dashboard }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [globalSearch, setGlobalSearch] = useState('');
@@ -78,6 +120,7 @@ const AdminDashboard = ({ dashboard }) => {
   const recentOrders = dashboard?.recentOrders || [];
   const operationalAlerts = dashboard?.operationalAlerts || [];
   const slaBreaches = dashboard?.slaBreaches || [];
+  const weeklyFunnelTrend = dashboard?.weeklyFunnelTrend || [];
 
   const handleGlobalSearch = async (term) => {
     if (!term.trim()) { setGlobalResults(null); return; }
@@ -119,6 +162,23 @@ const AdminDashboard = ({ dashboard }) => {
       { label: 'Delivered', value: funnel.delivered || 0, accent: 'emerald' },
       { label: 'Activated', value: funnel.activated || 0, accent: 'emerald' },
     ];
+  }, [statsSource]);
+
+  const stageSlaStats = useMemo(() => {
+    const stageSla = statsSource.stageSla || {};
+    return [
+      { key: 'paid_to_ready', label: 'Paid → Ready', accent: 'amber' },
+      { key: 'ready_to_shipped', label: 'Ready → Shipped', accent: 'blue' },
+      { key: 'shipped_to_delivered', label: 'Shipped → Delivered', accent: 'emerald' },
+      { key: 'delivered_to_activated', label: 'Delivered → Activated', accent: 'red' },
+    ].map((item) => {
+      const value = stageSla[item.key];
+      return {
+        ...item,
+        value: value?.avg_hours != null ? `${value.avg_hours}h` : '—',
+        hint: value?.sample_size ? `${value.sample_size} casos` : 'Sin muestra cerrada',
+      };
+    });
   }, [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -245,6 +305,23 @@ const AdminDashboard = ({ dashboard }) => {
           <AdminStat key={stat.label} label={stat.label} value={stat.value} accent={stat.accent} />
         ))}
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {stageSlaStats.map((stat) => (
+          <AdminStat key={stat.key} label={stat.label} value={stat.value} hint={stat.hint} accent={stat.accent} />
+        ))}
+      </div>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="font-bold text-lg text-white">Tendencia semanal del embudo</h2>
+            <p className="text-sm text-zinc-400 font-medium">Volumen diario por etapa para detectar cuellos persistentes</p>
+          </div>
+          <TrendingUp size={20} className="text-fuchsia-400" />
+        </div>
+        <FunnelTrendChart data={weeklyFunnelTrend.length ? weeklyFunnelTrend : [{ label: 'Sin data', paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 }]} />
+      </AdminCard>
 
       {/* Métricas conversión */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

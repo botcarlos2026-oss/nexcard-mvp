@@ -4,7 +4,10 @@ export default function AdminStat({ label, value, hint, accent }) {
   const valueClass =
     accent === 'emerald' ? 'text-emerald-400' :
     accent === 'amber'   ? 'text-amber-400'   :
-    accent === 'red'     ? 'text-red-400'      :
+    accent === 'red'     ? 'text-red-400'     :
+    accent === 'blue'    ? 'text-sky-400'     :
+    accent === 'violet'  ? 'text-violet-400'  :
+    accent === 'fuchsia' ? 'text-fuchsia-400' :
     'text-white';
 
   return (

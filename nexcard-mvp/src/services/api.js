@@ -650,6 +650,59 @@ export const api = {
       fulfillment_status: order.fulfillment_status,
       activation_completed: order.activation_completed,
     }));
+    const stageSlaRaw = {
+      paid_to_ready: [],
+      ready_to_shipped: [],
+      shipped_to_delivered: [],
+      delivered_to_activated: [],
+    };
+    paidOrders.forEach((order) => {
+      const paidAtMs = new Date(order.paid_at || order.updated_at || order.created_at).getTime();
+      const readyAtMs = order.ready_at ? new Date(order.ready_at).getTime() : NaN;
+      const shippedAtMs = order.shipped_at ? new Date(order.shipped_at).getTime() : NaN;
+      const deliveredAtMs = order.delivered_at ? new Date(order.delivered_at).getTime() : NaN;
+      const activatedAtMs = order.activated_at ? new Date(order.activated_at).getTime() : NaN;
+
+      if (!Number.isNaN(paidAtMs) && !Number.isNaN(readyAtMs) && readyAtMs >= paidAtMs) {
+        stageSlaRaw.paid_to_ready.push((readyAtMs - paidAtMs) / (1000 * 60 * 60));
+      }
+      if (!Number.isNaN(readyAtMs) && !Number.isNaN(shippedAtMs) && shippedAtMs >= readyAtMs) {
+        stageSlaRaw.ready_to_shipped.push((shippedAtMs - readyAtMs) / (1000 * 60 * 60));
+      }
+      if (!Number.isNaN(shippedAtMs) && !Number.isNaN(deliveredAtMs) && deliveredAtMs >= shippedAtMs) {
+        stageSlaRaw.shipped_to_delivered.push((deliveredAtMs - shippedAtMs) / (1000 * 60 * 60));
+      }
+      if (!Number.isNaN(deliveredAtMs) && !Number.isNaN(activatedAtMs) && activatedAtMs >= deliveredAtMs) {
+        stageSlaRaw.delivered_to_activated.push((activatedAtMs - deliveredAtMs) / (1000 * 60 * 60));
+      }
+    });
+    const stageSla = Object.fromEntries(
+      Object.entries(stageSlaRaw).map(([key, values]) => {
+        const avgHours = values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)) : null;
+        return [key, { avg_hours: avgHours, sample_size: values.length }];
+      })
+    );
+    const weeklyFunnelTrend = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - (6 - index));
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+
+      const dayOrders = paidOrders.filter((order) => {
+        const createdAt = new Date(order.created_at).getTime();
+        return createdAt >= date.getTime() && createdAt < nextDate.getTime();
+      });
+
+      return {
+        label: date.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' }),
+        paid: dayOrders.length,
+        ready: dayOrders.filter((order) => ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status)).length,
+        shipped: dayOrders.filter((order) => ['shipped', 'delivered'].includes(order.fulfillment_status)).length,
+        delivered: dayOrders.filter((order) => order.fulfillment_status === 'delivered').length,
+        activated: dayOrders.filter((order) => order.activation_completed).length,
+      };
+    });
     const users = (profiles || []).map(p => ({
       id: p.id,
       name: p.name || p.slug || 'Sin nombre',
@@ -671,11 +724,13 @@ export const api = {
         funnel,
         operationalAlertsCount: operationalAlerts.length,
         slaBreachesCount: slaBreaches.length,
+        stageSla,
       },
       users,
       recentOrders: (orders || []).slice(0, 5),
       operationalAlerts: operationalAlerts.slice(0, 8),
       slaBreaches: slaBreaches.slice(0, 8),
+      weeklyFunnelTrend,
     };
   },
 
