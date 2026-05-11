@@ -265,7 +265,7 @@ const deriveOrderObservability = ({ order, claim, relatedCards }) => {
   const programmedCardsCount = relatedCards.filter((card) => card.nfc_url || card.programmed_at || card.status === 'programmed').length;
   const assignedCardsCount = relatedCards.filter((card) => card.profile_id || card.activation_status === 'assigned').length;
   const activationClaimed = claim?.status === 'claimed';
-  const activationCompleted = activeCardsCount > 0 || activationClaimed;
+  const activationCompleted = Boolean(order.activated_at) || activeCardsCount > 0 || activationClaimed;
   const paymentPaid = order.payment_status === 'paid';
   const deliveryReady = paymentPaid && ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status);
   const cardLifecycleReady = relatedCards.length > 0;
@@ -306,13 +306,13 @@ const deriveOrderObservability = ({ order, claim, relatedCards }) => {
     terminalState = 'cancelled';
   }
 
-  const activationLastAt = claim?.status === 'claimed'
+  const activationLastAt = order.activated_at || (claim?.status === 'claimed'
     ? claim.updated_at
     : relatedCards
       .map((card) => card.activated_at)
       .filter(Boolean)
       .sort()
-      .slice(-1)[0] || null;
+      .slice(-1)[0]) || null;
 
   return {
     related_cards: relatedCards,

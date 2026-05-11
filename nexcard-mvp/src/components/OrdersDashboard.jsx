@@ -101,13 +101,13 @@ const deriveFunnelReached = (order) => ({
 
 const deriveTraceabilityMoments = (order) => {
   const payments = order.payments || [];
-  const paidAt = payments.find((payment) => payment?.paid_at)?.paid_at || order.paidAt || null;
+  const paidAt = order.paid_at || payments.find((payment) => payment?.paid_at)?.paid_at || order.paidAt || null;
   return [
     { key: 'paid', label: 'Paid', at: paidAt, done: order.payment_status === 'paid' },
-    { key: 'ready', label: 'Ready', at: null, done: ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status) },
+    { key: 'ready', label: 'Ready', at: order.ready_at || null, done: ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status) },
     { key: 'shipped', label: 'Shipped', at: order.shipped_at || null, done: ['shipped', 'delivered'].includes(order.fulfillment_status) },
     { key: 'delivered', label: 'Delivered', at: order.delivered_at || null, done: order.fulfillment_status === 'delivered' },
-    { key: 'activated', label: 'Activated', at: order.activation_last_at || null, done: order.activation_completed },
+    { key: 'activated', label: 'Activated', at: order.activated_at || order.activation_last_at || null, done: order.activation_completed },
   ];
 };
 

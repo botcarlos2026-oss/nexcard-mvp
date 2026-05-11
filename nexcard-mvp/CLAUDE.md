@@ -176,6 +176,34 @@ Validación de esta capa:
 - `npm run lint` ✅
 - `npm run build` ✅
 
+### 2026-05-11 — observabilidad capa 2 server-side
+Se endureció la trazabilidad operativa en backend para que el funnel post-pago deje huella formal aunque el cambio venga desde webhook, trigger, claim o panel admin.
+
+Cambios concretos:
+- nueva migración:
+  - `supabase/migrations/202605110950_second_layer_order_observability.sql`
+- nuevas columnas en `orders`:
+  - `paid_at`
+  - `ready_at`
+  - `activated_at`
+- nueva tabla:
+  - `public.order_operational_events`
+- nuevos helpers / triggers server-side:
+  - `log_order_operational_event(...)`
+  - `mark_order_activated(...)`
+  - trigger de timestamps operativos sobre `orders`
+  - trigger de eventos operativos sobre `orders`
+  - trigger que marca activación desde `cards`
+  - trigger que marca activación desde `profile_claims`
+- backfill histórico incluido para poblar timestamps cuando existía evidencia previa
+- la UI pasa a privilegiar timestamps formales (`paid_at`, `ready_at`, `activated_at`) por sobre inferencia blanda
+- documentación específica creada en:
+  - `docs/OBSERVABILIDAD_CAPA2_SERVER_SIDE_2026-05-11.md`
+
+Validación de esta capa:
+- `npm run lint` ✅
+- `npm run build` ✅
+
 ---
 
 ## Stack
