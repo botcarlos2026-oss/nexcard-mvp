@@ -352,13 +352,33 @@ Intento operativo ejecutado:
 - estado operativo final:
   - el fix ya no quedó solo en repo; quedó **desplegado**
 
+Validación posterior al deploy:
+- `POST https://ghiremuuyprohdqfrxsy.supabase.co/functions/v1/mp-webhook` sin JWT ahora responde `200 ok`
+- eso confirma que el endpoint público del webhook quedó accesible para Mercado Pago
+
+Límite actual de validación end-to-end:
+- no hay `MP_ACCESS_TOKEN` visible en workspace local para invocar APIs de pago directamente
+- no hay browser automation disponible en esta sesión para completar el checkout sandbox interactivo dentro de Mercado Pago
+- por eso **no se pudo cerrar automáticamente** el tramo final `payment approved -> webhook real -> orders.payment_status = paid`
+- sí quedó validado todo lo demás del camino:
+  - orden real creada
+  - preferencia real creada
+  - webhook desplegado y público
+  - retorno frontend corregido y probado
+
+Evidencia adicional levantada:
+- no se encontraron filas útiles en `payments` con `external_id` / payment id reutilizable para reinyectar webhook histórico
+- existen órdenes históricas en `paid`, pero sin `mp_payment_id`, por lo que no sirven como prueba reproducible de re-disparo del webhook
+
 ---
 
 ## Pendientes para lanzamiento
 - [ ] Cambiar `MP_ACCESS_TOKEN` a credenciales de producción
 - [ ] Eliminar producto TEST-1 ($19.990)
 - [ ] Remover `console.log` de debug en `api.js`
-- [ ] Validar pago aprobado end-to-end (sandbox o producción controlada) y confirmar cambio a `orders.payment_status = paid` + `mp_payment_id` persistido
+- [ ] Ejecutar pago aprobado end-to-end desde sandbox/producción controlada con interacción humana o browser automation
+- [ ] Confirmar cambio a `orders.payment_status = paid` + `mp_payment_id` persistido
+- [ ] Confirmar creación/trigger del flujo post-pago asociado (claim / activación / email) sobre un caso real aprobado
 - [ ] Endurecer Edge Functions con `SUPABASE_SERVICE_ROLE_KEY` (JWT + rol admin explícito) donde aplique a funciones no públicas
 - [ ] Seguir partiendo `src/services/api.js` por dominio
 - [ ] Panel configuración Google Reviews Card (NexReview)
