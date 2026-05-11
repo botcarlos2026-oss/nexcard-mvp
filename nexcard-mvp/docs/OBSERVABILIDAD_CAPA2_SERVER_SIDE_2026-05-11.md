@@ -90,6 +90,22 @@ Migración creada en:
 ## Validación ejecutada
 - `npm run lint` ✅
 - `npm run build` ✅
+- precheck remoto por Management API read-only ✅
+- aplicación remota puntual de la migración ✅
+- verificación de columnas / funciones / triggers / registro de versión ✅
+
+## Ejecución real en producción
+Se aplicó con cautela directamente sobre el proyecto productivo usando Supabase Management API, evitando `supabase db push` porque el remoto no tenía alineado todo el historial antiguo de migraciones locales.
+
+Incidencia encontrada durante la ejecución:
+- el primer intento falló porque la migración asumía `payments.paid_at`
+- en producción, `payments` no tiene esa columna
+- se corrigió el backfill para usar `order_status_history` y fallback por `orders.updated_at`
+- tras eso, la migración aplicó correctamente
+
+Observación importante:
+- el endpoint remoto aplicó el SQL pero no dejó registrada automáticamente la versión `202605110950` en `supabase_migrations.schema_migrations`
+- se registró manualmente esa versión para evitar drift futuro en el historial
 
 ## Resultado ejecutivo
 Con esta capa, NexCard ya no depende solo del frontend para entender el post-pago.

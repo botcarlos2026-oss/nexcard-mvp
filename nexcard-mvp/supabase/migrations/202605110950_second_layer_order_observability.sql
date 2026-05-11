@@ -38,22 +38,35 @@ with check (public.has_role('admin'));
 update public.orders o
 set paid_at = coalesce(
   o.paid_at,
-  p.first_paid_at,
+  h.first_paid_at,
   case when o.payment_status = 'paid' then coalesce(o.updated_at, o.created_at, now()) else null end
 )
 from (
-  select order_id, min(paid_at) as first_paid_at
-  from public.payments
-  where paid_at is not null
+  select order_id, min(changed_at) as first_paid_at
+  from public.order_status_history
+  where field = 'payment_status'
+    and new_value = 'paid'
   group by order_id
-) p
-where o.id = p.order_id
+) h
+where o.id = h.order_id
   and o.paid_at is null;
 
 update public.orders
 set paid_at = coalesce(updated_at, created_at, now())
 where paid_at is null
   and payment_status = 'paid';
+
+update public.orders o
+set ready_at = coalesce(o.ready_at, h.first_ready_at, o.shipped_at, o.delivered_at, o.updated_at, o.created_at, now())
+from (
+  select order_id, min(changed_at) as first_ready_at
+  from public.order_status_history
+  where field = 'fulfillment_status'
+    and new_value = 'ready'
+  group by order_id
+) h
+where o.id = h.order_id
+  and o.ready_at is null;
 
 update public.orders
 set ready_at = coalesce(ready_at, shipped_at, delivered_at, updated_at, created_at, now())

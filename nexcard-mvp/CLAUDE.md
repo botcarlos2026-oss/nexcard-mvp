@@ -204,6 +204,33 @@ Validación de esta capa:
 - `npm run lint` ✅
 - `npm run build` ✅
 
+### 2026-05-11 — ejecución cautelosa de migración en Supabase
+Se aplicó **remotamente** la migración `202605110950_second_layer_order_observability.sql` en el proyecto productivo `ghiremuuyprohdqfrxsy`, pero **sin usar `supabase db push`**, para evitar arrastrar el backlog histórico de migraciones locales que todavía no estaba íntegramente registrado en remoto.
+
+Método usado:
+- validación previa por Management API read-only
+- aplicación puntual por endpoint de migraciones de Supabase Management API
+- validación posterior de:
+  - columnas nuevas en `orders`
+  - tabla `order_operational_events`
+  - funciones `mark_order_activated` / `log_order_operational_event`
+  - triggers server-side esperados
+- registro manual de la versión en `supabase_migrations.schema_migrations`
+
+Incidencia detectada durante la aplicación:
+- el SQL original intentó backfill desde `payments.paid_at`
+- la tabla `payments` remota no tiene columna `paid_at`
+- se corrigió la migración para backfill desde `order_status_history` + fallback por `orders.updated_at`
+- luego la migración aplicó correctamente
+
+Resultado final verificado en producción:
+- `orders.paid_at` ✅
+- `orders.ready_at` ✅
+- `orders.activated_at` ✅
+- `public.order_operational_events` ✅
+- triggers operativos creados ✅
+- versión `202605110950` registrada en `supabase_migrations.schema_migrations` ✅
+
 ---
 
 ## Stack
