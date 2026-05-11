@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Mail, Users, UserMinus, BarChart2, Send, Clock, Download, Eye, X, ShoppingCart } from 'lucide-react';
+import { Users, BarChart2, Send, Clock, Download, Eye, X, ShoppingCart } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { api } from '../services/api';
 import { templateShipping, templateFollowup, templateUpsell, templateWaitlistLaunch } from '../utils/emailTemplates';

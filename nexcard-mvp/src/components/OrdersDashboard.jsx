@@ -1,11 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Package,
-  DollarSign,
   Clock3,
   Search,
   Filter,
-  Receipt,
   AlertCircle,
   CheckCircle2,
   Loader2,
@@ -26,7 +23,7 @@ import { generateCardSVG } from '../utils/cardTemplates';
 import AdminShell from './AdminShell';
 import AdminCard from './ui/AdminCard';
 import AdminStat from './ui/AdminStat';
-import { Table, THead, TH, TR, TD } from './ui/AdminTable';
+import { TH, TR, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
 
 const currency = (cents) => {
@@ -96,8 +93,7 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [checklistDone, setChecklistDone] = useState(Array(5).fill(false));
   const [orderHistory, setOrderHistory] = useState({});
 
-  const loadOrderHistory = async (orderId) => {
-    if (orderHistory[orderId]) return;
+  const loadOrderHistory = useCallback(async (orderId) => {
     try {
       const { supabase } = await import('../services/supabaseClient');
       const { data } = await supabase
@@ -110,7 +106,7 @@ const OrdersDashboard = ({ orders = [] }) => {
     } catch (err) {
       console.warn('History error:', err);
     }
-  };
+  }, []);
   const [refundByOrder, setRefundByOrder] = useState({});
   const [refundForm, setRefundForm] = useState({ reason: 'Producto defectuoso', amount_cents: '', notes: '' });
   const [refundBusy, setRefundBusy] = useState(false);
@@ -123,7 +119,7 @@ const OrdersDashboard = ({ orders = [] }) => {
     const incoming = orders.filter(o => new Date(o.created_at) > lastChecked);
     setNewOrdersCount(incoming.length);
     setRows(orders);
-  }, [orders]);
+  }, [orders, lastChecked]);
 
   // Auto-refresh cada 30 segundos
   useEffect(() => {
@@ -223,9 +219,21 @@ const OrdersDashboard = ({ orders = [] }) => {
 
       return haystack.includes(term);
     });
-  }, [normalizedOrders, searchTerm, paymentFilter, fulfillmentFilter]);
+  }, [normalizedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter]);
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedOrderId) || filteredOrders[0] || null;
+
+  const loadSlugForOrder = useCallback(async (order) => {
+    setNfcSlugLoading(true);
+    try {
+      const slug = await api.getProfileSlugForOrder(order.id, order.customer_email);
+      if (slug) setNfcSlug(slug);
+    } catch (_) {
+      // slug queda vacío, el admin lo ingresa manualmente
+    } finally {
+      setNfcSlugLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!selectedOrder) {
@@ -259,7 +267,7 @@ const OrdersDashboard = ({ orders = [] }) => {
         if (r) setRefundByOrder(prev => ({ ...prev, [selectedOrder.id]: r }));
       }).catch(() => {});
     }
-  }, [selectedOrderId, selectedOrder?.id]);
+  }, [selectedOrder, loadOrderHistory, loadSlugForOrder, refundByOrder]);
 
   const updateOrderField = async (orderId, payload, successMessage) => {
     setBusyOrderId(orderId);
@@ -296,18 +304,6 @@ const OrdersDashboard = ({ orders = [] }) => {
       setFeedback({ type: 'error', message: error.message || 'No fue posible vincular la tarjeta a la orden.' });
     } finally {
       setBusyOrderId(null);
-    }
-  };
-
-  const loadSlugForOrder = async (order) => {
-    setNfcSlugLoading(true);
-    try {
-      const slug = await api.getProfileSlugForOrder(order.id, order.customer_email);
-      if (slug) setNfcSlug(slug);
-    } catch (_) {
-      // slug queda vacío, el admin lo ingresa manualmente
-    } finally {
-      setNfcSlugLoading(false);
     }
   };
 
@@ -1089,7 +1085,6 @@ const OrdersDashboard = ({ orders = [] }) => {
                 {(() => {
                   const completedCount = checklistDone.filter(Boolean).length;
                   const allDone = completedCount === DISPATCH_CHECKLIST.length;
-                  const canDispatch = allDone && draftShipping.tracking_code.trim().length > 0;
                   return (
                     <div className="rounded-xl bg-zinc-900 border border-zinc-700 p-3 space-y-3">
                       <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Checklist pre-despacho</p>

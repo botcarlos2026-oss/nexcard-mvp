@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useCart } from '../store/cartStore';
 import { api } from '../services/api';
 import { ArrowLeft, ShieldCheck, AlertCircle, Tag } from 'lucide-react';
@@ -8,7 +8,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const { items, getTotalCents, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('mercado-pago');
+  const [paymentMethod] = useState('mercado-pago');
   const [abandonedCartId, setAbandonedCartId] = useState(null);
   const [couponCode, setCouponCode] = useState(() => new URLSearchParams(window.location.search).get('coupon') || '');
   const [couponData, setCouponData] = useState(null);
@@ -109,12 +109,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
   const totalCents = getTotalCents();
 
-  useEffect(() => {
-    const urlCoupon = new URLSearchParams(window.location.search).get('coupon');
-    if (urlCoupon) validateCoupon(urlCoupon);
-  }, []);
-
-  const validateCoupon = async (code) => {
+  const validateCoupon = useCallback(async (code) => {
     const trimmed = (code || couponCode).trim().toUpperCase();
     if (!trimmed) return;
     setCouponLoading(true);
@@ -133,7 +128,12 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     } finally {
       setCouponLoading(false);
     }
-  };
+  }, [couponCode]);
+
+  useEffect(() => {
+    const urlCoupon = new URLSearchParams(window.location.search).get('coupon');
+    if (urlCoupon) validateCoupon(urlCoupon);
+  }, [validateCoupon]);
 
   const getDiscountCents = () => {
     if (!couponData) return 0;

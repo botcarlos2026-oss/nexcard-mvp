@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { 
   Zap, 
-  ChevronRight, 
   User, 
   Palette, 
   Link as LinkIcon,

@@ -38,16 +38,16 @@ function pickWinner(prizes) {
 }
 
 function ConfettiParticles() {
-  const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#EF4444'];
-  const particles = useMemo(() =>
-    Array.from({ length: 36 }, (_, i) => ({
+  const particles = useMemo(() => {
+    const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#EF4444'];
+    return Array.from({ length: 36 }, (_, i) => ({
       id: i,
       left: `${5 + (i * 2.7) % 90}%`,
       color: COLORS[i % COLORS.length],
       delay: `${(i * 0.08) % 1}s`,
       size: 6 + (i % 4) * 2,
-    }))
-  , []);
+    }));
+  }, []);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">

@@ -1,14 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import {
-  Users,
   TrendingUp,
   Eye,
   MousePointer2,
   QrCode,
-  Package,
-  DollarSign,
-  ShoppingCart,
-  CheckCircle2,
   BarChart2,
   Search,
   AlertTriangle,
@@ -19,7 +14,7 @@ import { api } from '../services/api';
 import AdminShell from './AdminShell';
 import AdminCard from './ui/AdminCard';
 import AdminStat from './ui/AdminStat';
-import { Table, THead, TH, TR, TD } from './ui/AdminTable';
+import { TH, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
 
 const SalesChart = ({ orders }) => {
@@ -77,7 +72,7 @@ const AdminDashboard = ({ dashboard }) => {
   }, []);
 
   const users = dashboard?.users || [];
-  const statsSource = dashboard?.stats || {};
+  const statsSource = useMemo(() => dashboard?.stats || {}, [dashboard]);
   const recentOrders = dashboard?.recentOrders || [];
 
   const handleGlobalSearch = async (term) => {

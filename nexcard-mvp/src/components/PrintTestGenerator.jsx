@@ -1,7 +1,5 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import AdminShell from './AdminShell';
-
-const SAFE_MARGIN = '3mm';
 
 const card1Svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 856 540" width="856" height="540">
   <rect width="856" height="540" fill="white"/>

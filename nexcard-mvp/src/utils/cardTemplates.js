@@ -10,8 +10,6 @@ export function generateCardSVG(template, data = {}) {
   const color = primaryColor || '#10B981';
   const esc = (str) => String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-  const watermark = `<text x="330" y="210" text-anchor="end" font-family="sans-serif" font-size="9" opacity="0.4" fill="currentColor">NexCard</text>`;
-
   if (template === 'dark') {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 216">
   <rect width="340" height="216" fill="#09090B" rx="0"/>

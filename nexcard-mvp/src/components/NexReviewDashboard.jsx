@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { Star, Link2, CheckCircle2, AlertCircle, Loader2, Search, ExternalLink, ToggleLeft, ToggleRight } from 'lucide-react';
-import { api } from '../services/api';
 import { supabase } from '../services/supabaseClient';
 
 const formatDate = (value) => {

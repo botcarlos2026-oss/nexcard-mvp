@@ -52,7 +52,6 @@ function App() {
   // Checkout state
   const [checkoutStep, setCheckoutStep] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
-  const [paymentResult, setPaymentResult] = useState(null);
   const [pendingClaimToken, setPendingClaimTokenState] = useState(() => getPendingClaimToken());
   const { getTotalItems } = useCart();
 
@@ -125,7 +124,6 @@ function App() {
     const orderId = params.get('order');
     if (payment && orderId) {
       window.history.replaceState({}, '', '/');
-      setPaymentResult(payment);
       setCurrentOrder({ id: orderId, payment_status: payment === 'success' ? 'paid' : 'pending' });
       setCheckoutStep('confirmation');
     }

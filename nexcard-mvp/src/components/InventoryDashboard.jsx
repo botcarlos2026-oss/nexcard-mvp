@@ -2,9 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import {
   Package,
   Printer,
-  ShoppingCart,
   AlertTriangle,
-  BarChart3,
   Settings,
   Plus,
   ArrowDownCircle,

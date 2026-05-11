@@ -52,7 +52,6 @@ const NexCardProfile = ({ data }) => {
   const profileContext = `${data.profession || ''} ${data.bio || ''} ${data.company || ''}`.toLowerCase();
   const hasWhatsapp = data.whatsapp_enabled !== false && !!data.whatsapp;
   const hasPhone = data.contact_phone_enabled !== false && !!data.contact_phone;
-  const hasEmail = data.contact_email_enabled !== false && !!data.contact_email;
   const hasWebsite = data.website_enabled !== false && !!websiteValue;
   const hasCalendar = data.calendar_url_enabled !== false && !!data.calendar_url;
   const hasPortfolio = data.portfolio_enabled !== false && !!data.portfolio_url;

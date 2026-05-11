@@ -484,11 +484,12 @@ export const api = {
       .select('*')
       .order('created_at', { ascending: true });
     if (itemsError) throw new Error(itemsError.message);
-    const { data: movements, error: movErr } = await supabase
+    const { data: movements, error: movementsError } = await supabase
       .from('inventory_movements')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50);
+    if (movementsError) throw new Error(movementsError.message);
     return { items: items || [], movements: movements || [] };
   },
 

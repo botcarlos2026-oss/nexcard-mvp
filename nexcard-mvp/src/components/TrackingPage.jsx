@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Package, MapPin, CheckCircle2, Clock, Truck, AlertCircle, ArrowLeft, Loader2, ExternalLink } from 'lucide-react';
+import { Package, MapPin, CheckCircle2, Clock, Truck, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 
 const CARRIER_NAMES = {
   blueexpress: 'BlueExpress',

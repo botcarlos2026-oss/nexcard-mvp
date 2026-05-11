@@ -1,4 +1,3 @@
-import { trackClick } from '../utils/analyticsEngine';
 import { imageUrlToBase64 } from '../utils/imageEngine';
 
 export const generateVCard = async (data) => {

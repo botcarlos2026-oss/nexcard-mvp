@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import AdminShell from './AdminShell';
 import AdminStat from './ui/AdminStat';
@@ -13,8 +13,6 @@ const STAGES = [
   { key: 'cerrado_ganado',  label: 'Ganado',       color: 'bg-emerald-100 text-emerald-700',dot: 'bg-emerald-400' },
   { key: 'cerrado_perdido', label: 'Perdido',      color: 'bg-rose-100 text-rose-700',      dot: 'bg-rose-400' },
 ];
-
-const stageMap = Object.fromEntries(STAGES.map(s => [s.key, s]));
 
 const daysSince = (iso) => {
   if (!iso) return 0;
@@ -46,7 +44,7 @@ export default function CRMDashboard() {
   useEffect(() => {
     if (!selected) return;
     api.getCRMActivities(selected.id).then(r => setActivities(r.activities || [])).catch(() => {});
-  }, [selected?.id]);
+  }, [selected]);
 
   const handleDrop = async (stageKey, e) => {
     e.preventDefault();
