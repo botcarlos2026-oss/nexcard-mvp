@@ -473,11 +473,135 @@ Sin pago real de Mercado Pago todavía, los riesgos más caros después del cobr
 - admin tiene guardrails algo más serios
 - mobile checkout muestra mejor el contexto de compra
 
-Lo que sigue siendo estructural y no cosmético:
+Lo que seguía siendo estructural y no cosmético en ese punto:
 - transición server-side de estados de orden
 - despacho realmente atómico
 - política clara de carriers soportados
 - cierre real de `profile_claims` con un pago aprobado
+
+---
+
+## Blindaje server-side de órdenes + despacho atómico — 2026-05-10
+
+### Objetivo
+Cerrar el hueco operativo detectado en `/admin/orders`:
+- no depender de updates directos del cliente para mover estados sensibles
+- impedir saltos arbitrarios (`new -> delivered`, etc.)
+- hacer que el despacho con descuento de stock ocurra como una sola unidad transaccional en DB
+
+### Implementación aplicada
+#### 1. RPC protegida para transiciones de estado
+**Archivo:** `supabase/migrations/202605102310_order_transition_guards.sql`
+
+Se creó:
+- `public.admin_transition_order_state(...)`
+
+Comportamiento:
+- exige rol `admin` o `service_role`
+- valida transiciones permitidas de `payment_status`
+- valida transiciones permitidas de `fulfillment_status`
+- prohíbe pasar a `shipped` por el flujo genérico
+- obliga a usar despacho dedicado para ese salto
+- exige pago `paid` antes de avanzar a `in_production`, `ready`, `shipped`, `delivered`
+- registra historial en `order_status_history`
+
+Matriz práctica que quedó protegida:
+- `pending -> paid|failed|cancelled`
+- `failed -> pending|cancelled`
+- `paid -> refunded`
+- `new -> in_production|cancelled`
+- `in_production -> ready|cancelled`
+- `ready -> cancelled` (para `shipped`, usar RPC de despacho)
+- `shipped -> delivered`
+
+#### 2. RPC protegida para despacho atómico
+**Archivo:** `supabase/migrations/202605102310_order_transition_guards.sql`
+
+Se creó:
+- `public.admin_dispatch_order(...)`
+
+Comportamiento:
+- exige rol `admin` o `service_role`
+- exige orden `paid`
+- exige orden en `fulfillment_status = ready`
+- valida carrier permitido
+- valida formato de tracking
+- bloquea doble descuento si `inventory_decremented = true`
+- valida stock de todos los SKUs activos en `dispatch_config` antes de tocar la orden
+- descuenta stock + registra `inventory_movements`
+- actualiza orden a `shipped`
+- marca:
+  - `inventory_reserved = true`
+  - `inventory_decremented = true`
+- registra historial de cambios
+
+Resultado:
+- ya no existe la ventana donde la orden queda `shipped` pero el stock falla después en una segunda operación separada del cliente
+
+#### 3. Trigger de guardia en tabla `orders`
+**Archivo:** `supabase/migrations/202605102320_orders_sensitive_update_guard.sql`
+
+Se creó:
+- `public.guard_orders_sensitive_updates()`
+- trigger `trg_guard_orders_sensitive_updates`
+
+Comportamiento:
+- bloquea updates directos sobre campos sensibles si no vienen por bypass interno controlado o `service_role`
+- campos protegidos:
+  - `payment_status`
+  - `fulfillment_status`
+  - `carrier`
+  - `tracking_code`
+  - `shipped_at`
+  - `delivered_at`
+  - `inventory_reserved*`
+  - `inventory_decremented*`
+
+Esto evita que incluso un admin con acceso directo al cliente termine saltándose los RPCs protegidos con un `.update(...)` trivial.
+
+#### 4. Frontend/admin alineado al nuevo flujo
+**Archivos:**
+- `src/services/api.js`
+- `src/components/OrdersDashboard.jsx`
+
+Cambios:
+- `api.transitionOrderState(...)` usa el RPC protegido
+- `api.dispatchOrder(...)` usa el RPC atómico
+- `api.updateOrder(...)` rechaza updates directos de campos sensibles
+- `/admin/orders` ahora ofrece solo transiciones permitidas en selects/botones
+- cuando la orden está `ready`, el panel avisa explícitamente que para `shipped` se debe usar el módulo de despacho
+
+### Aplicación real en producción
+Se aplicó directamente sobre la base remota con ejecución SQL controlada (no con `db push`, porque el historial local/remoto de migraciones está desalineado y el CLI intentaba arrastrar archivos viejos no aplicados en el repo local).
+
+Versiones registradas en `supabase_migrations.schema_migrations`:
+- `202605102310_order_transition_guards`
+- `202605102320_orders_sensitive_update_guard`
+
+### Evidencia de validación
+#### Gate de build/lint
+- `npm run lint ...` → OK
+- `npm run build` → OK
+
+#### Prueba real contra DB remota
+Se creó una orden QA temporal y se validó:
+1. **update directo bloqueado**
+   - intento: `update orders set payment_status='paid' ...`
+   - resultado: error `Los campos sensibles de órdenes solo pueden cambiarse mediante RPCs protegidos`
+2. **RPC protegida sí funciona**
+   - `admin_transition_order_state(..., 'paid', ...)` → OK
+   - `admin_transition_order_state(..., ..., 'in_production', ...)` → OK
+   - `admin_transition_order_state(..., ..., 'ready', ...)` → OK
+3. **despacho exige precondiciones**
+   - `admin_dispatch_order(...)` antes de `ready` → bloqueado con `Solo puedes despachar órdenes en estado ready`
+4. **cleanup**
+   - la orden QA temporal se eliminó después de la validación
+
+### Resultado ejecutivo
+Este punto sí quedó resuelto en el core del sistema:
+- las transiciones sensibles ya no dependen del navegador
+- el despacho ya no puede partir por un lado y descontar stock por otro
+- el cliente/admin ya no puede saltarse el flujo correcto con updates triviales
 
 ## Pendientes para lanzamiento
 - [ ] Cambiar `MP_ACCESS_TOKEN` a credenciales de producción

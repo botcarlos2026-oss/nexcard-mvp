@@ -39,8 +39,24 @@ const formatLabel = (value) => (value ? String(value).replace(/_/g, ' ') : '—'
 const FULFILLMENT_NEXT = {
   new: 'in_production',
   in_production: 'ready',
-  ready: 'shipped',
   shipped: 'delivered',
+};
+
+const PAYMENT_TRANSITIONS = {
+  pending: ['paid', 'failed', 'cancelled'],
+  failed: ['pending', 'cancelled'],
+  paid: ['refunded'],
+  cancelled: [],
+  refunded: [],
+};
+
+const FULFILLMENT_TRANSITIONS = {
+  new: ['in_production', 'cancelled'],
+  in_production: ['ready', 'cancelled'],
+  ready: ['cancelled'],
+  shipped: ['delivered'],
+  delivered: [],
+  cancelled: [],
 };
 
 const formatDate = (value) => {
@@ -278,6 +294,20 @@ const OrdersDashboard = ({ orders = [] }) => {
       setFeedback({ type: 'success', message: successMessage });
     } catch (error) {
       setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la orden.' });
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const transitionOrderState = async (orderId, payload, successMessage) => {
+    setBusyOrderId(orderId);
+    setFeedback({ type: '', message: '' });
+    try {
+      const response = await api.transitionOrderState(orderId, payload);
+      setRows(response.orders || []);
+      setFeedback({ type: 'success', message: successMessage });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message || 'No fue posible cambiar el estado de la orden.' });
     } finally {
       setBusyOrderId(null);
     }
@@ -574,7 +604,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                         {order.payment_status !== 'paid' && (
                           <button
                             type="button"
-                            onClick={() => updateOrderField(order.id, { payment_status: 'paid' }, `Orden ${order.id} marcada como pagada.`)}
+                            onClick={() => transitionOrderState(order.id, { payment_status: 'paid', reason: 'Marcada manualmente como pagada desde admin' }, `Orden ${order.id} marcada como pagada.`)}
                             disabled={busyOrderId === order.id}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-950/40 border border-emerald-800 text-emerald-400 text-[10px] font-bold hover:bg-emerald-950/70 transition-colors disabled:opacity-50"
                           >
@@ -592,7 +622,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                         {FULFILLMENT_NEXT[order.fulfillment_status] && (
                           <button
                             type="button"
-                            onClick={() => updateOrderField(order.id, { fulfillment_status: FULFILLMENT_NEXT[order.fulfillment_status] }, `Orden ${order.id} avanzada a ${formatLabel(FULFILLMENT_NEXT[order.fulfillment_status])}.`)}
+                            onClick={() => transitionOrderState(order.id, { fulfillment_status: FULFILLMENT_NEXT[order.fulfillment_status], reason: 'Avance operacional desde admin' }, `Orden ${order.id} avanzada a ${formatLabel(FULFILLMENT_NEXT[order.fulfillment_status])}.`)}
                             disabled={busyOrderId === order.id}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-950/40 border border-blue-800 text-blue-400 text-[10px] font-bold hover:bg-blue-950/70 transition-colors disabled:opacity-50"
                           >
@@ -655,11 +685,11 @@ const OrdersDashboard = ({ orders = [] }) => {
                   <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Pago</p>
                   <select
                     value={selectedOrder.payment_status || ''}
-                    onChange={(event) => updateOrderField(selectedOrder.id, { payment_status: event.target.value }, `Estado de pago actualizado para ${selectedOrder.id}.`)}
+                    onChange={(event) => transitionOrderState(selectedOrder.id, { payment_status: event.target.value, reason: 'Cambio manual de pago desde admin' }, `Estado de pago actualizado para ${selectedOrder.id}.`)}
                     disabled={busyOrderId === selectedOrder.id}
                     className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
                   >
-                    {['pending', 'paid', 'failed', 'refunded'].map((status) => (
+                    {[selectedOrder.payment_status, ...(PAYMENT_TRANSITIONS[selectedOrder.payment_status] || [])].filter(Boolean).map((status) => (
                       <option key={status} value={status}>{formatLabel(status)}</option>
                     ))}
                   </select>
@@ -671,16 +701,19 @@ const OrdersDashboard = ({ orders = [] }) => {
                   <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Operación</p>
                   <select
                     value={selectedOrder.fulfillment_status || ''}
-                    onChange={(event) => updateOrderField(selectedOrder.id, { fulfillment_status: event.target.value }, `Estado operativo actualizado para ${selectedOrder.id}.`)}
+                    onChange={(event) => transitionOrderState(selectedOrder.id, { fulfillment_status: event.target.value, reason: 'Cambio manual operativo desde admin' }, `Estado operativo actualizado para ${selectedOrder.id}.`)}
                     disabled={busyOrderId === selectedOrder.id}
                     className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
                   >
-                    {['new', 'in_production', 'ready', 'shipped', 'delivered', 'cancelled'].map((status) => (
+                    {[selectedOrder.fulfillment_status, ...(FULFILLMENT_TRANSITIONS[selectedOrder.fulfillment_status] || [])].filter(Boolean).map((status) => (
                       <option key={status} value={status}>{formatLabel(status)}</option>
                     ))}
                   </select>
                   <p className="text-sm font-semibold text-zinc-300 mt-3">Entrega: {selectedOrder.delivery_type || '—'}</p>
                   <p className="text-xs text-zinc-500 mt-1">Dirección: {selectedOrder.customer_address || selectedOrder.delivery_address || '—'}</p>
+                  {selectedOrder.fulfillment_status === 'ready' && (
+                    <p className="text-xs text-amber-400 mt-2">Para pasar a despachado debes usar el módulo de despacho con carrier + tracking.</p>
+                  )}
                 </div>
               </div>
 

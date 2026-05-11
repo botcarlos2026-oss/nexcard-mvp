@@ -555,6 +555,12 @@ export const api = {
   updateOrder: async (orderId, payload) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
 
+    const forbiddenStatusKeys = ['payment_status', 'fulfillment_status', 'tracking_code', 'carrier', 'shipped_at', 'delivered_at', 'inventory_decremented', 'inventory_reserved'];
+    const statusKeysPresent = forbiddenStatusKeys.filter((key) => Object.prototype.hasOwnProperty.call(payload, key));
+    if (statusKeysPresent.length > 0) {
+      throw new Error(`Usa el flujo server-side correspondiente para actualizar: ${statusKeysPresent.join(', ')}`);
+    }
+
     // Obtener valores anteriores para historial
     const { data: current } = await supabase
       .from('orders').select('*').eq('id', orderId).single();
@@ -577,6 +583,26 @@ export const api = {
     }
 
     return fetchOrders();
+  },
+
+  transitionOrderState: async (orderId, { payment_status, fulfillment_status, reason }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.rpc('admin_transition_order_state', {
+      target_order_id: orderId,
+      next_payment_status: payment_status ?? null,
+      next_fulfillment_status: fulfillment_status ?? null,
+      reason: reason || null,
+    });
+    if (error) throw new Error(error.message);
+    const orders = await fetchOrders();
+    return { ...orders, transition: data };
+  },
+
+  markOrderDelivered: async (orderId, reason) => {
+    return api.transitionOrderState(orderId, {
+      fulfillment_status: 'delivered',
+      reason: reason || 'Entrega confirmada por admin',
+    });
   },
 
   updateShipping: async (orderId, { carrier, tracking_code }) => {
@@ -630,54 +656,12 @@ export const api = {
     if (!carrier) throw new Error('Carrier requerido');
     if (!tracking_code?.trim()) throw new Error('Código de seguimiento requerido');
 
-    const trackingCode = tracking_code.trim().toUpperCase();
-    const { data: current } = await supabase
-      .from('orders').select('carrier, tracking_code, fulfillment_status, shipped_at').eq('id', orderId).single();
-
-    const payload = {
-      carrier,
-      tracking_code: trackingCode,
-      fulfillment_status: 'shipped',
-      shipped_at: current?.shipped_at || new Date().toISOString(),
-    };
-
-    const { error } = await supabase.from('orders').update(payload).eq('id', orderId);
+    const { data: dispatchResult, error } = await supabase.rpc('admin_dispatch_order', {
+      target_order_id: orderId,
+      p_carrier: carrier,
+      p_tracking_code: tracking_code,
+    });
     if (error) throw new Error(error.message);
-
-    // Historial
-    const historyEntries = Object.keys(payload)
-      .filter(key => current && String(current[key]) !== String(payload[key]))
-      .map(key => ({
-        order_id: orderId,
-        field: key,
-        old_value: String(current?.[key] || ''),
-        new_value: String(payload[key]),
-      }));
-    if (historyEntries.length > 0) {
-      await supabase.from('order_status_history').insert(historyEntries);
-    }
-
-    // Descontar insumos de dispatch_config activos (atómico vía RPC)
-    const decremented = [];
-    const { data: configs } = await supabase
-      .from('dispatch_config')
-      .select('*, inventory_items(*)')
-      .eq('active', true);
-
-    if (configs && configs.length > 0) {
-      for (const config of configs) {
-        const item = config.inventory_items;
-        if (!item) continue;
-        const { error: rpcError } = await supabase.rpc('decrement_stock', {
-          p_item_id: item.id,
-          p_quantity: config.quantity_per_dispatch,
-          p_reason: `Despacho orden ${orderId}`,
-          p_order_id: orderId,
-        });
-        if (rpcError) throw new Error(`Stock insuficiente para "${item.item || item.sku}": ${rpcError.message}`);
-        decremented.push({ name: item.item || item.sku, quantity: config.quantity_per_dispatch });
-      }
-    }
 
     // Verificar stock bajo mínimo tras descuento y enviar alerta si aplica
     try {
@@ -710,7 +694,7 @@ export const api = {
     }
 
     const orders = await fetchOrders();
-    return { ...orders, itemsDecremented: decremented };
+    return { ...orders, itemsDecremented: dispatchResult?.items_decremented || [] };
   },
 
   getDispatchConfig: async () => {
