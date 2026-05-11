@@ -163,7 +163,7 @@ serve(async (req) => {
     // Load carrier + tracking_code from the order
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, carrier, tracking_code, fulfillment_status, customer_name, customer_address, shipped_at, delivered_at')
+      .select('id, carrier, tracking_code, fulfillment_status, customer_name, customer_address, shipped_at, delivered_at, delivery_token_expires_at')
       .eq('id', orderId)
       .eq('delivery_token', deliveryToken)
       .maybeSingle();
@@ -172,6 +172,13 @@ serve(async (req) => {
       log('warn', 'order_not_found', { order_id: orderId, error: orderError?.message || null });
       return new Response(JSON.stringify({ error: 'Orden no encontrada' }), {
         status: 404,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (order.delivery_token_expires_at && new Date(order.delivery_token_expires_at).getTime() < Date.now()) {
+      return new Response(JSON.stringify({ error: 'Este enlace de seguimiento expiró' }), {
+        status: 410,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }

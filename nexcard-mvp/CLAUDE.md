@@ -603,6 +603,111 @@ Este punto sí quedó resuelto en el core del sistema:
 - el despacho ya no puede partir por un lado y descontar stock por otro
 - el cliente/admin ya no puede saltarse el flujo correcto con updates triviales
 
+---
+
+## Endurecimiento de confirmación de entrega + lifecycle del token — 2026-05-10
+
+### Problema detectado
+El flujo original tenía dos debilidades:
+1. `DeliveryConfirmation.jsx` actualizaba `orders` directo desde cliente anon
+2. `delivery_token` no tenía expiración ni rotación formal al re-despachar
+
+Eso dejaba una superficie innecesaria:
+- dependencia fuerte de RLS/policies para una operación sensible
+- links eternos
+- mismo token reutilizable aunque cambie el despacho
+
+### Cambios aplicados
+#### 1. Lifecycle formal del delivery token
+**Archivo:** `supabase/migrations/202605102340_delivery_token_lifecycle.sql`
+
+Se agregó:
+- `orders.delivery_token_expires_at`
+
+Reglas aplicadas:
+- backfill de expiración para órdenes existentes con token
+- cada despacho vía `admin_dispatch_order(...)` ahora:
+  - genera `delivery_token` nuevo
+  - fija `delivery_token_expires_at = shipped_at + 45 días`
+  - registra ambos cambios en `order_status_history`
+
+Resultado:
+- cada nuevo despacho rota el token
+- el enlace deja de ser indefinido
+
+#### 2. Confirmación de entrega por backend controlado
+**Archivos:**
+- `supabase/migrations/202605102350_confirm_delivery_rpc.sql`
+- `supabase/functions/confirm-delivery/index.ts`
+- `src/components/DeliveryConfirmation.jsx`
+
+Se creó:
+- RPC `confirm_order_delivery_by_token(...)`
+- Edge Function pública `confirm-delivery`
+
+Nuevo comportamiento:
+- el frontend ya no hace `.update()` directo sobre `orders`
+- ahora llama a `confirm-delivery`
+- la function valida:
+  - `order_id`
+  - `delivery_token`
+  - expiración del token
+  - que la orden esté en `shipped`
+  - que no haya sido confirmada antes
+- luego ejecuta la RPC protegida, que:
+  - marca `fulfillment_status = delivered`
+  - fija `delivered_at`
+  - fija `delivery_confirmed_by = customer`
+  - registra historial
+
+#### 3. Tracking público endurecido
+**Archivo:** `supabase/functions/get-tracking/index.ts`
+
+Nuevo comportamiento:
+- ahora también valida `delivery_token_expires_at`
+- si el token expiró, responde `410`
+- ya no deja seguimiento eterno con link viejo
+
+### Aplicación real en producción
+Se aplicó directo en base remota y se registraron versiones en `supabase_migrations.schema_migrations`:
+- `202605102340_delivery_token_lifecycle`
+- `202605102350_confirm_delivery_rpc`
+
+Deploys ejecutados:
+- `get-tracking`
+- `confirm-delivery`
+
+### Evidencia de validación
+#### DB / despacho
+Se creó una orden QA temporal y se validó que `admin_dispatch_order(...)` ahora devuelve y persiste:
+- `delivery_token` nuevo
+- `delivery_token_expires_at`
+- estado `shipped`
+- descuento de inventario
+
+#### Confirmación pública real
+Se creó otra orden QA temporal en `shipped` con token válido y se probó HTTP real contra:
+- `POST /functions/v1/confirm-delivery`
+
+Resultado:
+- `HTTP 200`
+- respuesta `status: success`
+- orden quedó en DB con:
+  - `fulfillment_status = delivered`
+  - `delivery_confirmed_by = customer`
+  - `delivered_at` persistido
+
+#### Gate técnico
+- `npm run lint ...` → OK
+- `npm run build` → OK
+
+### Resultado ejecutivo
+Este frente ya quedó saneado:
+- confirmación de entrega dejó de depender del cliente anon como escritor directo
+- el token de delivery ahora tiene expiración
+- el token rota con cada despacho nuevo
+- tracking y confirmación comparten una política temporal coherente
+
 ## Pendientes para lanzamiento
 - [ ] Cambiar `MP_ACCESS_TOKEN` a credenciales de producción
 - [ ] Eliminar producto TEST-1 ($19.990)

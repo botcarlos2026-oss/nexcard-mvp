@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, AlertCircle, Loader2, Package } from 'lucide-react';
-import { supabase } from '../services/supabaseClient';
 
 const DeliveryConfirmation = ({ orderId, token }) => {
   const [status, setStatus] = useState('loading'); // loading | success | already_confirmed | invalid | error
@@ -14,39 +13,47 @@ const DeliveryConfirmation = ({ orderId, token }) => {
 
     const confirm = async () => {
       try {
-        // Verify order + token match
-        const { data: orderData, error } = await supabase
-          .from('orders')
-          .select('id, customer_name, fulfillment_status, delivered_at, delivery_confirmed_by, delivery_token')
-          .eq('id', orderId)
-          .eq('delivery_token', token)
-          .single();
+        const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+        const ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-        if (error || !orderData) {
+        if (!SUPABASE_URL || !ANON_KEY) {
+          setStatus('error');
+          return;
+        }
+
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/confirm-delivery`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: ANON_KEY,
+            Authorization: `Bearer ${ANON_KEY}`,
+          },
+          body: JSON.stringify({ order_id: orderId, delivery_token: token }),
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        setOrder(payload?.order || null);
+
+        if (res.status === 404) {
           setStatus('invalid');
           return;
         }
-
-        setOrder(orderData);
-
-        // Already confirmed
-        if (orderData.delivered_at || orderData.delivery_confirmed_by) {
+        if (res.status === 410 || payload?.status === 'expired') {
+          setStatus('invalid');
+          return;
+        }
+        if (payload?.status === 'already_confirmed') {
           setStatus('already_confirmed');
           return;
         }
-
-        // Confirm delivery
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            fulfillment_status: 'delivered',
-            delivered_at: new Date().toISOString(),
-            delivery_confirmed_by: 'customer',
-          })
-          .eq('id', orderId)
-          .eq('delivery_token', token);
-
-        if (updateError) throw new Error(updateError.message);
+        if (payload?.status === 'invalid_state') {
+          setStatus('error');
+          return;
+        }
+        if (!res.ok || payload?.status === 'error') {
+          setStatus('error');
+          return;
+        }
 
         setStatus('success');
       } catch (err) {
