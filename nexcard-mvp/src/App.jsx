@@ -29,7 +29,7 @@ import ProductCatalog from './components/ProductCatalog';
 import Cart from './components/Cart';
 import CheckoutForm from './components/CheckoutForm';
 import OrderConfirmation from './components/OrderConfirmation';
-import { api, getPendingClaimToken, getStoredAuth, setPendingClaimToken, setStoredAuth } from './services/api';
+import { api, getLastOrderSnapshot, getPendingClaimToken, getStoredAuth, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { supabase, hasSupabase } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
@@ -123,8 +123,13 @@ function App() {
     const payment = params.get('payment');
     const orderId = params.get('order');
     if (payment && orderId) {
+      const snapshot = getLastOrderSnapshot();
       window.history.replaceState({}, '', '/');
-      setCurrentOrder({ id: orderId, payment_status: payment === 'success' ? 'paid' : 'pending' });
+      setCurrentOrder({
+        ...(snapshot?.id === orderId ? snapshot : {}),
+        id: orderId,
+        payment_status: payment === 'success' ? 'paid' : payment,
+      });
       setCheckoutStep('confirmation');
     }
   }, []);

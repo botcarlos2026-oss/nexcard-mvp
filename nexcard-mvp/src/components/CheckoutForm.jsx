@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCart } from '../store/cartStore';
-import { api } from '../services/api';
+import { api, setLastOrderSnapshot } from '../services/api';
 import { ArrowLeft, ShieldCheck, AlertCircle, Tag } from 'lucide-react';
 import CardPreview from './CardPreview';
 
@@ -246,6 +246,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
       const result = await api.createOrder(orderPayload);
 
       if (result?.id) {
+        setLastOrderSnapshot(result);
+
         if (paymentMethod === 'mercado-pago') {
           // Crear preferencia en MP vía Edge Function
           const { supabase } = await import('../services/supabaseClient');

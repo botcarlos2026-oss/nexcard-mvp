@@ -53,6 +53,25 @@ export const setPendingClaimToken = (token) => {
   }
 };
 
+const LAST_ORDER_SNAPSHOT_KEY = 'nexcard_last_order_snapshot';
+
+export const getLastOrderSnapshot = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(LAST_ORDER_SNAPSHOT_KEY) || 'null');
+  } catch {
+    return null;
+  }
+};
+
+export const setLastOrderSnapshot = (order) => {
+  try {
+    if (!order) sessionStorage.removeItem(LAST_ORDER_SNAPSHOT_KEY);
+    else sessionStorage.setItem(LAST_ORDER_SNAPSHOT_KEY, JSON.stringify(order));
+  } catch {
+    // ignore
+  }
+};
+
 async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',

@@ -90,7 +90,7 @@ Resultado de ayer:
 - base comercial más coherente entre promesa de venta y UX
 
 ### 2026-05-10 — trabajo de hoy
-Se cerraron tres frentes:
+Se cerraron cinco frentes:
 
 1. **Hardening real de acceso admin / authz**
    - se centralizó la whitelist UI en `src/config/admin.js`
@@ -109,11 +109,36 @@ Se cerraron tres frentes:
    - se agregó test mínimo en `src/services/api.test.js`
    - se limpiaron warnings de build/lint en componentes admin/frontend para dejar compilación limpia
 
+4. **Validación del flujo principal usuario (landing → carrito → checkout)**
+   - validado con Cypress:
+     - `cypress/e2e/public-commerce.cy.js`
+     - `cypress/e2e/public-checkout-entry.cy.js`
+     - `cypress/e2e/public-checkout-validation.cy.js`
+   - cobertura validada:
+     - landing comercial en `/preview`
+     - CTA Comprar
+     - catálogo
+     - carrito
+     - entrada a checkout
+     - validaciones de campos requeridos
+     - validaciones de factura (RUT + razón social)
+
+5. **Post-pago / retorno Mercado Pago**
+   - se detectó bug real: el retorno `?payment=success&order=...` reconstruía una orden incompleta en frontend
+   - fix aplicado:
+     - persistencia temporal de snapshot de orden en `sessionStorage`
+     - rehidratación del snapshot al volver desde Mercado Pago
+   - validado con Cypress:
+     - `cypress/e2e/payment-return.cy.js`
+
 Estado final de hoy:
 - `npm run lint` ✅
 - `npm run build` ✅
 - producción Vercel destrabada ✅
 - migración remota aplicada y registrada ✅
+- landing/carrito/checkout UI validados ✅
+- creación real de orden + preferencia Mercado Pago validada ✅
+- retorno frontend desde Mercado Pago corregido y validado ✅
 
 ---
 
@@ -148,6 +173,9 @@ Deployadas directamente en Supabase. Para inspeccionarlas: Supabase Dashboard �
 - `create-mp-preference` — crea preferencia MP y retorna `init_point`
 - `mp-webhook` — recibe notificaciones de MP, actualiza `payment_status` de la orden
 - `send-order-confirmation` — email al cliente + notificación interna
+
+**Crítico:** `mp-webhook` debe quedar publicado con `verify_jwt = false`, porque Mercado Pago no enviará bearer token de Supabase. El repo ahora deja esto explícito en:
+- `supabase/config.toml`
 
 ---
 
@@ -289,13 +317,36 @@ Validación posterior obligatoria:
 4. probar review cards
 5. confirmar que el usuario admin siga teniendo fila activa en `memberships`
 
+### Hallazgo crítico de pagos (2026-05-10 noche)
+Se validó que:
+- la orden real sí se crea en Supabase
+- `create-mp-preference` sí retorna `init_point` y `preference_id`
+- el retorno frontend desde MP quedó corregido con snapshot local
+
+Pero también se detectó un riesgo crítico operativo:
+- al llamar `https://ghiremuuyprohdqfrxsy.supabase.co/functions/v1/mp-webhook` sin Authorization, Supabase responde `401 UNAUTHORIZED_NO_AUTH_HEADER`
+- eso significa que **el webhook público de Mercado Pago no debería depender de JWT de Supabase**
+- por eso el repo ahora declara:
+  - `supabase/config.toml`
+  - `[functions.mp-webhook]`
+  - `verify_jwt = false`
+
+Implicancia:
+- si producción no se redeploya con esa configuración, existe riesgo alto de que pagos aprobados queden en `pending` y nunca se marque `mp_payment_id`
+
+Resultado de evidencia levantada:
+- consulta directa reciente a `orders` mostró órdenes nuevas `pending` con `mp_payment_id = NULL`
+- la preferencia de test creada en validación también quedó `pending` porque no se completó pago interactivo
+
 ---
 
 ## Pendientes para lanzamiento
 - [ ] Cambiar `MP_ACCESS_TOKEN` a credenciales de producción
 - [ ] Eliminar producto TEST-1 ($19.990)
 - [ ] Remover `console.log` de debug en `api.js`
-- [ ] Endurecer Edge Functions con `SUPABASE_SERVICE_ROLE_KEY` (JWT + rol admin explícito)
+- [ ] Redeploy de `mp-webhook` con `verify_jwt = false` para permitir webhook real desde Mercado Pago
+- [ ] Validar pago aprobado end-to-end (sandbox o producción controlada) y confirmar cambio a `orders.payment_status = paid` + `mp_payment_id` persistido
+- [ ] Endurecer Edge Functions con `SUPABASE_SERVICE_ROLE_KEY` (JWT + rol admin explícito) donde aplique a funciones no públicas
 - [ ] Seguir partiendo `src/services/api.js` por dominio
 - [ ] Panel configuración Google Reviews Card (NexReview)
 - [ ] Transbank WebPay (segunda integración de pago)
