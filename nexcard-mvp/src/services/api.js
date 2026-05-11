@@ -793,6 +793,49 @@ export const api = {
       text: digestLines.join('\n'),
       lines: digestLines,
     };
+    const deliveryFormats = {
+      short_text: [
+        `NexCard | ${proactiveSummary.headline}`,
+        `${proactiveSummary.count} caso(s) prioritarios · ${slaBreaches.length} SLA rotos · ${operationalAlerts.length} alertas`,
+        `${proactiveSummary.action}`,
+      ].join(' — '),
+      whatsapp_text: [
+        `*Resumen operativo NexCard*`,
+        `Prioridad: *${proactiveSummary.headline}*`,
+        `Severidad: ${proactiveSummary.severity}`,
+        `Casos prioritarios: ${proactiveSummary.count}`,
+        `Alertas operativas: ${operationalAlerts.length}`,
+        `SLA rotos: ${slaBreaches.length}`,
+        `Funnel: paid ${funnel.paid} | ready ${funnel.ready} | shipped ${funnel.shipped} | delivered ${funnel.delivered} | activated ${funnel.activated}`,
+        stageSlaDigest.length > 0 ? `SLA promedio: ${stageSlaDigest.join(' | ')}` : `SLA promedio: sin muestra cerrada suficiente`,
+        `Acción: ${proactiveSummary.action}`,
+      ].join('\n'),
+      email_subject: `[NexCard] ${proactiveSummary.severity.toUpperCase()} - ${proactiveSummary.headline}`,
+      email_body: [
+        `Resumen operativo NexCard`,
+        ``,
+        `Prioridad actual: ${proactiveSummary.headline}`,
+        `Severidad: ${proactiveSummary.severity}`,
+        `Casos prioritarios: ${proactiveSummary.count}`,
+        `Alertas operativas: ${operationalAlerts.length}`,
+        `SLA rotos: ${slaBreaches.length}`,
+        ``,
+        `Funnel actual`,
+        `- Paid: ${funnel.paid}`,
+        `- Ready: ${funnel.ready}`,
+        `- Shipped: ${funnel.shipped}`,
+        `- Delivered: ${funnel.delivered}`,
+        `- Activated: ${funnel.activated}`,
+        ``,
+        `SLA promedio`,
+        ...(stageSlaDigest.length > 0 ? stageSlaDigest.map((line) => `- ${line}`) : ['- Sin muestra cerrada suficiente']),
+        ``,
+        `Cola sugerida`,
+        ...(proactiveQueue.length > 0 ? proactiveQueue.map((item, index) => `${index + 1}. ${item.title} (${item.count}) -> ${item.action}`) : ['1. Sin excepciones prioritarias']),
+        ``,
+        `Recomendación principal: ${proactiveSummary.action}`,
+      ].join('\n'),
+    };
     const users = (profiles || []).map(p => ({
       id: p.id,
       name: p.name || p.slug || 'Sin nombre',
@@ -825,6 +868,7 @@ export const api = {
       proactiveSummary,
       proactiveQueue,
       operationalDigest,
+      deliveryFormats,
     };
   },
 

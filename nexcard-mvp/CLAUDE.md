@@ -349,6 +349,28 @@ Resultado funcional:
 Documentación específica:
 - `docs/DIGEST_OPERATIVO_REUTILIZABLE_2026-05-11.md`
 
+### 2026-05-11 — formatos de delivery listos
+Se agregó una capa adicional para preparar el envío automático multicanal sin duplicar contenido.
+
+Cambios concretos:
+- `src/services/api.js`
+  - `getAdminDashboard()` ahora devuelve `deliveryFormats`
+  - incluye:
+    - `short_text`
+    - `whatsapp_text`
+    - `email_subject`
+    - `email_body`
+- `src/components/AdminDashboard.jsx`
+  - ahora muestra bloque `Formatos listos por canal`
+  - se agregó copiado individual por formato
+
+Resultado funcional:
+- la lógica de resumen ejecutivo ya está desacoplada del transporte
+- el siguiente paso para cron/webhook/mensajería será solo conectar delivery
+
+Documentación específica:
+- `docs/FORMATOS_DELIVERY_LISTOS_2026-05-11.md`
+
 ---
 
 ## Stack

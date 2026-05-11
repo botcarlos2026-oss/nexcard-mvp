@@ -112,6 +112,7 @@ const AdminDashboard = ({ dashboard }) => {
   const [lowStockDismissed, setLowStockDismissed] = useState(false);
   const [pendingRefundsCount, setPendingRefundsCount] = useState(0);
   const [digestCopied, setDigestCopied] = useState(false);
+  const [copiedFormat, setCopiedFormat] = useState('');
 
   useEffect(() => {
     api.checkLowStock().then(({ lowStockItems: items }) => setLowStockItems(items)).catch(() => {});
@@ -127,6 +128,7 @@ const AdminDashboard = ({ dashboard }) => {
   const proactiveSummary = dashboard?.proactiveSummary || null;
   const proactiveQueue = dashboard?.proactiveQueue || [];
   const operationalDigest = dashboard?.operationalDigest || null;
+  const deliveryFormats = dashboard?.deliveryFormats || {};
 
   const handleGlobalSearch = async (term) => {
     if (!term.trim()) { setGlobalResults(null); return; }
@@ -196,6 +198,16 @@ const AdminDashboard = ({ dashboard }) => {
       window.setTimeout(() => setDigestCopied(false), 1800);
     } catch {
       setDigestCopied(false);
+    }
+  };
+  const handleCopyFormat = async (key, value) => {
+    if (!value || !navigator?.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedFormat(key);
+      window.setTimeout(() => setCopiedFormat(''), 1800);
+    } catch {
+      setCopiedFormat('');
     }
   };
   const proactiveTone = proactiveSummary?.severity === 'critical'
@@ -497,6 +509,38 @@ const AdminDashboard = ({ dashboard }) => {
         </div>
         <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4 overflow-x-auto">
           <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{operationalDigest?.text || 'Sin digest disponible.'}</pre>
+        </div>
+      </AdminCard>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">Formatos listos por canal</h2>
+            <p className="text-sm text-zinc-400 font-medium">Payloads reutilizables para conectar delivery sin rehacer contenido</p>
+          </div>
+        </div>
+        <div className="grid lg:grid-cols-2 gap-4">
+          {[
+            { key: 'short_text', label: 'Resumen corto' },
+            { key: 'whatsapp_text', label: 'WhatsApp' },
+            { key: 'email_subject', label: 'Email subject' },
+            { key: 'email_body', label: 'Email body' },
+          ].map((item) => (
+            <div key={item.key} className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <p className="text-sm font-bold text-white">{item.label}</p>
+                <button
+                  type="button"
+                  onClick={() => handleCopyFormat(item.key, deliveryFormats[item.key])}
+                  className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors"
+                >
+                  <Copy size={14} />
+                  {copiedFormat === item.key ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+              <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{deliveryFormats[item.key] || 'No disponible.'}</pre>
+            </div>
+          ))}
         </div>
       </AdminCard>
 
