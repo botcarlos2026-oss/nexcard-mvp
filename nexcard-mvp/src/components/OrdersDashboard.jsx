@@ -83,6 +83,34 @@ const fulfillmentBadgeVariant = (status) => {
   return 'default';
 };
 
+const FUNNEL_STEPS = [
+  { key: 'paid', label: 'Paid' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'shipped', label: 'Shipped' },
+  { key: 'delivered', label: 'Delivered' },
+  { key: 'activated', label: 'Activated' },
+];
+
+const deriveFunnelReached = (order) => ({
+  paid: order.payment_status === 'paid',
+  ready: order.payment_status === 'paid' && ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status),
+  shipped: order.payment_status === 'paid' && ['shipped', 'delivered'].includes(order.fulfillment_status),
+  delivered: order.payment_status === 'paid' && order.fulfillment_status === 'delivered',
+  activated: order.payment_status === 'paid' && order.activation_completed,
+});
+
+const deriveTraceabilityMoments = (order) => {
+  const payments = order.payments || [];
+  const paidAt = payments.find((payment) => payment?.paid_at)?.paid_at || order.paidAt || null;
+  return [
+    { key: 'paid', label: 'Paid', at: paidAt, done: order.payment_status === 'paid' },
+    { key: 'ready', label: 'Ready', at: null, done: ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status) },
+    { key: 'shipped', label: 'Shipped', at: order.shipped_at || null, done: ['shipped', 'delivered'].includes(order.fulfillment_status) },
+    { key: 'delivered', label: 'Delivered', at: order.delivered_at || null, done: order.fulfillment_status === 'delivered' },
+    { key: 'activated', label: 'Activated', at: order.activation_last_at || null, done: order.activation_completed },
+  ];
+};
+
 const OrdersDashboard = ({ orders = [] }) => {
   const [rows, setRows] = useState(orders);
   const [searchTerm, setSearchTerm] = useState('');
@@ -433,6 +461,24 @@ const OrdersDashboard = ({ orders = [] }) => {
     ];
   }, [normalizedOrders]);
 
+  const funnelSnapshot = useMemo(() => {
+    const paidBase = normalizedOrders.filter((order) => order.payment_status === 'paid').length;
+    const counts = FUNNEL_STEPS.map((step) => {
+      const reached = normalizedOrders.filter((order) => deriveFunnelReached(order)[step.key]).length;
+      return {
+        ...step,
+        count: reached,
+        ratio: paidBase > 0 ? Math.round((reached / paidBase) * 100) : 0,
+      };
+    });
+
+    return {
+      paidBase,
+      counts,
+      exceptions: normalizedOrders.filter((order) => (order.observability_alerts || []).length > 0),
+    };
+  }, [normalizedOrders]);
+
   const exportCSV = () => {
     const headers = ['ID', 'Cliente', 'Email', 'Método Pago', 'Estado Pago', 'Fulfillment', 'Monto CLP', 'Fecha'];
     const csvRows = filteredOrders.map(o => [
@@ -467,6 +513,36 @@ const OrdersDashboard = ({ orders = [] }) => {
           <AdminStat key={stat.label} label={stat.label} value={stat.value} accent={stat.accent} />
         ))}
       </div>
+
+      <AdminCard className="mb-8">
+        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+          <div>
+            <h2 className="font-bold text-white">Embudo operativo real</h2>
+            <p className="text-sm text-zinc-400">Base pagada: {funnelSnapshot.paidBase} órdenes</p>
+          </div>
+          <AdminBadge variant={funnelSnapshot.exceptions.length > 0 ? 'warning' : 'success'}>
+            {funnelSnapshot.exceptions.length} excepción{funnelSnapshot.exceptions.length === 1 ? '' : 'es'}
+          </AdminBadge>
+        </div>
+        <div className="grid gap-3 md:grid-cols-5">
+          {funnelSnapshot.counts.map((step) => (
+            <div key={step.key} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+              <p className="text-xs uppercase tracking-wide text-zinc-500 font-bold">{step.label}</p>
+              <p className="mt-2 text-2xl font-bold text-white">{step.count}</p>
+              <p className="text-xs text-zinc-400 mt-1">{step.ratio}% de paid</p>
+            </div>
+          ))}
+        </div>
+        {funnelSnapshot.exceptions.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {funnelSnapshot.exceptions.slice(0, 6).map((order) => (
+              <span key={order.id} className="rounded-full border border-amber-800 bg-amber-950/40 px-3 py-1 text-[11px] font-bold text-amber-300">
+                {order.customerLabel}: {(order.observability_alerts || [])[0]}
+              </span>
+            ))}
+          </div>
+        )}
+      </AdminCard>
 
       {feedback.message && (
         <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-400' : 'border-red-800 bg-red-950/40 text-red-400'}`}>
@@ -671,6 +747,46 @@ const OrdersDashboard = ({ orders = [] }) => {
                 <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">Folio de producción</p>
                 <p className="font-bold text-[18px] text-white">{selectedOrder.folio || '—'}</p>
                 <p className="text-[11px] text-zinc-400 font-mono mt-1">{selectedOrder.id}</p>
+              </div>
+
+              <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Trazabilidad post-pago</p>
+                  <AdminBadge variant={selectedOrder.terminal_state === 'activated' ? 'success' : selectedOrder.observability_alerts?.length ? 'warning' : 'default'}>
+                    {formatLabel(selectedOrder.terminal_state || selectedOrder.funnel_stage)}
+                  </AdminBadge>
+                </div>
+                <div className="grid gap-3 md:grid-cols-5">
+                  {deriveTraceabilityMoments(selectedOrder).map((moment) => (
+                    <div key={moment.key} className="rounded-xl bg-zinc-900 border border-zinc-700 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-bold">{moment.label}</p>
+                      <p className={`mt-2 text-sm font-bold ${moment.done ? 'text-white' : 'text-zinc-500'}`}>
+                        {moment.done ? 'OK' : 'Pendiente'}
+                      </p>
+                      <p className="text-[11px] text-zinc-500 mt-1">{formatDate(moment.at)}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <AdminBadge variant={selectedOrder.related_cards?.length > 0 ? 'success' : 'warning'}>
+                    {selectedOrder.related_cards?.length > 0 ? `${selectedOrder.related_cards.length} card(s) trazadas` : 'Sin card trazada'}
+                  </AdminBadge>
+                  <AdminBadge variant={selectedOrder.activation_claim?.status === 'claimed' ? 'success' : selectedOrder.activation_claim ? 'info' : 'default'}>
+                    Claim: {formatLabel(selectedOrder.activation_claim?.status || 'sin claim')}
+                  </AdminBadge>
+                  <AdminBadge variant={selectedOrder.observability_alerts?.length ? 'warning' : 'success'}>
+                    {selectedOrder.observability_alerts?.length ? `${selectedOrder.observability_alerts.length} alerta(s)` : 'Sin alertas'}
+                  </AdminBadge>
+                </div>
+                {selectedOrder.observability_alerts?.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {selectedOrder.observability_alerts.map((alert) => (
+                      <div key={alert} className="rounded-lg border border-amber-800 bg-amber-950/30 px-3 py-2 text-xs font-semibold text-amber-300">
+                        {alert}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">

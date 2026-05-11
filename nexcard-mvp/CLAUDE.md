@@ -140,6 +140,42 @@ Estado final de hoy:
 - creación real de orden + preferencia Mercado Pago validada ✅
 - retorno frontend desde Mercado Pago corregido y validado ✅
 
+### 2026-05-11 — observabilidad post-pago / activación
+Se implementó una primera capa rentable de observabilidad operativa en `/admin/orders`.
+
+Cambios concretos:
+- `fetchOrders()` en `src/services/api.js` ahora enriquece cada orden con señales derivadas desde:
+  - `cards`
+  - `order_cards`
+  - `profile_claims`
+  - `profiles`
+  - `payments`
+- se agregaron campos derivados por orden:
+  - `related_cards`
+  - `activation_claim`
+  - `active_cards_count`
+  - `programmed_cards_count`
+  - `activation_ready`
+  - `activation_completed`
+  - `funnel_stage`
+  - `terminal_state`
+  - `observability_alerts`
+- `src/components/OrdersDashboard.jsx` ahora muestra:
+  - embudo real `paid → ready → shipped → delivered → activated`
+  - contador de excepciones operativas
+  - bloque de trazabilidad por orden con mini timeline post-pago
+  - alertas como:
+    - pagada sin entrar a producción
+    - orden avanzada sin card vinculada
+    - entregada sin activación cerrada
+    - claim pendiente post-entrega
+- documentación específica creada en:
+  - `docs/OBSERVABILIDAD_POST_PAGO_ACTIVACION_2026-05-11.md`
+
+Validación de esta capa:
+- `npm run lint` ✅
+- `npm run build` ✅
+
 ---
 
 ## Stack
