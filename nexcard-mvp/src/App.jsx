@@ -2,13 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import AppRouteRenderer from './components/AppRouteRenderer';
 import { api, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
-import { hasSupabase } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
-import { ADMIN_ROUTES, isAdminEmail } from './config/admin';
+import { isAdminEmail } from './config/admin';
 import { useAuthSessionSync } from './hooks/useAuthSessionSync';
 import { useCheckoutFlow } from './hooks/useCheckoutFlow';
-import { applyAdminRouteData, ensureAdminAccess, loadAdminRouteData, resetAdminRouteState } from './utils/adminBootstrap';
-import { isPublicBypassRoute } from './utils/appRoutes';
+import { useAppBootstrap } from './hooks/useAppBootstrap';
 
 function App() {
   const bootstrapSeqRef = useRef(0);
@@ -47,110 +45,22 @@ function App() {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
-  useEffect(() => {
-    const requestId = ++bootstrapSeqRef.current;
-    let cancelled = false;
-    const isStale = () => cancelled || bootstrapSeqRef.current !== requestId;
-
-    const bootstrap = async () => {
-      if (!sessionReady && hasSupabase) return; // esperar sesión
-      if (!isStale()) {
-        setLoading(true);
-        setError('');
-      }
-      try {
-        try {
-          const landing = await api.getLandingContent();
-          if (isStale()) return;
-          setLandingContent(landing);
-        } catch {
-          if (isStale()) return;
-          setLandingContent(defaultLandingContent);
-        }
-
-        if (path === '/') {
-          return;
-        }
-
-        if (ADMIN_ROUTES.has(path)) {
-          if (isStale()) return;
-          const access = await ensureAdminAccess({ navigate });
-          if (isStale()) return;
-          if (!access.allowed) {
-            return;
-          }
-
-          resetAdminRouteState({
-            setAdminData,
-            setInventoryData,
-            setCardsData,
-            setProfilesAdminData,
-            setOrdersAdminData,
-          });
-
-          const adminRouteData = await loadAdminRouteData({ path, api });
-          if (isStale()) return;
-          applyAdminRouteData({
-            kind: adminRouteData.kind,
-            payload: adminRouteData.payload,
-            setAdminData,
-            setInventoryData,
-            setCardsData,
-            setProfilesAdminData,
-            setOrdersAdminData,
-          });
-          return;
-        }
-
-        if (path === '/edit') {
-          if (!user) {
-            if (isStale()) return;
-            navigate('/login');
-            return;
-          }
-          const profile = await api.getMyProfile();
-          if (isStale()) return;
-          if (!profile) {
-            if (isStale()) return;
-            navigate('/setup');
-            return;
-          }
-          setData(profile);
-          return;
-        }
-
-        if (path === '/setup' && !user) {
-          if (isStale()) return;
-          navigate('/login');
-          return;
-        }
-
-        if (isPublicBypassRoute(path)) {
-          return;
-        }
-
-        const slug = path.replace(/^\/|\/$/g, '');
-        if (slug) {
-          const profile = await api.getPublicProfile(slug);
-          if (isStale()) return;
-          setData(profile);
-        }
-      } catch (err) {
-        if (isStale()) return;
-        setError(err.message || 'No fue posible cargar la aplicación');
-      } finally {
-        if (!isStale()) {
-          setLoading(false);
-        }
-      }
-    };
-
-    bootstrap();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [path, user, sessionReady]);
+  useAppBootstrap({
+    path,
+    user,
+    sessionReady,
+    navigate,
+    setLoading,
+    setError,
+    setLandingContent,
+    setData,
+    setAdminData,
+    setInventoryData,
+    setCardsData,
+    setProfilesAdminData,
+    setOrdersAdminData,
+    bootstrapSeqRef,
+  });
 
   const handleSave = async (newData) => {
     const saved = await api.updateMyProfile(newData);

@@ -1589,22 +1589,23 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
   - `applyAdminRouteData`
   - `resetAdminRouteState`
 - se extrajo `appRoutes.js` con helper para bypass público del bootstrap
-- la rama admin del bootstrap quedó más desacoplada sin mover todavía el bootstrap completo
+- se extrajo `useAppBootstrap` para sacar el effect principal de `App.jsx` sin mover todavía navegación ni handlers de negocio
+- la rama admin del bootstrap quedó más desacoplada sin mover todavía la semántica del flujo
 - se agregó reset-before-apply para bajar riesgo de stale state entre rutas admin
 - se endureció el bootstrap principal con request guard por secuencia + cancelación local para evitar respuestas tardías
 - `loadAdminRouteData` pasó a mapa más exhaustivo de rutas admin soportadas
 - `/admin/crm` dejó de caer implícitamente a órdenes
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
-- el bootstrap principal de `App.jsx` se mantuvo dentro del archivo para no romper guards/cargas prematuramente
+- navegación, auth handlers y `handleSave` quedaron intencionalmente en `App.jsx` para no subir riesgo de regresión
 - validación ejecutada:
   - `npm run lint` ✅
   - `npm run build` ✅
 
 ### Siguiente corte recomendado
 - seguir reduciendo `src/App.jsx`
-- siguiente paso: evaluar extracción del bootstrap principal a hook cuando ya haya menos ramas inline
-- luego revisar si landing bootstrap conviene separarlo del resto
+- siguiente paso: decidir si la carga de landing conviene separarla del bootstrap principal
+- luego revisar si agrupar setters/admin state da ROI real o sólo ruido
 - recién después evaluar abort/cancelación real a nivel fetch si aporta ROI
 
 ---
