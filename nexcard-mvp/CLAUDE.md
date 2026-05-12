@@ -371,6 +371,30 @@ Resultado funcional:
 Documentación específica:
 - `docs/FORMATOS_DELIVERY_LISTOS_2026-05-11.md`
 
+### 2026-05-11 — transporte automático preparado
+Se agregó una capa de preparación para cron/webhook sin habilitar envío real por defecto.
+
+Cambios concretos:
+- `src/services/api.js`
+  - `getAdminDashboard()` ahora devuelve `transportReadiness`
+  - incluye:
+    - `mode: dry_run_only`
+    - `recommended_trigger`
+    - `recommended_frequency`
+    - `checklist`
+    - `cron_payload`
+    - `webhook_payload`
+- `src/components/AdminDashboard.jsx`
+  - ahora muestra bloque `Transporte automático preparado`
+  - se agregó copiado de payloads cron/webhook listos
+
+Resultado funcional:
+- la lógica ya está lista para conectarse a transporte real
+- pero sigue protegida contra envíos accidentales porque el modo por defecto es `dry_run_only`
+
+Documentación específica:
+- `docs/TRANSPORTE_AUTOMATICO_PREPARADO_2026-05-11.md`
+
 ---
 
 ## Stack

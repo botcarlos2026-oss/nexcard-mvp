@@ -129,6 +129,7 @@ const AdminDashboard = ({ dashboard }) => {
   const proactiveQueue = dashboard?.proactiveQueue || [];
   const operationalDigest = dashboard?.operationalDigest || null;
   const deliveryFormats = dashboard?.deliveryFormats || {};
+  const transportReadiness = dashboard?.transportReadiness || null;
 
   const handleGlobalSearch = async (term) => {
     if (!term.trim()) { setGlobalResults(null); return; }
@@ -541,6 +542,63 @@ const AdminDashboard = ({ dashboard }) => {
               <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{deliveryFormats[item.key] || 'No disponible.'}</pre>
             </div>
           ))}
+        </div>
+      </AdminCard>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">Transporte automático preparado</h2>
+            <p className="text-sm text-zinc-400 font-medium">Dry-run listo para cron o webhook, sin salida real por defecto</p>
+          </div>
+          <AdminBadge variant={transportReadiness?.mode === 'dry_run_only' ? 'warning' : 'success'}>
+            {transportReadiness?.mode || 'n/a'}
+          </AdminBadge>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-4 mb-4">
+          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
+            <p className="text-sm font-bold text-white mb-2">Recomendación de disparo</p>
+            <p className="text-xs text-zinc-300">Trigger: {transportReadiness?.recommended_trigger || 'n/a'}</p>
+            <p className="text-xs text-zinc-300 mt-1">Frecuencia: {transportReadiness?.recommended_frequency || 'n/a'}</p>
+          </div>
+          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
+            <p className="text-sm font-bold text-white mb-2">Checklist</p>
+            <ul className="space-y-1 text-xs text-zinc-300 list-disc pl-4">
+              {(transportReadiness?.checklist || []).map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-4">
+          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm font-bold text-white">Cron payload</p>
+              <button
+                type="button"
+                onClick={() => handleCopyFormat('cron_payload', JSON.stringify(transportReadiness?.cron_payload || {}, null, 2))}
+                className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors"
+              >
+                <Copy size={14} />
+                {copiedFormat === 'cron_payload' ? 'Copiado' : 'Copiar'}
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(transportReadiness?.cron_payload || {}, null, 2)}</pre>
+          </div>
+          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm font-bold text-white">Webhook payload</p>
+              <button
+                type="button"
+                onClick={() => handleCopyFormat('webhook_payload', JSON.stringify(transportReadiness?.webhook_payload || {}, null, 2))}
+                className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors"
+              >
+                <Copy size={14} />
+                {copiedFormat === 'webhook_payload' ? 'Copiado' : 'Copiar'}
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(transportReadiness?.webhook_payload || {}, null, 2)}</pre>
+          </div>
         </div>
       </AdminCard>
 

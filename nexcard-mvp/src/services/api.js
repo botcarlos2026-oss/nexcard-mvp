@@ -836,6 +836,31 @@ export const api = {
         `Recomendación principal: ${proactiveSummary.action}`,
       ].join('\n'),
     };
+    const transportReadiness = {
+      mode: 'dry_run_only',
+      recommended_trigger: proactiveSummary.severity === 'critical' ? 'immediate' : 'scheduled',
+      recommended_frequency: proactiveSummary.severity === 'critical' ? 'event-driven or every 15m' : 'daily at 09:00',
+      checklist: [
+        'Definir canal destino (webhook, email o mensajería).',
+        'Aprobar destinatarios humanos válidos para alertas operativas.',
+        'Conectar transporte usando deliveryFormats sin reescribir contenido.',
+        'Mantener dry-run como default hasta validar ruido/falsos positivos.',
+      ],
+      cron_payload: {
+        job: 'nexcard-operational-digest',
+        mode: 'dry_run',
+        recommended_frequency: proactiveSummary.severity === 'critical' ? '*/15 * * * *' : '0 9 * * *',
+        summary: deliveryFormats.short_text,
+      },
+      webhook_payload: {
+        event: 'nexcard.operational_digest',
+        dry_run: true,
+        severity: proactiveSummary.severity,
+        generated_at: operationalDigest.generated_at,
+        summary: deliveryFormats.short_text,
+        digest: operationalDigest.text,
+      },
+    };
     const users = (profiles || []).map(p => ({
       id: p.id,
       name: p.name || p.slug || 'Sin nombre',
@@ -869,6 +894,7 @@ export const api = {
       proactiveQueue,
       operationalDigest,
       deliveryFormats,
+      transportReadiness,
     };
   },
 
