@@ -42,6 +42,14 @@ export async function loadAdminRouteData({ path, api }) {
   return { kind: 'orders', payload: await api.getOrders() };
 }
 
+export function resetAdminRouteState({ setAdminData, setInventoryData, setCardsData, setProfilesAdminData, setOrdersAdminData }) {
+  setAdminData(null);
+  setInventoryData({ items: [], movements: [] });
+  setCardsData({ cards: [], profiles: [] });
+  setProfilesAdminData([]);
+  setOrdersAdminData([]);
+}
+
 export function applyAdminRouteData({ kind, payload, setAdminData, setInventoryData, setCardsData, setProfilesAdminData, setOrdersAdminData }) {
   if (kind === 'dashboard') {
     setAdminData(payload);

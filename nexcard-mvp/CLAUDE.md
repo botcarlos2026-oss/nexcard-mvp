@@ -1587,7 +1587,10 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
   - `ensureAdminAccess`
   - `loadAdminRouteData`
   - `applyAdminRouteData`
+  - `resetAdminRouteState`
+- se extrajo `appRoutes.js` con helper para bypass público del bootstrap
 - la rama admin del bootstrap quedó más desacoplada sin mover todavía el bootstrap completo
+- se agregó reset-before-apply para bajar riesgo de stale state entre rutas admin
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - el bootstrap principal de `App.jsx` se mantuvo dentro del archivo para no romper guards/cargas prematuramente
@@ -1597,8 +1600,8 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 
 ### Siguiente corte recomendado
 - seguir reduciendo `src/App.jsx`
-- siguiente paso: reset/control de stale state entre rutas admin
-- luego evaluar rutas públicas bypass como helper explícito
+- siguiente paso: agregar `cancelled` flag o request token en bootstrap para evitar respuestas tardías
+- luego evaluar mapa más exhaustivo de rutas admin soportadas
 - recién después evaluar mover bootstrap principal completo
 
 ---

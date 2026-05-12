@@ -7,7 +7,8 @@ import { useCart } from './store/cartStore';
 import { ADMIN_ROUTES, isAdminEmail } from './config/admin';
 import { useAuthSessionSync } from './hooks/useAuthSessionSync';
 import { useCheckoutFlow } from './hooks/useCheckoutFlow';
-import { applyAdminRouteData, ensureAdminAccess, loadAdminRouteData } from './utils/adminBootstrap';
+import { applyAdminRouteData, ensureAdminAccess, loadAdminRouteData, resetAdminRouteState } from './utils/adminBootstrap';
+import { isPublicBypassRoute } from './utils/appRoutes';
 
 function App() {
   const [data, setData] = useState(initialMockData);
@@ -70,6 +71,14 @@ function App() {
             return;
           }
 
+          resetAdminRouteState({
+            setAdminData,
+            setInventoryData,
+            setCardsData,
+            setProfilesAdminData,
+            setOrdersAdminData,
+          });
+
           const adminRouteData = await loadAdminRouteData({ path, api });
           applyAdminRouteData({
             kind: adminRouteData.kind,
@@ -107,10 +116,7 @@ function App() {
           return;
         }
 
-        if (path === '/login' || path === '/setup' || path === '/privacidad' || path === '/preview' || path === '/terminos'
-            || path === '/baja'
-            || path.startsWith('/r/')
-            || path.startsWith('/seguimiento/') || path.startsWith('/confirmar/') || path.startsWith('/activar/')) {
+        if (isPublicBypassRoute(path)) {
           setLoading(false);
           return;
         }
