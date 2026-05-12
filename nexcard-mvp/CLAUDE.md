@@ -1581,6 +1581,8 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - se extrajo `inventory` a `src/services/api/inventory.js`
 - se extrajo `AppRouteRenderer` para encapsular la decisión de render/rutas
 - se extrajo `useAuthSessionSync` para aislar la sincronización de sesión/auth con Supabase
+- se extrajo `useCheckoutFlow` para centralizar estado y handlers del checkout
+- el retorno post-pago de Mercado Pago quedó movido dentro de `useCheckoutFlow`
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - el bootstrap principal de `App.jsx` se mantuvo dentro del archivo para no romper guards/cargas prematuramente
@@ -1590,9 +1592,9 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 
 ### Siguiente corte recomendado
 - seguir reduciendo `src/App.jsx`
-- siguiente paso: separar checkout flow en hook/componente contenedor
-- luego aislar rama admin/loaders
-- recién después evaluar mover bootstrap principal
+- siguiente paso: aislar rama admin/loaders (`ensureAdminAccess` + `loadAdminRouteData`)
+- luego normalizar aplicación de setters admin
+- recién después evaluar mover bootstrap principal completo
 
 ---
 

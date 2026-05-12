@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import AppRouteRenderer from './components/AppRouteRenderer';
-import { api, getLastOrderSnapshot, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
+import { api, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { supabase, hasSupabase } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
 import { ADMIN_ROUTES, isAdminEmail } from './config/admin';
 import { useAuthSessionSync } from './hooks/useAuthSessionSync';
+import { useCheckoutFlow } from './hooks/useCheckoutFlow';
 
 function App() {
   const [data, setData] = useState(initialMockData);
@@ -19,67 +20,28 @@ function App() {
   const [profilesAdminData, setProfilesAdminData] = useState([]);
   const [ordersAdminData, setOrdersAdminData] = useState([]);
   const [error, setError] = useState('');
-  
-  // Checkout state
-  const [checkoutStep, setCheckoutStep] = useState(null);
-  const [currentOrder, setCurrentOrder] = useState(null);
   const [pendingClaimToken, setPendingClaimTokenState] = useState(() => getPendingClaimToken());
   const { getTotalItems } = useCart();
+  const {
+    checkoutStep,
+    currentOrder,
+    handleCheckoutStart,
+    handleProceedToCart,
+    handleProceedToCheckout,
+    handleOrderSuccess,
+    handleBackToShop,
+    handleBackToCart,
+  } = useCheckoutFlow();
 
   const navigate = (newPath) => {
     window.history.pushState({}, '', newPath);
     setPath(newPath);
   };
 
-  // Checkout handlers
-  const handleCheckoutStart = () => {
-    setCheckoutStep('catalog');
-  };
-
-  const handleProceedToCart = () => {
-    if (getTotalItems() > 0) {
-      setCheckoutStep('cart');
-    }
-  };
-
-  const handleProceedToCheckout = () => {
-    setCheckoutStep('checkout');
-  };
-
-  const handleOrderSuccess = (order) => {
-    setCurrentOrder(order);
-    setCheckoutStep('confirmation');
-  };
-
-  const handleBackToShop = () => {
-    setCheckoutStep('catalog');
-  };
-
-  const handleBackToCart = () => {
-    setCheckoutStep('cart');
-  };
-
   useEffect(() => {
     const handleLocationChange = () => setPath(window.location.pathname);
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
-  }, []);
-
-  // Leer parámetros de retorno de Mercado Pago
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const payment = params.get('payment');
-    const orderId = params.get('order');
-    if (payment && orderId) {
-      const snapshot = getLastOrderSnapshot();
-      window.history.replaceState({}, '', '/');
-      setCurrentOrder({
-        ...(snapshot?.id === orderId ? snapshot : {}),
-        id: orderId,
-        payment_status: payment === 'success' ? 'paid' : payment,
-      });
-      setCheckoutStep('confirmation');
-    }
   }, []);
 
   useEffect(() => {
@@ -260,7 +222,7 @@ function App() {
       ordersAdminData={ordersAdminData}
       landingContent={landingContent}
       error={error}
-      handleProceedToCart={handleProceedToCart}
+      handleProceedToCart={() => handleProceedToCart(getTotalItems)}
       handleProceedToCheckout={handleProceedToCheckout}
       handleOrderSuccess={handleOrderSuccess}
       handleBackToShop={handleBackToShop}
