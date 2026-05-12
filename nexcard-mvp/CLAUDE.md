@@ -1376,6 +1376,163 @@ Si la respuesta es no, no debe entrar antes que el hardening del core.
 
 ---
 
+## Roadmap operativo — próximas 4 semanas
+
+### Semana 1 — cerrar caja y base de validación
+
+#### Objetivo
+Eliminar los bloqueadores directos de lanzamiento controlado y dejar validación mínima repetible.
+
+#### Tareas
+1. Cambiar `MP_ACCESS_TOKEN` a producción.
+2. Eliminar producto `TEST-1` del flujo comercial.
+3. Remover `console.log` de debug pendiente en `api.js`.
+4. Ejecutar una compra real controlada end-to-end.
+5. Confirmar en evidencia real:
+   - `orders.payment_status = paid`
+   - persistencia de `mp_payment_id`
+   - orden visible en `/admin/orders`
+6. Cerrar un smoke test mínimo documentado para:
+   - landing
+   - carrito
+   - checkout
+   - retorno post-pago
+   - admin/orders
+
+#### Entregable semanal
+- primer cobro real validado
+- checklist smoke base documentada
+- go/no-go técnico-comercial resuelto
+
+#### Riesgo que baja
+- vender sin reconciliación real
+- romper caja por confiar sólo en sandbox
+
+---
+
+### Semana 2 — modularización mínima de frontend
+
+#### Objetivo
+Reducir el costo de cambio del frontend antes de seguir agregando módulos.
+
+#### Tareas
+1. Partir `src/services/api.js` por dominios prioritarios:
+   - orders
+   - payments
+   - profiles
+   - inventory
+2. Crear `src/services/api/index.js` como fachada temporal.
+3. Mover llamadas por dominio gradualmente sin romper imports existentes.
+4. Reducir `src/App.jsx` para dejar solo:
+   - routing
+   - session bootstrap
+   - guards
+5. Mover lógica de dashboards a hooks o servicios dedicados.
+
+#### Entregable semanal
+- primer corte real del monolito `api.js`
+- `App.jsx` más delgado
+- build/lint verdes tras refactor
+
+#### Riesgo que baja
+- regresiones laterales por tocar un archivo demasiado central
+- dificultad para sumar mejoras futuras
+
+---
+
+### Semana 3 — permisos, contratos y observabilidad
+
+#### Objetivo
+Cerrar los riesgos de escala operativa y de drift entre capas.
+
+#### Tareas
+1. Diseñar reemplazo de whitelist hardcodeada por roles/memberships.
+2. Definir estados formales para:
+   - orders
+   - payments
+   - cards
+   - activación
+3. Documentar transiciones válidas e inválidas.
+4. Revisar Edge Functions sensibles y marcar cuáles requieren rol admin explícito.
+5. Consolidar observabilidad de órdenes con eventos y alertas operativas clave.
+6. Crear runbook mínimo para incidentes de:
+   - pago
+   - activación
+   - email/webhook
+
+#### Entregable semanal
+- blueprint de permisos listo para implementación
+- contratos de estado documentados
+- runbook operativo inicial
+
+#### Riesgo que baja
+- dependencia excesiva de memoria informal
+- drift entre frontend, DB y functions
+- acceso admin poco escalable
+
+---
+
+### Semana 4 — inventario robusto y preparación de expansión
+
+#### Objetivo
+Blindar fulfillment y dejar preparada la base para crecer sin contaminar el core.
+
+#### Tareas
+1. Consolidar SKU real como fuente de verdad.
+2. Revisar reserva/descuento/conciliación de stock.
+3. Trazar completamente:
+   - order → order_card → card → activation
+4. Definir frontera técnica entre:
+   - core transaccional
+   - NexReview
+   - CRM
+   - growth / automatizaciones
+5. Priorizar backlog futuro con filtro de ROI estructural.
+6. Preparar lista de trabajo post-semana 4 con:
+   - Transbank
+   - analytics formal
+   - expansión de módulos
+
+#### Entregable semanal
+- flujo físico más confiable
+- base clara para expansión modular
+- backlog futuro priorizado por rentabilidad y riesgo
+
+#### Riesgo que baja
+- pérdida de margen por errores operativos físicos
+- expansión desordenada sobre base frágil
+
+---
+
+## Criterio de priorización semanal
+
+### Hacer primero
+- lo que protege caja
+- lo que reduce riesgo de regresión
+- lo que formaliza operación
+- lo que baja dependencia de conocimiento implícito
+
+### Postergar
+- features cosméticas
+- automatizaciones lindas pero no críticas
+- crecimiento comercial sobre flujos no estabilizados
+- módulos nuevos que toquen el core sin necesidad
+
+---
+
+## Resultado esperado al cierre de 4 semanas
+- cobro real validado y trazable
+- frontend menos frágil
+- base de permisos más escalable
+- operación más delegable
+- inventario/fulfillment más confiables
+- backlog futuro mejor ordenado
+
+### Lectura ejecutiva
+Si estas 4 semanas se ejecutan bien, NexCard deja de ser sólo un MVP fuerte y pasa a ser una base seria para escalar con menos deuda explosiva.
+
+---
+
 ## Bsale SII — Pendiente de activar
 
 La estructura está lista (NO-OP hasta configurar el token). Pasos para activar:
