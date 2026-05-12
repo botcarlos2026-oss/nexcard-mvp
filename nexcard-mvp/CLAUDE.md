@@ -1591,6 +1591,9 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - se extrajo `appRoutes.js` con helper para bypass público del bootstrap
 - la rama admin del bootstrap quedó más desacoplada sin mover todavía el bootstrap completo
 - se agregó reset-before-apply para bajar riesgo de stale state entre rutas admin
+- se endureció el bootstrap principal con request guard por secuencia + cancelación local para evitar respuestas tardías
+- `loadAdminRouteData` pasó a mapa más exhaustivo de rutas admin soportadas
+- `/admin/crm` dejó de caer implícitamente a órdenes
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - el bootstrap principal de `App.jsx` se mantuvo dentro del archivo para no romper guards/cargas prematuramente
@@ -1600,9 +1603,9 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 
 ### Siguiente corte recomendado
 - seguir reduciendo `src/App.jsx`
-- siguiente paso: agregar `cancelled` flag o request token en bootstrap para evitar respuestas tardías
-- luego evaluar mapa más exhaustivo de rutas admin soportadas
-- recién después evaluar mover bootstrap principal completo
+- siguiente paso: evaluar extracción del bootstrap principal a hook cuando ya haya menos ramas inline
+- luego revisar si landing bootstrap conviene separarlo del resto
+- recién después evaluar abort/cancelación real a nivel fetch si aporta ROI
 
 ---
 

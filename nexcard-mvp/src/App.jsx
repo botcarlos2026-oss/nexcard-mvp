@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AppRouteRenderer from './components/AppRouteRenderer';
 import { api, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
@@ -11,6 +11,7 @@ import { applyAdminRouteData, ensureAdminAccess, loadAdminRouteData, resetAdminR
 import { isPublicBypassRoute } from './utils/appRoutes';
 
 function App() {
+  const bootstrapSeqRef = useRef(0);
   const [data, setData] = useState(initialMockData);
   const { user, setUser, sessionReady } = useAuthSessionSync();
   const [path, setPath] = useState(window.location.pathname);
@@ -47,27 +48,35 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const requestId = ++bootstrapSeqRef.current;
+    let cancelled = false;
+    const isStale = () => cancelled || bootstrapSeqRef.current !== requestId;
+
     const bootstrap = async () => {
       if (!sessionReady && hasSupabase) return; // esperar sesión
-      setLoading(true);
-      setError('');
+      if (!isStale()) {
+        setLoading(true);
+        setError('');
+      }
       try {
         try {
           const landing = await api.getLandingContent();
+          if (isStale()) return;
           setLandingContent(landing);
         } catch {
+          if (isStale()) return;
           setLandingContent(defaultLandingContent);
         }
 
         if (path === '/') {
-          setLoading(false);
           return;
         }
 
         if (ADMIN_ROUTES.has(path)) {
+          if (isStale()) return;
           const access = await ensureAdminAccess({ navigate });
+          if (isStale()) return;
           if (!access.allowed) {
-            setLoading(false);
             return;
           }
 
@@ -80,6 +89,7 @@ function App() {
           });
 
           const adminRouteData = await loadAdminRouteData({ path, api });
+          if (isStale()) return;
           applyAdminRouteData({
             kind: adminRouteData.kind,
             payload: adminRouteData.payload,
@@ -89,51 +99,57 @@ function App() {
             setProfilesAdminData,
             setOrdersAdminData,
           });
-          setLoading(false);
           return;
         }
 
         if (path === '/edit') {
           if (!user) {
+            if (isStale()) return;
             navigate('/login');
-            setLoading(false);
             return;
           }
           const profile = await api.getMyProfile();
+          if (isStale()) return;
           if (!profile) {
+            if (isStale()) return;
             navigate('/setup');
-            setLoading(false);
             return;
           }
           setData(profile);
-          setLoading(false);
           return;
         }
 
         if (path === '/setup' && !user) {
+          if (isStale()) return;
           navigate('/login');
-          setLoading(false);
           return;
         }
 
         if (isPublicBypassRoute(path)) {
-          setLoading(false);
           return;
         }
 
         const slug = path.replace(/^\/|\/$/g, '');
         if (slug) {
           const profile = await api.getPublicProfile(slug);
+          if (isStale()) return;
           setData(profile);
         }
       } catch (err) {
+        if (isStale()) return;
         setError(err.message || 'No fue posible cargar la aplicación');
       } finally {
-        setLoading(false);
+        if (!isStale()) {
+          setLoading(false);
+        }
       }
     };
 
     bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
   }, [path, user, sessionReady]);
 
   const handleSave = async (newData) => {
