@@ -1533,6 +1533,48 @@ Si estas 4 semanas se ejecutan bien, NexCard deja de ser sólo un MVP fuerte y p
 
 ---
 
+## Checklist operativo de ejecución
+
+### Semana 1 — caja y validación real
+- [ ] Cambiar `MP_ACCESS_TOKEN` a producción
+- [ ] Eliminar `TEST-1` del catálogo productivo en Supabase
+- [ ] Verificar si el pendiente de `console.log` en `api.js` sigue vigente o cerrarlo como desalineado
+- [ ] Ejecutar 1 compra real controlada end-to-end
+- [ ] Confirmar `orders.payment_status = paid`
+- [ ] Confirmar persistencia de `mp_payment_id`
+- [ ] Confirmar visualización correcta en `/admin/orders`
+- [ ] Documentar smoke mínimo post-cobro
+
+### Semana 2 — modularización frontend
+- [x] Crear primer corte modular para `products` y `orders` fuera de `api.js`
+- [ ] Partir `payments` fuera de `api.js`
+- [ ] Partir `profiles` fuera de `api.js`
+- [ ] Partir `inventory` fuera de `api.js`
+- [ ] Dejar `src/services/api/index.js` como fachada temporal si ya conviene
+- [ ] Adelgazar `src/App.jsx`
+- [ ] Validar `npm run lint`
+- [ ] Validar `npm run build`
+
+### Semana 3 — permisos y observabilidad
+- [ ] Diseñar reemplazo de whitelist por roles/memberships
+- [ ] Definir estados formales de order/payment/card/activation
+- [ ] Documentar transiciones válidas e inválidas
+- [ ] Marcar Edge Functions que requieren rol admin explícito
+- [ ] Consolidar alertas operativas mínimas
+- [ ] Crear runbook de incidentes de pago/activación/email
+
+### Semana 4 — inventario y expansión segura
+- [ ] Consolidar SKU real como fuente de verdad
+- [ ] Revisar reserva/descuento/conciliación de stock
+- [ ] Trazar `order → order_card → card → activation`
+- [ ] Definir frontera técnica entre core y módulos de expansión
+- [ ] Priorizar backlog post-semana 4 por ROI estructural
+
+### Regla de avance
+No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin evidencia técnica de cierre.
+
+---
+
 ## Bsale SII — Pendiente de activar
 
 La estructura está lista (NO-OP hasta configurar el token). Pasos para activar:
