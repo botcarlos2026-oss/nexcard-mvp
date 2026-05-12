@@ -3,6 +3,7 @@ import { createProductsApi } from './api/products';
 import { createOrdersApi } from './api/orders';
 import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
+import { createInventoryApi } from './api/inventory';
 
 const ERROR_MESSAGES = {
   'Failed to fetch': 'Sin conexión. Verifica tu internet e intenta nuevamente.',
@@ -94,6 +95,7 @@ const ordersApi = createOrdersApi({ supabase, hasSupabase, getClerkUserId });
 const fetchOrders = ordersApi.getOrders;
 const paymentsApi = createPaymentsApi({ supabase, hasSupabase, fetchOrders });
 const profilesApi = createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCurrentUserEmail, request });
+const inventoryApi = createInventoryApi({ supabase, hasSupabase });
 
 // ---------------------------------------------------------------------------
 // Helpers privados
@@ -493,56 +495,9 @@ export const api = {
   getProducts: async () => productsApi.getProducts(),
   createOrder: async (payload) => ordersApi.createOrder(payload),
 
-  getInventory: async () => {
-    if (!hasSupabase) return { items: [], movements: [] };
-    const { data: items, error: itemsError } = await supabase
-      .from('inventory_items')
-      .select('*')
-      .order('created_at', { ascending: true });
-    if (itemsError) throw new Error(itemsError.message);
-    const { data: movements, error: movementsError } = await supabase
-      .from('inventory_movements')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (movementsError) throw new Error(movementsError.message);
-    return { items: items || [], movements: movements || [] };
-  },
+  getInventory: async () => inventoryApi.getInventory(),
 
-  createInventoryMovement: async (payload) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { error: movError } = await supabase
-      .from('inventory_movements')
-      .insert([payload]);
-    if (movError) throw new Error(movError.message);
-    // Actualizar stock del item
-    const { data: item } = await supabase
-      .from('inventory_items')
-      .select('stock')
-      .eq('id', payload.inventory_item_id)
-      .single();
-    if (item) {
-      let newStock = item.stock;
-      if (payload.movement_type === 'in') newStock += Number(payload.quantity);
-      else if (payload.movement_type === 'out') newStock -= Number(payload.quantity);
-      else if (payload.movement_type === 'adjust') newStock = Number(payload.quantity);
-      await supabase
-        .from('inventory_items')
-        .update({ stock: Math.max(0, newStock) })
-        .eq('id', payload.inventory_item_id);
-    }
-    // Retornar estado actualizado
-    const { data: items } = await supabase
-      .from('inventory_items')
-      .select('*')
-      .order('created_at', { ascending: true });
-    const { data: movements } = await supabase
-      .from('inventory_movements')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    return { items: items || [], movements: movements || [] };
-  },
+  createInventoryMovement: async (payload) => inventoryApi.createInventoryMovement(payload),
 
   getOrders: async () => ordersApi.getOrders(),
 
@@ -680,42 +635,11 @@ export const api = {
     return { ...orders, itemsDecremented: dispatchResult?.items_decremented || [] };
   },
 
-  getDispatchConfig: async () => {
-    if (!hasSupabase) return [];
-    const { data, error } = await supabase
-      .from('dispatch_config')
-      .select('*, inventory_items(*)')
-      .order('created_at', { ascending: true });
-    if (error) throw new Error(error.message);
-    return data || [];
-  },
+  getDispatchConfig: async () => inventoryApi.getDispatchConfig(),
 
-  addDispatchConfig: async ({ inventory_item_id, quantity_per_dispatch, description }) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { error } = await supabase.from('dispatch_config').insert([{
-      inventory_item_id,
-      quantity_per_dispatch: Number(quantity_per_dispatch),
-      description: description || null,
-      active: true,
-    }]);
-    if (error) throw new Error(error.message);
-    const { data } = await supabase
-      .from('dispatch_config')
-      .select('*, inventory_items(*)')
-      .order('created_at', { ascending: true });
-    return data || [];
-  },
+  addDispatchConfig: async (payload) => inventoryApi.addDispatchConfig(payload),
 
-  deleteDispatchConfig: async (id) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { error } = await supabase.from('dispatch_config').delete().eq('id', id);
-    if (error) throw new Error(error.message);
-    const { data } = await supabase
-      .from('dispatch_config')
-      .select('*, inventory_items(*)')
-      .order('created_at', { ascending: true });
-    return data || [];
-  },
+  deleteDispatchConfig: async (id) => inventoryApi.deleteDispatchConfig(id),
 
   linkOrderCard: async (orderId, cardId) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
@@ -884,23 +808,9 @@ export const api = {
     });
   },
 
-  updateInventoryItem: async (itemId, payload) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { error } = await supabase.from('inventory_items').update(payload).eq('id', itemId);
-    if (error) throw new Error(error.message);
-    const { data: items } = await supabase.from('inventory_items').select('*').order('created_at', { ascending: true });
-    return { items: items || [] };
-  },
+  updateInventoryItem: async (itemId, payload) => inventoryApi.updateInventoryItem(itemId, payload),
 
-  checkLowStock: async () => {
-    if (!hasSupabase) return { lowStockItems: [] };
-    const { data } = await supabase
-      .from('inventory_items')
-      .select('sku, name, item, stock, min_stock')
-      .gt('min_stock', 0);
-    const lowStockItems = (data || []).filter(i => (i.stock || 0) <= (i.min_stock || 0));
-    return { lowStockItems };
-  },
+  checkLowStock: async () => inventoryApi.checkLowStock(),
 
   getRefundForOrder: async (orderId) => paymentsApi.getRefundForOrder(orderId),
 

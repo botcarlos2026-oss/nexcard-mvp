@@ -1549,7 +1549,7 @@ Si estas 4 semanas se ejecutan bien, NexCard deja de ser sólo un MVP fuerte y p
 - [x] Crear primer corte modular para `products` y `orders` fuera de `api.js`
 - [x] Partir `payments` fuera de `api.js`
 - [x] Partir `profiles` fuera de `api.js`
-- [ ] Partir `inventory` fuera de `api.js`
+- [x] Partir `inventory` fuera de `api.js`
 - [ ] Dejar `src/services/api/index.js` como fachada temporal si ya conviene
 - [ ] Adelgazar `src/App.jsx`
 - [x] Validar `npm run lint`
@@ -1578,14 +1578,18 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - se extrajo `orders` a `src/services/api/orders.js`
 - se extrajo `payments` a `src/services/api/payments.js`
 - se extrajo `profiles` a `src/services/api/profiles.js`
+- se extrajo `inventory` a `src/services/api/inventory.js`
 - `src/services/api.js` quedó funcionando como fachada compatible
+- `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - validación ejecutada:
   - `npm run lint` ✅
   - `npm run build` ✅
 
 ### Siguiente corte recomendado
-- `inventory`
-- luego reducción de `src/App.jsx`
+- reducción de `src/App.jsx`
+- primero separar decisión de render/rutas
+- luego sync auth/session
+- luego checkout flow
 
 ---
 
