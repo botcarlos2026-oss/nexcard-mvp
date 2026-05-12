@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import AppRouteRenderer from './components/AppRouteRenderer';
 import { api, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
-import { supabase, hasSupabase } from './services/supabaseClient';
+import { hasSupabase } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
 import { ADMIN_ROUTES, isAdminEmail } from './config/admin';
 import { useAuthSessionSync } from './hooks/useAuthSessionSync';
 import { useCheckoutFlow } from './hooks/useCheckoutFlow';
+import { applyAdminRouteData, ensureAdminAccess, loadAdminRouteData } from './utils/adminBootstrap';
 
 function App() {
   const [data, setData] = useState(initialMockData);
@@ -63,48 +64,22 @@ function App() {
         }
 
         if (ADMIN_ROUTES.has(path)) {
-          if (!hasSupabase || !supabase) {
-            throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
-          }
-
-          // Obtener sesión activa de Supabase (más confiable que localStorage)
-          const { data: { session } } = await supabase.auth.getSession();
-          const sessionEmail = session?.user?.email;
-          const isAdmin = isAdminEmail(sessionEmail);
-
-          if (!isAdmin) {
-            navigate('/login');
+          const access = await ensureAdminAccess({ navigate });
+          if (!access.allowed) {
             setLoading(false);
             return;
           }
 
-          if (path === '/admin') {
-            const dashboard = await api.getAdminDashboard();
-            setAdminData(dashboard);
-          } else if (path === '/admin/inventory') {
-            const inventory = await api.getInventory();
-            setInventoryData({
-              items: inventory.items || [],
-              movements: inventory.movements || [],
-            });
-          } else if (path === '/admin/cards') {
-            const cards = await api.getAdminCards();
-            setCardsData({
-              cards: cards.cards || [],
-              profiles: cards.profiles || [],
-            });
-          } else if (path === '/admin/profiles' || path === '/admin/nexreview') {
-            const profiles = await api.getAdminProfiles();
-            setProfilesAdminData(profiles.profiles || []);
-          } else if (path === '/admin/emails') {
-            // EmailDashboard carga sus propios datos via supabase directo
-          } else if (path === '/admin/review-cards') {
-            // ReviewCardsDashboard carga sus propios datos
-          } else {
-            // /admin/orders y /admin/crm comparten la misma fuente de datos
-            const orders = await api.getOrders();
-            setOrdersAdminData(orders.orders || []);
-          }
+          const adminRouteData = await loadAdminRouteData({ path, api });
+          applyAdminRouteData({
+            kind: adminRouteData.kind,
+            payload: adminRouteData.payload,
+            setAdminData,
+            setInventoryData,
+            setCardsData,
+            setProfilesAdminData,
+            setOrdersAdminData,
+          });
           setLoading(false);
           return;
         }

@@ -1583,6 +1583,11 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - se extrajo `useAuthSessionSync` para aislar la sincronización de sesión/auth con Supabase
 - se extrajo `useCheckoutFlow` para centralizar estado y handlers del checkout
 - el retorno post-pago de Mercado Pago quedó movido dentro de `useCheckoutFlow`
+- se extrajo `adminBootstrap.js` con:
+  - `ensureAdminAccess`
+  - `loadAdminRouteData`
+  - `applyAdminRouteData`
+- la rama admin del bootstrap quedó más desacoplada sin mover todavía el bootstrap completo
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - el bootstrap principal de `App.jsx` se mantuvo dentro del archivo para no romper guards/cargas prematuramente
@@ -1592,8 +1597,8 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 
 ### Siguiente corte recomendado
 - seguir reduciendo `src/App.jsx`
-- siguiente paso: aislar rama admin/loaders (`ensureAdminAccess` + `loadAdminRouteData`)
-- luego normalizar aplicación de setters admin
+- siguiente paso: reset/control de stale state entre rutas admin
+- luego evaluar rutas públicas bypass como helper explícito
 - recién después evaluar mover bootstrap principal completo
 
 ---
