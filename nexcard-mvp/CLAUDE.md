@@ -1595,6 +1595,9 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - se endureció el bootstrap principal con request guard por secuencia + cancelación local para evitar respuestas tardías
 - `loadAdminRouteData` pasó a mapa más exhaustivo de rutas admin soportadas
 - `/admin/crm` dejó de caer implícitamente a órdenes
+- se endureció `supabase/functions/mp-webhook/index.ts` para proteger órdenes ya pagadas frente a eventos tardíos/ambiguos de Mercado Pago
+- el webhook ahora no degrada `payment_status` una vez que la orden ya quedó `paid`
+- el webhook ahora evita pisar `fulfillment_status` salvo el avance controlado `new -> in_production` cuando entra un pago válido
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - navegación, auth handlers y `handleSave` quedaron intencionalmente en `App.jsx` para no subir riesgo de regresión
@@ -1603,10 +1606,10 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
   - `npm run build` ✅
 
 ### Siguiente corte recomendado
-- seguir reduciendo `src/App.jsx`
-- siguiente paso: decidir si la carga de landing conviene separarla del bootstrap principal
-- luego revisar si agrupar setters/admin state da ROI real o sólo ruido
-- recién después evaluar abort/cancelación real a nivel fetch si aporta ROI
+- priorizar hardening funcional pre-lanzamiento sobre más refactor cosmético
+- siguiente paso: revisar reconciliación pago real → webhook → `orders.payment_status = paid` → `mp_payment_id`
+- luego evaluar si la carga de landing conviene separarla del bootstrap principal
+- recién después revisar si agrupar setters/admin state da ROI real o sólo ruido
 
 ---
 

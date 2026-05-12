@@ -180,7 +180,7 @@ serve(async (req) => {
     // Idempotencia: verificar estado actual antes de actualizar
     const { data: currentOrder, error: fetchError } = await supabase
       .from('orders')
-      .select('payment_status, mp_payment_id')
+      .select('payment_status, fulfillment_status, mp_payment_id')
       .eq('id', orderId)
       .single();
 
@@ -194,11 +194,20 @@ serve(async (req) => {
       return new Response('ok', { status: 200 });
     }
 
-    // Si la orden ya está pagada o ya registramos este payment, no reprocesamos el cobro,
-    // pero sí reintentamos el flujo de activación por si el primer email falló.
-    if (currentOrder.payment_status === 'paid' && mappedStatus === 'paid') {
-      log('info', 'webhook_duplicate_ignored', { order_id: orderId, mp_payment_id: String(bodyId) });
-      await ensureProfileActivationFlow(supabase, SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId, payment.payer?.email);
+    // Si la orden ya está pagada, no degradamos su estado por eventos tardíos o de otra fuente.
+    // Solo reintentamos activación cuando corresponde.
+    if (currentOrder.payment_status === 'paid') {
+      if (mappedStatus === 'paid') {
+        log('info', 'webhook_duplicate_ignored', { order_id: orderId, mp_payment_id: String(bodyId) });
+        await ensureProfileActivationFlow(supabase, SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId, payment.payer?.email);
+      } else {
+        log('warn', 'webhook_paid_order_downgrade_ignored', {
+          order_id: orderId,
+          current_payment_status: currentOrder.payment_status,
+          incoming_payment_status: mappedStatus,
+          mp_payment_id: String(bodyId),
+        });
+      }
       return new Response('ok', { status: 200 });
     }
 
@@ -210,11 +219,15 @@ serve(async (req) => {
       return new Response('ok', { status: 200 });
     }
 
+    const nextFulfillmentStatus = mappedStatus === 'paid' && currentOrder.fulfillment_status === 'new'
+      ? 'in_production'
+      : currentOrder.fulfillment_status;
+
     const { error } = await supabase
       .from('orders')
       .update({
         payment_status: mappedStatus,
-        fulfillment_status: status === 'approved' ? 'in_production' : 'new',
+        fulfillment_status: nextFulfillmentStatus,
         mp_payment_id: String(bodyId),
       })
       .eq('id', orderId);
@@ -224,7 +237,11 @@ serve(async (req) => {
       return new Response('error', { status: 500 });
     }
 
-    log('info', 'order_updated', { order_id: orderId, mapped_status: mappedStatus });
+    log('info', 'order_updated', {
+      order_id: orderId,
+      mapped_status: mappedStatus,
+      fulfillment_status: nextFulfillmentStatus,
+    });
 
     if (mappedStatus === 'paid') {
       await ensureProfileActivationFlow(supabase, SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId, payment.payer?.email);
