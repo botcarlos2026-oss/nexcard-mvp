@@ -6,6 +6,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function requireAdminAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+  const authHeader = req.headers.get('Authorization') || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return { error: new Response(JSON.stringify({ success: false, error: 'Authorization requerida' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const jwt = authHeader.replace('Bearer ', '').trim();
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data: authData, error: authError } = await admin.auth.getUser(jwt);
+
+  if (authError || !authData?.user) {
+    return { error: new Response(JSON.stringify({ success: false, error: 'Sesión inválida o expirada' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const userSupabase = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  });
+  const { data: isAdmin, error: roleError } = await userSupabase.rpc('has_role', { required_role: 'admin' });
+
+  if (roleError || !isAdmin) {
+    return { error: new Response(JSON.stringify({ success: false, error: 'Solo admins pueden ejecutar este flujo' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  return { admin, userId: authData.user.id };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -22,11 +57,43 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
 
     if (!MP_ACCESS_TOKEN) throw new Error('MP_ACCESS_TOKEN no configurado');
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('Supabase no configurado');
+    if (!SUPABASE_ANON_KEY) throw new Error('SUPABASE_ANON_KEY no configurado');
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const access = await requireAdminAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    if (access.error) return access.error;
+
+    const supabase = access.admin;
+
+    const requestedAmount = Number(amount_cents);
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      throw new Error('Monto de reembolso inválido');
+    }
+
+    const { data: refund, error: refundLookupError } = await supabase
+      .from('refunds')
+      .select('id, order_id, amount_cents, status')
+      .eq('id', refundId)
+      .single();
+
+    if (refundLookupError || !refund) {
+      throw new Error('Refund no encontrado');
+    }
+
+    if (refund.order_id !== orderId) {
+      throw new Error('Refund no corresponde a la orden indicada');
+    }
+
+    if (refund.status === 'processed') {
+      throw new Error('Este refund ya fue procesado');
+    }
+
+    if (requestedAmount > Number(refund.amount_cents || 0)) {
+      throw new Error('El monto supera el refund solicitado/aprobado');
+    }
 
     // Obtener la orden con mp_payment_id
     const { data: order, error: orderError } = await supabase
@@ -37,6 +104,10 @@ serve(async (req) => {
 
     if (orderError || !order) {
       throw new Error('Orden no encontrada');
+    }
+
+    if (requestedAmount > Number(order.amount_cents || 0)) {
+      throw new Error('El monto supera el total de la orden');
     }
 
     if (!order.mp_payment_id) {
@@ -53,7 +124,7 @@ serve(async (req) => {
           'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ amount: amount_cents }),
+        body: JSON.stringify({ amount: requestedAmount }),
       }
     );
 
@@ -72,7 +143,7 @@ serve(async (req) => {
         status: 'processed',
         mp_refund_id: mpRefundId,
         processed_at: new Date().toISOString(),
-        processed_by: 'admin',
+        processed_by: access.userId,
       })
       .eq('id', refundId);
 
@@ -91,7 +162,7 @@ serve(async (req) => {
       const folio = order.folio ? `#${order.folio}` : `#${orderId.slice(0, 8).toUpperCase()}`;
       const amountFormatted = new Intl.NumberFormat('es-CL', {
         style: 'currency', currency: 'CLP', maximumFractionDigits: 0,
-      }).format(amount_cents);
+      }).format(requestedAmount);
 
       const reasonLabel: Record<string, string> = {
         'Producto defectuoso': 'Producto defectuoso',

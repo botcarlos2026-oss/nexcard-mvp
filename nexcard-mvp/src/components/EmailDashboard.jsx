@@ -128,12 +128,18 @@ export default function EmailDashboard() {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
 
+    if (!token) {
+      setSending(false);
+      setSendResult({ error: 'Debes iniciar sesión como admin para enviar campañas.' });
+      return;
+    }
+
     const sendOne = async (email, attempt = 1) => {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/send-campaign-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${token}`,
           'apikey': SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({ to: email, subject, html: body, email_type: 'campaign' }),
