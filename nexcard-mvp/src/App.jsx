@@ -1,44 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import LandingPage from './components/LandingPage';
-import ComingSoon from './components/ComingSoon';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import TermsAndConditions from './components/TermsAndConditions';
-import NexCardProfile from './components/NexCardProfile';
-import AdminDashboard from './components/AdminDashboard';
-import InventoryDashboard from './components/InventoryDashboard';
-import AdminCardsDashboard from './components/AdminCardsDashboard';
-import AdminProfilesDashboard from './components/AdminProfilesDashboard';
-import OrdersDashboard from './components/OrdersDashboard';
-import CRMDashboard from './components/CRMDashboard';
-import NexReviewDashboard from './components/NexReviewDashboard';
-import ReviewCardsDashboard from './components/ReviewCardsDashboard';
-import ReviewCardRedirect from './components/ReviewCardRedirect';
-import EmailDashboard from './components/EmailDashboard';
-import ProductsDashboard from './components/ProductsDashboard';
-import TeamDashboard from './components/TeamDashboard';
-import WheelDashboard from './components/WheelDashboard';
-import PrintTestGenerator from './components/PrintTestGenerator';
-import UnsubscribePage from './components/UnsubscribePage';
-import TrackingPage from './components/TrackingPage';
-import DeliveryConfirmation from './components/DeliveryConfirmation';
-import ActivationPage from './components/ActivationPage';
-import UserEditor from './components/UserEditor';
-import SetupWizard from './components/SetupWizard';
-import AuthPage from './components/AuthPage';
-import ProductCatalog from './components/ProductCatalog';
-import Cart from './components/Cart';
-import CheckoutForm from './components/CheckoutForm';
-import OrderConfirmation from './components/OrderConfirmation';
-import { api, getLastOrderSnapshot, getPendingClaimToken, getStoredAuth, setPendingClaimToken, setStoredAuth } from './services/api';
+import AppRouteRenderer from './components/AppRouteRenderer';
+import { api, getLastOrderSnapshot, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { supabase, hasSupabase } from './services/supabaseClient';
 import { useCart } from './store/cartStore';
 import { ADMIN_ROUTES, isAdminEmail } from './config/admin';
+import { useAuthSessionSync } from './hooks/useAuthSessionSync';
 
 function App() {
   const [data, setData] = useState(initialMockData);
-  const [user, setUser] = useState(() => getStoredAuth()?.user || null);
-  const [sessionReady, setSessionReady] = useState(false);
+  const { user, setUser, sessionReady } = useAuthSessionSync();
   const [path, setPath] = useState(window.location.pathname);
   const [loading, setLoading] = useState(true);
   const [landingContent, setLandingContent] = useState(defaultLandingContent);
@@ -87,29 +58,6 @@ function App() {
   const handleBackToCart = () => {
     setCheckoutStep('cart');
   };
-
-  useEffect(() => {
-    if (!hasSupabase || !supabase) return;
-    // Leer sesión activa primero
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        setStoredAuth({ user: session.user });
-      }
-      setSessionReady(true);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        setStoredAuth({ user: session.user });
-      } else {
-        setUser(null);
-        setStoredAuth(null);
-      }
-    });
-    return () => listener?.subscription?.unsubscribe();
-  }, []);
 
   useEffect(() => {
     const handleLocationChange = () => setPath(window.location.pathname);
@@ -296,99 +244,36 @@ function App() {
     navigate('/login');
   };
 
-  if (loading) {
-    return <div className="min-h-screen bg-zinc-950 text-white grid place-items-center font-bold">Cargando NexCard…</div>;
-  }
-
-  // ==================== CHECKOUT FLOW ====================
-  if (checkoutStep === 'catalog') {
-    return <ProductCatalog onProceedToCart={handleProceedToCart} />;
-  }
-
-  if (checkoutStep === 'cart') {
-    return <Cart onProceedCheckout={handleProceedToCheckout} onBack={handleBackToShop} />;
-  }
-
-  if (checkoutStep === 'checkout') {
-    return (
-      <CheckoutForm
-        onOrderSuccess={handleOrderSuccess}
-        onBack={handleBackToCart}
-      />
-    );
-  }
-
-  if (checkoutStep === 'confirmation') {
-    return (
-      <OrderConfirmation
-        order={currentOrder}
-        onContinueShopping={handleBackToShop}
-      />
-    );
-  }
-
-  // ==================== REGULAR ROUTES ====================
-  if (path === '/login') return <AuthPage onAuthSuccess={handleAuthSuccess} pendingClaimToken={pendingClaimToken} />;
-
-  if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
-  if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />;
-  if (path === '/admin/cards') return <AdminCardsDashboard cards={cardsData.cards} profiles={cardsData.profiles} />;
-  if (path === '/admin/profiles') return <AdminProfilesDashboard profiles={profilesAdminData} />;
-  if (path === '/admin/nexreview') return <NexReviewDashboard profiles={profilesAdminData} />;
-  if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
-  if (path === '/admin/emails') return <EmailDashboard />;
-  if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
-  if (path === '/admin/products') return <ProductsDashboard />;
-  if (path === '/admin/team') return <TeamDashboard />;
-  if (path === '/admin/wheel') return <WheelDashboard />;
-  if (path === '/admin/print-test') return <PrintTestGenerator />;
-
-  if (path.startsWith('/r/')) {
-    return <ReviewCardRedirect slug={path.replace('/r/', '').replace(/\/$/, '')} />;
-  }
-  if (path === '/baja') return <UnsubscribePage />;
-
-  if (path === '/admin/crm') return <CRMDashboard />;
-
-  if (path === '/edit') {
-    if (!user) return null;
-    return <UserEditor data={data} onSave={handleSave} onLogout={handleLogout} />;
-  }
-
-  if (path === '/setup') {
-    return <SetupWizard onComplete={async (wizardData) => {
-      await handleSave({ ...data, ...wizardData });
-      navigate('/edit');
-    }} />;
-  }
-
-  if (path.startsWith('/activar/')) {
-    const token = path.replace('/activar/', '').replace(/\/$/, '');
-    return <ActivationPage token={token} user={user} onAuthRequired={handleClaimAuthRequired} onContinueSetup={handleContinueSetup} />;
-  }
-
-  // Public tracking routes — no auth required
-  if (path.startsWith('/seguimiento/')) {
-    const [orderId, token] = path.replace('/seguimiento/', '').replace(/\/$/, '').split('/');
-    return <TrackingPage orderId={orderId} token={token} />;
-  }
-
-  if (path.startsWith('/confirmar/')) {
-    const parts = path.replace('/confirmar/', '').split('/');
-    return <DeliveryConfirmation orderId={parts[0]} token={parts[1]} />;
-  }
-
-  if (path === '/') return <ComingSoon />;
-  if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
-  if (path === '/coming-soon') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
-  if (path === '/privacidad') return <PrivacyPolicy />;
-  if (path === '/terminos') return <TermsAndConditions />;
-
-  if (error) {
-    return <div className="min-h-screen bg-zinc-950 text-white grid place-items-center p-8 text-center"><div><p className="font-black text-2xl mb-3">NexCard no pudo cargar el perfil</p><p className="text-zinc-400">{error}</p></div></div>;
-  }
-
-  return <NexCardProfile data={data} />;
+  return (
+    <AppRouteRenderer
+      loading={loading}
+      checkoutStep={checkoutStep}
+      currentOrder={currentOrder}
+      path={path}
+      pendingClaimToken={pendingClaimToken}
+      user={user}
+      data={data}
+      adminData={adminData}
+      inventoryData={inventoryData}
+      cardsData={cardsData}
+      profilesAdminData={profilesAdminData}
+      ordersAdminData={ordersAdminData}
+      landingContent={landingContent}
+      error={error}
+      handleProceedToCart={handleProceedToCart}
+      handleProceedToCheckout={handleProceedToCheckout}
+      handleOrderSuccess={handleOrderSuccess}
+      handleBackToShop={handleBackToShop}
+      handleBackToCart={handleBackToCart}
+      handleAuthSuccess={handleAuthSuccess}
+      handleSave={handleSave}
+      handleLogout={handleLogout}
+      handleClaimAuthRequired={handleClaimAuthRequired}
+      handleContinueSetup={handleContinueSetup}
+      handleCheckoutStart={handleCheckoutStart}
+      navigate={navigate}
+    />
+  );
 }
 
 export default App;

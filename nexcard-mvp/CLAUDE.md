@@ -1551,7 +1551,7 @@ Si estas 4 semanas se ejecutan bien, NexCard deja de ser sólo un MVP fuerte y p
 - [x] Partir `profiles` fuera de `api.js`
 - [x] Partir `inventory` fuera de `api.js`
 - [ ] Dejar `src/services/api/index.js` como fachada temporal si ya conviene
-- [ ] Adelgazar `src/App.jsx`
+- [x] Adelgazar `src/App.jsx` con primer corte seguro (render + sync de sesión)
 - [x] Validar `npm run lint`
 - [x] Validar `npm run build`
 
@@ -1579,17 +1579,20 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - se extrajo `payments` a `src/services/api/payments.js`
 - se extrajo `profiles` a `src/services/api/profiles.js`
 - se extrajo `inventory` a `src/services/api/inventory.js`
+- se extrajo `AppRouteRenderer` para encapsular la decisión de render/rutas
+- se extrajo `useAuthSessionSync` para aislar la sincronización de sesión/auth con Supabase
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
+- el bootstrap principal de `App.jsx` se mantuvo dentro del archivo para no romper guards/cargas prematuramente
 - validación ejecutada:
   - `npm run lint` ✅
   - `npm run build` ✅
 
 ### Siguiente corte recomendado
-- reducción de `src/App.jsx`
-- primero separar decisión de render/rutas
-- luego sync auth/session
-- luego checkout flow
+- seguir reduciendo `src/App.jsx`
+- siguiente paso: separar checkout flow en hook/componente contenedor
+- luego aislar rama admin/loaders
+- recién después evaluar mover bootstrap principal
 
 ---
 
