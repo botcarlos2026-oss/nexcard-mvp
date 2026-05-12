@@ -1547,13 +1547,13 @@ Si estas 4 semanas se ejecutan bien, NexCard deja de ser sólo un MVP fuerte y p
 
 ### Semana 2 — modularización frontend
 - [x] Crear primer corte modular para `products` y `orders` fuera de `api.js`
-- [ ] Partir `payments` fuera de `api.js`
-- [ ] Partir `profiles` fuera de `api.js`
+- [x] Partir `payments` fuera de `api.js`
+- [x] Partir `profiles` fuera de `api.js`
 - [ ] Partir `inventory` fuera de `api.js`
 - [ ] Dejar `src/services/api/index.js` como fachada temporal si ya conviene
 - [ ] Adelgazar `src/App.jsx`
-- [ ] Validar `npm run lint`
-- [ ] Validar `npm run build`
+- [x] Validar `npm run lint`
+- [x] Validar `npm run build`
 
 ### Semana 3 — permisos y observabilidad
 - [ ] Diseñar reemplazo de whitelist por roles/memberships
@@ -1572,6 +1572,20 @@ Si estas 4 semanas se ejecutan bien, NexCard deja de ser sólo un MVP fuerte y p
 
 ### Regla de avance
 No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin evidencia técnica de cierre.
+
+### Avance real ejecutado
+- se extrajo `products` a `src/services/api/products.js`
+- se extrajo `orders` a `src/services/api/orders.js`
+- se extrajo `payments` a `src/services/api/payments.js`
+- se extrajo `profiles` a `src/services/api/profiles.js`
+- `src/services/api.js` quedó funcionando como fachada compatible
+- validación ejecutada:
+  - `npm run lint` ✅
+  - `npm run build` ✅
+
+### Siguiente corte recomendado
+- `inventory`
+- luego reducción de `src/App.jsx`
 
 ---
 
