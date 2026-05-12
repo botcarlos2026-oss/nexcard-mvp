@@ -1089,6 +1089,56 @@ La auditoría de emails quedó mucho más confiable:
 - [ ] Transbank WebPay (segunda integración de pago)
 - [ ] CRM con pipeline Kanban
 
+<!--
+PLAN PRE-LANZAMIENTO — revisión ejecutiva
+
+Objetivo:
+Cerrar sólo lo que impacta caja, conversión y riesgo operativo del primer cobro real.
+No meter features nuevas antes de validar cobro + activación real.
+
+Fase 1 — Go/No-Go técnico-comercial
+1. Cambiar `MP_ACCESS_TOKEN` a producción.
+2. Eliminar producto TEST-1 para evitar contaminación comercial o compra errónea.
+3. Limpiar `console.log` de debug en `api.js`.
+4. Ejecutar 1 compra real controlada end-to-end.
+
+Gate obligatorio de salida Fase 1:
+- pago aprobado real
+- `orders.payment_status = paid`
+- `mp_payment_id` persistido
+- orden visible en admin sin inconsistencias
+
+Fase 2 — Validación operativa post-pago
+5. Confirmar trigger completo del flujo post-pago:
+   - claim
+   - activación
+   - email
+6. Revisar observabilidad de la orden en `/admin/orders`.
+7. Confirmar que no queden alertas operativas críticas abiertas.
+
+Gate obligatorio de salida Fase 2:
+- una orden real completa desde pago hasta activación trazable
+- evidencia en admin y/o DB de cada transición crítica
+
+Fase 3 — Hardening mínimo antes de abrir tráfico
+8. Endurecer Edge Functions que no deban quedar públicas usando `SUPABASE_SERVICE_ROLE_KEY` + control explícito de rol admin.
+9. Documentar checklist operativa de incidentes de pago/activación.
+
+Gate obligatorio de salida Fase 3:
+- superficies admin sensibles cerradas
+- runbook mínimo listo para soporte operativo
+
+Post-lanzamiento (no bloquear caja inicial)
+- partir `src/services/api.js` por dominio
+- panel configuración NexReview
+- Transbank WebPay
+- CRM con pipeline Kanban
+
+Criterio ejecutivo:
+Si falla Fase 1 o Fase 2, NO abrir lanzamiento.
+Si Fase 1 y Fase 2 pasan, y Fase 3 queda en nivel aceptable de riesgo, sí se puede abrir lanzamiento controlado.
+-->
+
 ---
 
 ## Bsale SII — Pendiente de activar
