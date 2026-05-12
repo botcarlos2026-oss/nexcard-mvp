@@ -1141,6 +1141,241 @@ Si Fase 1 y Fase 2 pasan, y Fase 3 queda en nivel aceptable de riesgo, sí se pu
 
 ---
 
+## Plan maestro de escalabilidad NexCard
+
+### Objetivo ejecutivo
+Construir una base que permita:
+- crecer sin romper checkout, pagos o activación
+- agregar nuevas features sin aumentar regresión estructural
+- delegar operación sin depender de memoria informal
+- sostener evolución comercial con disciplina técnica
+
+### Principio rector
+El core transaccional debe mantenerse estable y separado de las capas de expansión.
+
+**Core transaccional:**
+- orders
+- payments
+- inventory
+- cards
+- profiles
+- auth/admin
+
+**Capas de expansión:**
+- NexReview
+- CRM
+- automatizaciones
+- analytics
+- segundo medio de pago
+- campañas / growth
+
+---
+
+### Horizonte 0-30 días — estabilización del core
+
+#### Objetivo
+Cerrar la base mínima para que el producto pueda evolucionar sin fragilidad excesiva.
+
+#### Prioridad 1 — modularización mínima del frontend
+1. Partir `src/services/api.js` por dominio:
+   - `src/services/api/orders.js`
+   - `src/services/api/payments.js`
+   - `src/services/api/profiles.js`
+   - `src/services/api/cards.js`
+   - `src/services/api/inventory.js`
+   - `src/services/api/admin.js`
+2. Dejar `src/services/api/index.js` como fachada de compatibilidad temporal.
+3. Reducir `src/App.jsx` para que concentre solo:
+   - routing
+   - guards
+   - bootstrap de sesión
+4. Mover lógica de carga y mutación de cada dashboard a hooks o servicios específicos.
+
+**Gate de salida:**
+- `api.js` deja de ser cuello monolítico
+- cada dominio puede modificarse con menor riesgo lateral
+- `npm run lint` y `npm run build` siguen verdes
+
+#### Prioridad 2 — contratos de datos y estados formales
+1. Definir explícitamente estados válidos para:
+   - order lifecycle
+   - payment lifecycle
+   - card lifecycle
+   - activation lifecycle
+2. Documentar transiciones válidas, inválidas y side effects.
+3. Eliminar inferencias blandas donde un estado crítico deba venir de evidencia formal.
+4. Revisar duplicación de reglas entre frontend, SQL y Edge Functions.
+
+**Gate de salida:**
+- existe fuente de verdad por flujo
+- se reduce drift entre app y schema
+- cambios futuros no requieren “adivinar” estados
+
+#### Prioridad 3 — testing mínimo reproducible
+1. Cerrar pack smoke obligatorio para:
+   - checkout
+   - pago
+   - retorno post-pago
+   - admin/orders
+2. Formalizar variables E2E mínimas y dataset de prueba.
+3. Dejar un camino claro de validación pre-merge y pre-deploy.
+
+**Gate de salida:**
+- existe validación repetible del flujo de caja
+- una mejora futura no depende de prueba manual improvisada
+
+---
+
+### Horizonte 30-90 días — escalabilidad operativa y delegación
+
+#### Objetivo
+Reducir dependencia del fundador y preparar operación con más volumen y más personas.
+
+#### Prioridad 4 — permisos y gobierno de acceso
+1. Reemplazar whitelist hardcodeada por modelo formal de roles/memberships.
+2. Separar permisos por capacidad:
+   - super admin
+   - operaciones
+   - soporte
+   - ventas
+3. Endurecer Edge Functions sensibles con validación explícita de rol.
+4. Auditar accesos administrativos y eventos críticos.
+
+**Gate de salida:**
+- acceso admin escalable
+- menor riesgo al delegar tareas operativas
+- menos lógica crítica hardcodeada en frontend
+
+#### Prioridad 5 — observabilidad y runbooks
+1. Formalizar timeline operativo por orden con eventos consistentes.
+2. Agregar alertas para excepciones de:
+   - pago sin reconciliación
+   - orden sin activación cuando corresponde
+   - despacho sin card vinculada
+   - errores de email/webhook
+3. Crear runbooks mínimos para incidentes de:
+   - pago
+   - stock
+   - activación
+   - fulfillment
+4. Definir checklist de cierre diario operativo.
+
+**Gate de salida:**
+- la operación se puede diagnosticar sin depender de memoria informal
+- incidentes repetidos tienen respuesta estándar
+
+#### Prioridad 6 — inventario y fulfillment robusto
+1. Consolidar SKU real como fuente de verdad.
+2. Endurecer reserva, descuento y conciliación de stock.
+3. Trazar completamente:
+   - order → order_card → card → activation
+4. Revisar reglas de despacho, entrega y cierre operativo.
+
+**Gate de salida:**
+- baja riesgo de pérdida de margen por errores físicos
+- fulfillment soporta mayor volumen sin caos manual
+
+---
+
+### Horizonte 90+ días — expansión segura del producto
+
+#### Objetivo
+Agregar crecimiento sin contaminar el core.
+
+#### Prioridad 7 — arquitectura de extensibilidad
+1. Tratar NexReview, CRM y growth como módulos acoplados débilmente al core.
+2. Definir interfaces claras entre:
+   - core comercial
+   - automatizaciones
+   - analytics
+   - canales nuevos
+3. Evitar que features de marketing entren directo a rutas críticas de cobro.
+
+**Gate de salida:**
+- nuevas líneas de producto no fuerzan cirugía en checkout/orders/payments
+- el costo de agregar features cae en vez de subir
+
+#### Prioridad 8 — segundo medio de pago y expansión multicanal
+1. Evaluar Transbank solo después de estabilizar Mercado Pago real.
+2. Diseñar capa de pagos con contrato común para múltiples providers.
+3. Preparar estrategia de reconciliación homogénea entre proveedores.
+
+**Gate de salida:**
+- agregar otro medio de pago no duplica deuda técnica
+- la caja no queda fragmentada sin control
+
+#### Prioridad 9 — data y growth con disciplina
+1. Formalizar eventos y tracking de negocio.
+2. Separar métricas operativas de métricas comerciales.
+3. Medir:
+   - conversión landing → checkout
+   - checkout → pago aprobado
+   - pago → activación
+   - activación → recompra / referencia
+4. Recién después acelerar campañas o automatizaciones de adquisición.
+
+**Gate de salida:**
+- crecimiento guiado por datos útiles
+- marketing deja de operar a ciegas
+
+---
+
+### Riesgos estructurales a vigilar
+- `src/services/api.js` como cuello de mantenimiento
+- `src/App.jsx` como punto único de fragilidad frontend
+- drift entre frontend, migraciones y Edge Functions
+- permisos admin demasiado simples para escalar
+- QA dependiente de contexto manual
+- features nuevas mezcladas con core transaccional
+
+---
+
+### Reglas de decisión para futuras mejoras
+
+#### Sí hacer pronto si:
+- protege flujo de caja
+- reduce regresión
+- baja tiempo operativo manual
+- mejora trazabilidad o permisos
+
+#### No priorizar aún si:
+- es cosmético
+- agrega complejidad sin proteger caja
+- mete coupling al core
+- depende de un flujo base todavía no estabilizado
+
+---
+
+### KPIs de salud para escalar
+- tiempo de resolución de incidentes de pago
+- porcentaje de órdenes con trazabilidad completa
+- porcentaje de deploys sin regresión en smoke
+- tiempo promedio de cambio por módulo
+- cantidad de flujos críticos que dependen de lógica hardcodeada
+- porcentaje de operación delegable sin intervención del fundador
+
+---
+
+### Recomendación ejecutiva final
+NexCard no necesita más features para justificar el siguiente salto.
+Necesita una base más modular, auditable y delegable.
+
+Orden correcto:
+1. estabilizar core
+2. modularizar frontend y contratos
+3. formalizar permisos y testing
+4. endurecer operación e inventario
+5. recién después acelerar expansión de producto y canales
+
+### Decisión estratégica
+Si el objetivo es escalar con rentabilidad, cada mejora futura debe pasar por este filtro:
+
+**¿protege caja, reduce riesgo operativo o baja costo de cambio?**
+
+Si la respuesta es no, no debe entrar antes que el hardening del core.
+
+---
+
 ## Bsale SII — Pendiente de activar
 
 La estructura está lista (NO-OP hasta configurar el token). Pasos para activar:
