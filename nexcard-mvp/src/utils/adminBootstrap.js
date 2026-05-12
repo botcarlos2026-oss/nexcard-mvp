@@ -1,5 +1,5 @@
 import { hasSupabase, supabase } from '../services/supabaseClient';
-import { isAdminEmail } from '../config/admin';
+import { getCurrentAdminAccess } from './adminAccess';
 
 const ADMIN_ROUTE_LOADERS = {
   '/admin': async (api) => ({ kind: 'dashboard', payload: await api.getAdminDashboard() }),
@@ -22,16 +22,15 @@ export async function ensureAdminAccess({ navigate }) {
     throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const sessionEmail = session?.user?.email;
-  const isAdmin = isAdminEmail(sessionEmail);
+  const adminAccess = await getCurrentAdminAccess();
+  const isAdmin = adminAccess?.isAdmin;
 
   if (!isAdmin) {
     navigate('/login');
     return { allowed: false, redirected: true };
   }
 
-  return { allowed: true, redirected: false, session };
+  return { allowed: true, redirected: false, session: adminAccess?.session, source: adminAccess?.source };
 }
 
 export async function loadAdminRouteData({ path, api }) {

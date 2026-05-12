@@ -1600,6 +1600,9 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - el webhook ahora evita pisar `fulfillment_status` salvo el avance controlado `new -> in_production` cuando entra un pago válido
 - el webhook ahora persiste un ledger mínimo en `public.payments` para cada cobro de Mercado Pago usando `provider='mercado_pago'`, `external_id`, `status`, `amount_cents`, `currency` y `payload`
 - ese ledger se actualiza de forma idempotente por `external_id` dentro del propio webhook, sin volver dependiente el camino crítico de la reconciliación Route2
+- se creó `src/utils/adminAccess.js` como helper único para resolver acceso admin desde `has_role('admin')`
+- el gate de `/admin/*` ahora consulta memberships/roles reales vía Supabase y deja whitelist por email solo como fallback transitorio si falla el RPC
+- el redirect post-login en `App.jsx` dejó de decidir admin solo por email hardcodeado y ahora usa el mismo helper centralizado
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - navegación, auth handlers y `handleSave` quedaron intencionalmente en `App.jsx` para no subir riesgo de regresión
@@ -1609,7 +1612,7 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 
 ### Siguiente corte recomendado
 - priorizar hardening funcional pre-lanzamiento sobre más refactor cosmético
-- siguiente paso: alinear autorización admin frontend con memberships/roles reales y dejar whitelist email como fallback transitorio explícito
+- siguiente paso: endurecer Edge Functions sensibles con matriz explícita de acceso, empezando por `process-refund` y `send-campaign-email`
 - luego revisar reconciliación formal `payments -> orders.payment_status` y eventual unique constraint para `payments.external_id`
 - recién después evaluar si la carga de landing conviene separarla del bootstrap principal
 

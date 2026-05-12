@@ -7,6 +7,7 @@ import { isAdminEmail } from './config/admin';
 import { useAuthSessionSync } from './hooks/useAuthSessionSync';
 import { useCheckoutFlow } from './hooks/useCheckoutFlow';
 import { useAppBootstrap } from './hooks/useAppBootstrap';
+import { getCurrentAdminAccess } from './utils/adminAccess';
 
 function App() {
   const bootstrapSeqRef = useRef(0);
@@ -90,16 +91,20 @@ function App() {
     navigate('/setup');
   };
 
-  const handleAuthSuccess = (authPayload) => {
+  const handleAuthSuccess = async (authPayload) => {
     setUser(authPayload.user);
     setStoredAuth(authPayload);
-    const email = authPayload.user?.email;
     const claimToken = getPendingClaimToken();
     if (claimToken) {
       navigate(`/activar/${claimToken}`);
       return;
     }
-    if (isAdminEmail(email)) {
+
+    const adminAccess = await getCurrentAdminAccess().catch(() => ({
+      isAdmin: isAdminEmail(authPayload.user?.email),
+    }));
+
+    if (adminAccess?.isAdmin) {
       navigate('/admin');
     } else {
       navigate('/edit');
