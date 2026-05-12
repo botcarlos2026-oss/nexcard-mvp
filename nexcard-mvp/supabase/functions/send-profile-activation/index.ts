@@ -10,6 +10,42 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
 
+async function requireActivationAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+  const authHeader = req.headers.get('Authorization') || '';
+  const apikey = req.headers.get('apikey') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+
+  if (bearer && (bearer === serviceRoleKey || apikey === serviceRoleKey)) {
+    return { mode: 'service_role' as const };
+  }
+
+  if (!bearer) {
+    return { error: new Response(JSON.stringify({ error: 'Authorization requerida' }), {
+      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data: authData, error: authError } = await admin.auth.getUser(bearer);
+  if (authError || !authData?.user) {
+    return { error: new Response(JSON.stringify({ error: 'Sesión inválida o expirada' }), {
+      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const caller = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  });
+  const { data: isAdmin, error: roleError } = await caller.rpc('has_role', { required_role: 'admin' });
+  if (roleError || !isAdmin) {
+    return { error: new Response(JSON.stringify({ error: 'Solo admins pueden disparar activaciones manuales' }), {
+      status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  return { mode: 'admin' as const, userId: authData.user.id };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -17,9 +53,13 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
     const APP_URL = Deno.env.get('APP_URL') || 'https://nexcard.cl';
 
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY no configurado');
+
+    const access = await requireActivationAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    if (access.error) return access.error;
 
     const { order_id } = await req.json();
     if (!order_id) throw new Error('order_id requerido');
@@ -95,6 +135,7 @@ serve(async (req) => {
           audience: 'customer',
           claim_status: claim.status,
           quantity: claim.quantity,
+          access_mode: access.mode,
         },
       });
     } catch (logErr) {

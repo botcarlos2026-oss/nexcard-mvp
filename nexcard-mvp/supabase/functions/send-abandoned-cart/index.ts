@@ -12,6 +12,46 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
 
 const formatCLP = (cents: number) => `$${cents.toLocaleString('es-CL')}`;
 
+async function requireReminderAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+  const authHeader = req.headers.get('Authorization') || '';
+  const apikey = req.headers.get('apikey') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+
+  if (bearer && (bearer === serviceRoleKey || apikey === serviceRoleKey)) {
+    return { mode: 'service_role' as const };
+  }
+
+  if (!bearer) {
+    return { error: new Response(JSON.stringify({ error: 'Authorization requerida' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data: authData, error: authError } = await admin.auth.getUser(bearer);
+  if (authError || !authData?.user) {
+    return { error: new Response(JSON.stringify({ error: 'Sesión inválida o expirada' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const caller = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  });
+  const { data: isAdmin, error: roleError } = await caller.rpc('has_role', { required_role: 'admin' });
+
+  if (roleError || !isAdmin) {
+    return { error: new Response(JSON.stringify({ error: 'Solo admins pueden disparar recordatorios manuales' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  return { mode: 'admin' as const, userId: authData.user.id };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -23,12 +63,22 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body = await req.json().catch(() => ({}));
 
+    const access = await requireReminderAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    if (access.error) return access.error;
+
     // Modo cron: procesar todos los carritos pendientes
     if (body.trigger === 'cron') {
+      if (access.mode !== 'service_role') {
+        return new Response(JSON.stringify({ error: 'Solo service_role puede ejecutar el modo cron' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       log('info', 'cron_trigger_received', {});
 
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -52,7 +102,7 @@ serve(async (req) => {
 
       for (const cart of carts) {
         try {
-          await sendReminderEmail(supabase, cart, RESEND_API_KEY);
+          await sendReminderEmail(supabase, cart, RESEND_API_KEY, access.mode);
           sent++;
         } catch (err) {
           log('error', 'cart_reminder_failed', { cart_id: cart.id, error: (err as Error).message });
@@ -81,7 +131,7 @@ serve(async (req) => {
       });
     }
 
-    await sendReminderEmail(supabase, cart, RESEND_API_KEY);
+    await sendReminderEmail(supabase, cart, RESEND_API_KEY, access.mode);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -96,7 +146,7 @@ serve(async (req) => {
   }
 });
 
-async function sendReminderEmail(supabase: any, cart: any, RESEND_API_KEY: string) {
+async function sendReminderEmail(supabase: any, cart: any, RESEND_API_KEY: string, accessMode: string) {
   // Verificar unsubscribe
   const { data: unsub } = await supabase
     .from('email_unsubscribe')
@@ -204,18 +254,19 @@ async function sendReminderEmail(supabase: any, cart: any, RESEND_API_KEY: strin
     .eq('id', cart.id);
 
   // Registrar en email_log
-  await supabase.rpc('log_email_event', {
+    await supabase.rpc('log_email_event', {
     p_recipient_email: cart.email,
     p_email_type: 'abandoned_cart',
     p_subject: '¿Olvidaste algo? Tu tarjeta NexCard te está esperando',
     p_status: 'sent',
     p_provider: 'resend',
     p_provider_message_id: resendData?.id || null,
-    p_metadata: {
-      abandoned_cart_id: cart.id,
-      mode: 'reminder',
-      total_cents: cart.total_cents,
-      items_count: items.length,
-    },
-  });
+      p_metadata: {
+        abandoned_cart_id: cart.id,
+        mode: 'reminder',
+        total_cents: cart.total_cents,
+        items_count: items.length,
+        access_mode: accessMode,
+      },
+    });
 }

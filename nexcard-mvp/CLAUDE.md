@@ -1607,6 +1607,10 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - `process-refund` ahora valida consistencia `refundId -> orderId`, evita reprocesar refunds ya procesados y limita el monto al refund/orden
 - se endureció `supabase/functions/send-campaign-email/index.ts` para aceptar solo `admin` autenticado o `service_role`, rechazando `anon`
 - `EmailDashboard.jsx` dejó de usar fallback de `SUPABASE_ANON_KEY` para campañas manuales y exige sesión admin real
+- se endureció `supabase/functions/send-abandoned-cart/index.ts` para permitir `service_role` en modo cron y exigir admin real en disparos manuales
+- se endureció `supabase/functions/send-low-stock-alert/index.ts` para aceptar solo `admin` autenticado o `service_role`, agregando validación defensiva del payload
+- se endureció `supabase/functions/send-profile-activation/index.ts` para aceptar solo `admin` autenticado o `service_role`, cerrando reenvíos públicos directos
+- `send-order-confirmation` quedó fuera de este corte por riesgo de romper checkout sin un caller backend mejor definido
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - navegación, auth handlers y `handleSave` quedaron intencionalmente en `App.jsx` para no subir riesgo de regresión
@@ -1616,7 +1620,7 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 
 ### Siguiente corte recomendado
 - priorizar hardening funcional pre-lanzamiento sobre más refactor cosmético
-- siguiente paso: revisar `send-abandoned-cart`, `send-low-stock-alert`, `send-profile-activation` y `send-order-confirmation` para unificar matriz explícita de acceso
+- siguiente paso: resolver la estrategia segura de `send-order-confirmation` sin romper checkout público
 - luego revisar reconciliación formal `payments -> orders.payment_status` y eventual unique constraint para `payments.external_id`
 - recién después evaluar si la carga de landing conviene separarla del bootstrap principal
 

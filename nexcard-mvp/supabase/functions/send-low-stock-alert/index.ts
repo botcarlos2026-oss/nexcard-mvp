@@ -10,6 +10,42 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
 
+async function requireInternalAlertAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+  const authHeader = req.headers.get('Authorization') || '';
+  const apikey = req.headers.get('apikey') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+
+  if (bearer && (bearer === serviceRoleKey || apikey === serviceRoleKey)) {
+    return { mode: 'service_role' as const };
+  }
+
+  if (!bearer) {
+    return { error: new Response(JSON.stringify({ error: 'Authorization requerida' }), {
+      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data: authData, error: authError } = await admin.auth.getUser(bearer);
+  if (authError || !authData?.user) {
+    return { error: new Response(JSON.stringify({ error: 'Sesión inválida o expirada' }), {
+      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const caller = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  });
+  const { data: isAdmin, error: roleError } = await caller.rpc('has_role', { required_role: 'admin' });
+  if (roleError || !isAdmin) {
+    return { error: new Response(JSON.stringify({ error: 'Solo admins pueden enviar alertas internas' }), {
+      status: 403, headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  return { mode: 'admin' as const, userId: authData.user.id };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -17,6 +53,7 @@ serve(async (req) => {
     const RESEND_API_KEY           = Deno.env.get('RESEND_API_KEY');
     const SUPABASE_URL             = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
     if (!RESEND_API_KEY) {
       return new Response(JSON.stringify({ error: 'RESEND_API_KEY no configurado' }), {
@@ -24,8 +61,11 @@ serve(async (req) => {
       });
     }
 
+    const access = await requireInternalAlertAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    if (access.error) return access.error;
+
     const body = await req.json();
-    const items: { name: string; sku: string; stock: number; min_stock: number }[] = body.items || [];
+    const items: { name: string; sku: string; stock: number; min_stock: number }[] = Array.isArray(body.items) ? body.items.slice(0, 50) : [];
 
     if (items.length === 0) {
       return new Response(JSON.stringify({ skipped: true }), {
@@ -115,7 +155,7 @@ serve(async (req) => {
         p_status: 'sent',
         p_provider: 'resend',
         p_provider_message_id: resendData?.id || null,
-        p_metadata: { items, audience: 'internal' },
+        p_metadata: { items, audience: 'internal', access_mode: access.mode },
       });
     } catch {
       // email_log no crítico
