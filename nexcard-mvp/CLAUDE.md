@@ -1598,6 +1598,8 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 - se endureció `supabase/functions/mp-webhook/index.ts` para proteger órdenes ya pagadas frente a eventos tardíos/ambiguos de Mercado Pago
 - el webhook ahora no degrada `payment_status` una vez que la orden ya quedó `paid`
 - el webhook ahora evita pisar `fulfillment_status` salvo el avance controlado `new -> in_production` cuando entra un pago válido
+- el webhook ahora persiste un ledger mínimo en `public.payments` para cada cobro de Mercado Pago usando `provider='mercado_pago'`, `external_id`, `status`, `amount_cents`, `currency` y `payload`
+- ese ledger se actualiza de forma idempotente por `external_id` dentro del propio webhook, sin volver dependiente el camino crítico de la reconciliación Route2
 - `src/services/api.js` quedó funcionando como fachada compatible
 - `dispatchOrder` se dejó en `api.js` por ahora, porque mezcla inventario + órdenes + alertas + email
 - navegación, auth handlers y `handleSave` quedaron intencionalmente en `App.jsx` para no subir riesgo de regresión
@@ -1607,9 +1609,9 @@ No abrir nuevas líneas de trabajo si la anterior toca caja o core y sigue sin e
 
 ### Siguiente corte recomendado
 - priorizar hardening funcional pre-lanzamiento sobre más refactor cosmético
-- siguiente paso: revisar reconciliación pago real → webhook → `orders.payment_status = paid` → `mp_payment_id`
-- luego evaluar si la carga de landing conviene separarla del bootstrap principal
-- recién después revisar si agrupar setters/admin state da ROI real o sólo ruido
+- siguiente paso: alinear autorización admin frontend con memberships/roles reales y dejar whitelist email como fallback transitorio explícito
+- luego revisar reconciliación formal `payments -> orders.payment_status` y eventual unique constraint para `payments.external_id`
+- recién después evaluar si la carga de landing conviene separarla del bootstrap principal
 
 ---
 

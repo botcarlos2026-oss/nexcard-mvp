@@ -41,6 +41,86 @@ async function resolvePaymentFromWebhook(topic: string, entityId: string, token:
   throw new Error(`Topic no soportado: ${topic}`);
 }
 
+function normalizePaymentAmount(payment: Record<string, unknown>) {
+  const transactionDetails = payment?.transaction_details && typeof payment.transaction_details === 'object'
+    ? payment.transaction_details as Record<string, unknown>
+    : null;
+  const amount = Number(payment?.transaction_amount ?? transactionDetails?.total_paid_amount ?? 0);
+  return Number.isFinite(amount) ? Math.round(amount) : 0;
+}
+
+async function persistPaymentLedger(
+  supabase: ReturnType<typeof createClient>,
+  {
+    orderId,
+    mpPaymentId,
+    mappedStatus,
+    payment,
+  }: {
+    orderId: string;
+    mpPaymentId: string;
+    mappedStatus: string;
+    payment: Record<string, unknown>;
+  },
+) {
+  const amountCents = normalizePaymentAmount(payment);
+  const currency = String(payment?.currency_id || 'CLP');
+
+  const { data: existingPayments, error: fetchPaymentError } = await supabase
+    .from('payments')
+    .select('id, status, external_id')
+    .eq('provider', 'mercado_pago')
+    .eq('external_id', mpPaymentId)
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
+  if (fetchPaymentError) {
+    throw new Error(`No se pudo consultar ledger payments: ${fetchPaymentError.message}`);
+  }
+
+  const existingPayment = existingPayments?.[0] || null;
+
+  if (existingPayment) {
+    const { error: updatePaymentError } = await supabase
+      .from('payments')
+      .update({
+        status: mappedStatus,
+        amount_cents: amountCents,
+        currency,
+        payload: payment,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingPayment.id);
+
+    if (updatePaymentError) {
+      throw new Error(`No se pudo actualizar payment ledger: ${updatePaymentError.message}`);
+    }
+
+    return { paymentId: existingPayment.id, existed: true };
+  }
+
+  const { data: insertedPayment, error: insertPaymentError } = await supabase
+    .from('payments')
+    .insert({
+      order_id: orderId,
+      provider: 'mercado_pago',
+      status: mappedStatus,
+      amount_cents: amountCents,
+      currency,
+      external_id: mpPaymentId,
+      payload: payment,
+    })
+    .select('id')
+    .single();
+
+  if (insertPaymentError) {
+    throw new Error(`No se pudo insertar payment ledger: ${insertPaymentError.message}`);
+  }
+
+  return { paymentId: insertedPayment?.id || null, existed: false };
+}
+
 async function ensureProfileActivationFlow(supabase: ReturnType<typeof createClient>, supabaseUrl: string, serviceRoleKey: string, orderId: string, payerEmail?: string) {
   const { data: existingClaim } = await supabase
     .from('profile_claims')
@@ -176,6 +256,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
     const mappedStatus = paymentStatusMap[status] ?? 'pending';
+    const mpPaymentId = String(bodyId);
 
     // Idempotencia: verificar estado actual antes de actualizar
     const { data: currentOrder, error: fetchError } = await supabase
@@ -198,21 +279,24 @@ serve(async (req) => {
     // Solo reintentamos activación cuando corresponde.
     if (currentOrder.payment_status === 'paid') {
       if (mappedStatus === 'paid') {
-        log('info', 'webhook_duplicate_ignored', { order_id: orderId, mp_payment_id: String(bodyId) });
+        await persistPaymentLedger(supabase, { orderId, mpPaymentId, mappedStatus, payment });
+        log('info', 'webhook_duplicate_ignored', { order_id: orderId, mp_payment_id: mpPaymentId });
         await ensureProfileActivationFlow(supabase, SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId, payment.payer?.email);
       } else {
         log('warn', 'webhook_paid_order_downgrade_ignored', {
           order_id: orderId,
           current_payment_status: currentOrder.payment_status,
           incoming_payment_status: mappedStatus,
-          mp_payment_id: String(bodyId),
+          mp_payment_id: mpPaymentId,
         });
       }
       return new Response('ok', { status: 200 });
     }
 
-    if (currentOrder.mp_payment_id && currentOrder.mp_payment_id === String(bodyId)) {
-      log('info', 'webhook_payment_id_duplicate_ignored', { order_id: orderId, mp_payment_id: String(bodyId) });
+    await persistPaymentLedger(supabase, { orderId, mpPaymentId, mappedStatus, payment });
+
+    if (currentOrder.mp_payment_id && currentOrder.mp_payment_id === mpPaymentId) {
+      log('info', 'webhook_payment_id_duplicate_ignored', { order_id: orderId, mp_payment_id: mpPaymentId });
       if (mappedStatus === 'paid') {
         await ensureProfileActivationFlow(supabase, SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId, payment.payer?.email);
       }
@@ -228,7 +312,7 @@ serve(async (req) => {
       .update({
         payment_status: mappedStatus,
         fulfillment_status: nextFulfillmentStatus,
-        mp_payment_id: String(bodyId),
+        mp_payment_id: mpPaymentId,
       })
       .eq('id', orderId);
 
