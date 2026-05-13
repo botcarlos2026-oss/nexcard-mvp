@@ -67,6 +67,15 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat('es-CL', { dateStyle: 'short', timeStyle: 'short' }).format(date);
 };
 
+const formatActorLabel = (entry) => {
+  if (!entry) return 'sistema';
+  if (entry.actor_label) return entry.actor_label;
+  if (entry.actor_role === 'service_role') return 'service_role';
+  if (entry.actor_user_id) return `admin ${String(entry.actor_user_id).slice(0, 8)}`;
+  if (entry.actor_role) return entry.actor_role;
+  return 'sistema';
+};
+
 const paymentBadgeVariant = (status) => {
   if (status === 'paid') return 'success';
   if (status === 'pending') return 'warning';
@@ -305,6 +314,12 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   }, [auditScopedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter]);
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedOrderId) || filteredOrders[0] || null;
+
+  const selectedOrderOverrideAudit = useMemo(() => {
+    if (!selectedOrder) return null;
+    const history = orderHistory[selectedOrder.id] || [];
+    return history.find((entry) => entry.field === 'is_test' || entry.field === 'test_reason') || null;
+  }, [selectedOrder, orderHistory]);
 
   const loadSlugForOrder = useCallback(async (order) => {
     setNfcSlugLoading(true);
@@ -953,6 +968,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                       <p className="text-xs text-zinc-500 mt-1">
                         Motivo actual: {selectedOrder.test_reason ? formatLabel(selectedOrder.test_reason) : 'sin motivo'}
                       </p>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Último override: {selectedOrderOverrideAudit ? `${formatActorLabel(selectedOrderOverrideAudit)} · ${formatDate(selectedOrderOverrideAudit.changed_at)}` : 'sin trazabilidad manual registrada'}
+                      </p>
                     </div>
                     <AdminBadge variant={selectedOrder.is_test ? 'warning' : 'success'}>
                       {selectedOrder.is_test ? 'QA/test' : 'Operativa real'}
@@ -1289,9 +1307,14 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                             <span className="text-emerald-400 font-bold">{entry.new_value}</span>
                           </p>
                         </div>
-                        <p className="text-[10px] text-zinc-500 shrink-0">
-                          {new Date(entry.changed_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
-                        </p>
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] text-zinc-500">
+                            {new Date(entry.changed_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                          </p>
+                          <p className="text-[10px] text-zinc-600">
+                            {formatActorLabel(entry)}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>

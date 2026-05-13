@@ -339,10 +339,16 @@ Cambios concretos:
    - guardar motivo explícito del override en `test_reason`
 4. el override persiste en DB y deja huella en `order_status_history`
 5. el listado de órdenes ahora muestra badge visible cuando una orden está excluida por QA/test
+6. trazabilidad adicional del override:
+   - migración `supabase/migrations/202605131645_order_status_history_override_actor_trace.sql`
+   - `order_status_history` incorpora `actor_user_id`, `actor_role`, `actor_label`
+   - el panel de detalle muestra `último override: quién + cuándo`
+   - el historial de cambios ahora renderiza actor junto a la fecha
 
 Criterio operativo:
 - usar esta acción solo para corregir falsos positivos/falsos negativos
 - no reemplaza la clasificación automática base; la complementa con control admin explícito
+- la trazabilidad manual sirve para auditoría y rendición de cambios en admin
 
 Validación ejecutada:
 - `npm run build` ✅
