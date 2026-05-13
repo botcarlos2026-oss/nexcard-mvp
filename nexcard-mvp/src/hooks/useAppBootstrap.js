@@ -28,23 +28,42 @@ export function useAppBootstrap({
     const isStale = () => cancelled || bootstrapSeqRef.current !== requestId;
 
     const bootstrap = async () => {
-      if (!sessionReady && hasSupabase) return;
+      const isPublicRoute = path === '/' || isPublicBypassRoute(path);
+      if (!sessionReady && hasSupabase && !isPublicRoute) return;
       if (!isStale()) {
         setLoading(true);
         setError('');
       }
 
       try {
+        if (path === '/') return;
+
+        if (path === '/preview') {
+          setLoading(false);
+          Promise.race([
+            api.getLandingContent(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('landing_content_timeout')), 4000)),
+          ]).then((landing) => {
+            if (isStale()) return;
+            setLandingContent(landing);
+          }).catch(() => {
+            if (isStale()) return;
+            setLandingContent(defaultLandingContent);
+          });
+          return;
+        }
+
         try {
-          const landing = await api.getLandingContent();
+          const landing = await Promise.race([
+            api.getLandingContent(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('landing_content_timeout')), 4000)),
+          ]);
           if (isStale()) return;
           setLandingContent(landing);
         } catch {
           if (isStale()) return;
           setLandingContent(defaultLandingContent);
         }
-
-        if (path === '/') return;
 
         if (ADMIN_ROUTES.has(path)) {
           if (isStale()) return;
@@ -97,7 +116,7 @@ export function useAppBootstrap({
           return;
         }
 
-        if (isPublicBypassRoute(path)) return;
+        if (isPublicRoute) return;
 
         const slug = path.replace(/^\/|\/$/g, '');
         if (slug) {

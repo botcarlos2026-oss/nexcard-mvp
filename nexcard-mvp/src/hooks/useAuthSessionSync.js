@@ -7,18 +7,32 @@ export function useAuthSessionSync() {
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!hasSupabase || !supabase) {
       setSessionReady(true);
       return undefined;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        setStoredAuth({ user: session.user });
+    const initSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (session?.user) {
+          setUser(session.user);
+          setStoredAuth({ user: session.user });
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.warn('Supabase auth init failed:', error);
+      } finally {
+        if (!cancelled) {
+          setSessionReady(true);
+        }
       }
-      setSessionReady(true);
-    });
+    };
+
+    initSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
@@ -28,9 +42,15 @@ export function useAuthSessionSync() {
         setUser(null);
         setStoredAuth(null);
       }
+      if (!cancelled) {
+        setSessionReady(true);
+      }
     });
 
-    return () => listener?.subscription?.unsubscribe();
+    return () => {
+      cancelled = true;
+      listener?.subscription?.unsubscribe();
+    };
   }, []);
 
   return {
