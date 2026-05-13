@@ -239,8 +239,9 @@ const AdminDashboard = ({ dashboard }) => {
                   <p className="text-xs mt-2 opacity-80">Además hay {proactiveSummary.secondary_count} caso(s) más en cola secundaria.</p>
                 )}
                 {excludedOperationalOrdersCount > 0 && (
-                  <div className="mt-3">
+                  <div className="mt-3 flex items-center gap-3 flex-wrap">
                     <AdminBadge variant="info">{excludedOperationalOrdersCount} orden(es) QA/interna(s) excluidas del resumen operativo</AdminBadge>
+                    <a href="/admin/orders?audit=excluded" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver excluidas</a>
                   </div>
                 )}
               </div>

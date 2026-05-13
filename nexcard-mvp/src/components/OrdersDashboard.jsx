@@ -26,6 +26,24 @@ import AdminStat from './ui/AdminStat';
 import { TH, TR, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
 
+const NON_OPERATIONAL_ORDER_EMAILS = new Set([
+  'bot.carlos.2026@gmail.com',
+  'carlos.alvarez.contreras@gmail.com',
+  'admin@nexcard.cl',
+  'carlos@nexcard.cl',
+  'hola@nexcard.cl',
+]);
+const NON_OPERATIONAL_ORDER_NAME_REGEX = /\b(qa|test|tst|smoke|demo|bot)\b/i;
+const isNonOperationalOrder = (order) => {
+  const email = String(order?.customer_email || '').trim().toLowerCase();
+  const name = String(order?.customer_name || order?.customerLabel || '').trim();
+  return (
+    NON_OPERATIONAL_ORDER_EMAILS.has(email)
+    || email.endsWith('@nexcard.cl')
+    || NON_OPERATIONAL_ORDER_NAME_REGEX.test(name)
+  );
+};
+
 const currency = (cents) => {
   return new Intl.NumberFormat('es-CL', {
     style: 'currency',
@@ -155,6 +173,7 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [refundForm, setRefundForm] = useState({ reason: 'Producto defectuoso', amount_cents: '', notes: '' });
   const [refundBusy, setRefundBusy] = useState(false);
   const [dateFilter, setDateFilter] = useState('all');
+  const [auditFilter, setAuditFilter] = useState('all');
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [lastChecked, setLastChecked] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -164,6 +183,12 @@ const OrdersDashboard = ({ orders = [] }) => {
     setNewOrdersCount(incoming.length);
     setRows(orders);
   }, [orders, lastChecked]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setAuditFilter(params.get('audit') === 'excluded' ? 'excluded' : 'all');
+  }, []);
 
   // Auto-refresh cada 30 segundos
   useEffect(() => {
@@ -223,6 +248,8 @@ const OrdersDashboard = ({ orders = [] }) => {
     };
   }), [rows]);
 
+  const excludedOrdersCount = useMemo(() => normalizedOrders.filter((order) => isNonOperationalOrder(order)).length, [normalizedOrders]);
+
   const paymentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.payment_status).filter(Boolean)))], [normalizedOrders]);
   const fulfillmentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.fulfillment_status).filter(Boolean)))], [normalizedOrders]);
 
@@ -233,6 +260,7 @@ const OrdersDashboard = ({ orders = [] }) => {
     return normalizedOrders.filter((order) => {
       const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
       const matchesFulfillment = fulfillmentFilter === 'all' || order.fulfillment_status === fulfillmentFilter;
+      const matchesAudit = auditFilter === 'all' || (auditFilter === 'excluded' && isNonOperationalOrder(order));
 
       // Filtro fecha
       if (dateFilter !== 'all') {
@@ -248,7 +276,7 @@ const OrdersDashboard = ({ orders = [] }) => {
         }
       }
 
-      if (!matchesPayment || !matchesFulfillment) return false;
+      if (!matchesPayment || !matchesFulfillment || !matchesAudit) return false;
       if (!term) return true;
 
       const haystack = [
@@ -263,7 +291,7 @@ const OrdersDashboard = ({ orders = [] }) => {
 
       return haystack.includes(term);
     });
-  }, [normalizedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter]);
+  }, [normalizedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter, auditFilter]);
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedOrderId) || filteredOrders[0] || null;
 
@@ -514,6 +542,26 @@ const OrdersDashboard = ({ orders = [] }) => {
         ))}
       </div>
 
+      {excludedOrdersCount > 0 && (
+        <div className="mb-6 flex items-center gap-3 flex-wrap">
+          <AdminBadge variant={auditFilter === 'excluded' ? 'info' : 'default'}>
+            {excludedOrdersCount} orden(es) QA/interna(s)
+          </AdminBadge>
+          {auditFilter === 'excluded' ? (
+            <button
+              type="button"
+              onClick={() => {
+                setAuditFilter('all');
+                if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
+              }}
+              className="text-xs font-bold text-zinc-400 underline underline-offset-2 hover:text-white"
+            >
+              Limpiar filtro QA
+            </button>
+          ) : null}
+        </div>
+      )}
+
       <AdminCard className="mb-8">
         <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
           <div>
@@ -592,7 +640,7 @@ const OrdersDashboard = ({ orders = [] }) => {
                 </button>
               </div>
             </div>
-            <div className="flex gap-3 flex-1 flex-col sm:flex-row">
+            <div className="flex gap-3 flex-1 flex-col sm:flex-row sm:flex-wrap">
               <label className="relative block flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
                 <input
@@ -627,10 +675,28 @@ const OrdersDashboard = ({ orders = [] }) => {
                   ))}
                 </select>
               </label>
+              <label className="relative block">
+                <QrCode className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                <select
+                  value={auditFilter}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setAuditFilter(value);
+                    if (typeof window !== 'undefined') {
+                      const nextUrl = value === 'excluded' ? '/admin/orders?audit=excluded' : '/admin/orders';
+                      window.history.replaceState({}, '', nextUrl);
+                    }
+                  }}
+                  className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
+                >
+                  <option value="all">Auditoría: todas</option>
+                  <option value="excluded">Solo QA/internas</option>
+                </select>
+              </label>
             </div>
           </div>
 
-          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}`} className="overflow-x-auto">
+          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}`} className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-zinc-800/50 border-b border-zinc-800">
                 <tr className="text-xs uppercase tracking-wide text-zinc-500">
