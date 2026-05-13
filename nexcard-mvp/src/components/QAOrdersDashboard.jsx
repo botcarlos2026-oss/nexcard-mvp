@@ -24,6 +24,9 @@ export default function QAOrdersDashboard({ orders = [] }) {
                 Esta vista arranca filtrada solo a órdenes marcadas como QA/internas. Sirve para validar checkout, pagos,
                 fulfillment y activación sin mezclar esas señales con revenue ni embudo comercial real.
               </p>
+              <p className="text-xs text-zinc-500 mt-2">
+                Ahora también puedes aislar rápidamente las correcciones humanas con el filtro <span className="font-bold text-fuchsia-300">Solo overrides manuales</span>.
+              </p>
             </div>
             <AdminBadge variant="info">Solo QA/internas</AdminBadge>
           </div>

@@ -25,7 +25,7 @@ import AdminCard from './ui/AdminCard';
 import AdminStat from './ui/AdminStat';
 import { TH, TR, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
-import { deriveOrderTestClassification } from '../utils/orderOperationalSegmentation';
+import { deriveOrderTestClassification, isManualTestReason } from '../utils/orderOperationalSegmentation';
 
 const currency = (cents) => {
   return new Intl.NumberFormat('es-CL', {
@@ -261,12 +261,20 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     }, {});
   }, [excludedOrders]);
 
-  const testReasonOptions = useMemo(() => ['all', ...Object.keys(testReasonCounts).sort()], [testReasonCounts]);
+  const manualOverrideCount = useMemo(() => excludedOrders.filter((order) => isManualTestReason(order.testReasonResolved)).length, [excludedOrders]);
+
+  const testReasonOptions = useMemo(() => {
+    const base = ['all'];
+    if (manualOverrideCount > 0) base.push('manual_override_only');
+    return [...base, ...Object.keys(testReasonCounts).sort()];
+  }, [testReasonCounts, manualOverrideCount]);
 
   const auditScopedOrders = useMemo(() => {
     return normalizedOrders.filter((order) => {
       const matchesAudit = auditFilter === 'all' || (auditFilter === 'excluded' && order.isNonOperational);
-      const matchesReason = testReasonFilter === 'all' || order.testReasonResolved === testReasonFilter;
+      const matchesReason = testReasonFilter === 'all'
+        || (testReasonFilter === 'manual_override_only' && isManualTestReason(order.testReasonResolved))
+        || order.testReasonResolved === testReasonFilter;
       return matchesAudit && matchesReason;
     });
   }, [normalizedOrders, auditFilter, testReasonFilter]);
@@ -596,6 +604,21 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
             <AdminBadge variant={auditFilter === 'excluded' ? 'info' : 'default'}>
               {excludedOrdersCount} orden(es) QA/interna(s)
             </AdminBadge>
+            {manualOverrideCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAuditFilter('excluded');
+                  setTestReasonFilter('manual_override_only');
+                  if (!forceAuditFilter && typeof window !== 'undefined') {
+                    window.history.replaceState({}, '', '/admin/orders?audit=excluded');
+                  }
+                }}
+                className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${testReasonFilter === 'manual_override_only' ? 'border-fuchsia-700 bg-fuchsia-950/40 text-fuchsia-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white'}`}
+              >
+                Solo overrides manuales · {manualOverrideCount}
+              </button>
+            )}
             {Object.entries(testReasonCounts).map(([reason, count]) => (
               <button
                 key={reason}
@@ -627,7 +650,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
             ) : null}
           </div>
           <p className="text-xs text-zinc-500">
-            Breakdown QA/test: {Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
+            Breakdown QA/test: {manualOverrideCount > 0 ? `Solo overrides manuales (${manualOverrideCount}) · ` : ''}{Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
           </p>
         </div>
       )}
@@ -777,7 +800,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                     <option value="all">Motivo QA: todos</option>
                     {testReasonOptions.filter((reason) => reason !== 'all').map((reason) => (
                       <option key={reason} value={reason}>
-                        {formatLabel(reason)} ({testReasonCounts[reason] || 0})
+                        {reason === 'manual_override_only'
+                          ? `Solo overrides manuales (${manualOverrideCount})`
+                          : `${formatLabel(reason)} (${testReasonCounts[reason] || 0})`}
                       </option>
                     ))}
                   </select>

@@ -315,6 +315,9 @@ Cambios concretos:
    - `name_pattern`
    - fallbacks estructurales
    - overrides manuales admin
+7. se agregó además un scope sintético:
+   - `Solo overrides manuales`
+   - útil para revisar únicamente correcciones humanas dentro de `/admin/orders/qa`
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

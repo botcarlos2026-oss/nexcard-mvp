@@ -30,3 +30,5 @@ export const deriveOrderTestClassification = (order) => {
 };
 
 export const isNonOperationalOrder = (order) => deriveOrderTestClassification(order).isTest;
+
+export const isManualTestReason = (reason) => typeof reason === 'string' && reason.startsWith('manual_admin_override');
