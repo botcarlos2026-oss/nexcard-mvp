@@ -231,6 +231,37 @@ Resultado final verificado en producción:
 - triggers operativos creados ✅
 - versión `202605110950` registrada en `supabase_migrations.schema_migrations` ✅
 
+### 2026-05-13 — estabilidad de bootstrap público/admin + dark mode de cards
+Se cerraron tres ajustes directos de UX/estabilidad en producción:
+
+1. **Bootstrap público destrabado**
+   - `/` y `/preview` podían quedar pegados en `Cargando NexCard...`
+   - se desacopló el render público del fetch bloqueante de `landing_content`
+   - se permitió degradación controlada con fallback si Supabase/auth responde lento
+
+2. **Guard de admin destrabado**
+   - `/admin` podía quedar en loading infinito por loop de bootstrap
+   - causa raíz: `navigate` inestable re-disparando el `useEffect` principal y cancelando el ciclo anterior
+   - además se agregaron timeouts/fallbacks a:
+     - `useAuthSessionSync`
+     - `getCurrentAdminAccess`
+   - resultado: sin sesión, `/admin` vuelve a mostrar login en vez de quedar pegado
+
+3. **Cards dashboard alineado a modo dark**
+   - `src/components/AdminCardsDashboard.jsx` estaba diseñado en light mode mientras el resto del backoffice ya estaba en dark
+   - se migró la superficie completa a dark:
+     - contenedor principal
+     - tabla
+     - filtros
+     - badges
+     - estados vacíos
+     - acciones
+     - modal de assign/reassign
+
+Validación ejecutada:
+- `npm run build` ✅
+- verificación headless en producción para `/`, `/preview` y `/admin` ✅
+
 ### 2026-05-11 — smoke test funcional de observabilidad capa 2
 Se ejecutó un smoke test real en producción, pero con enfoque controlado y limpieza posterior.
 
