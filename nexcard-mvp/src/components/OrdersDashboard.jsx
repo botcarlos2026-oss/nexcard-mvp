@@ -179,13 +179,15 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   }, [orders, lastChecked]);
 
   useEffect(() => {
-    if (forceAuditFilter) {
-      setAuditFilter(forceAuditFilter);
+    if (typeof window === 'undefined') {
+      if (forceAuditFilter) setAuditFilter(forceAuditFilter);
       return;
     }
-    if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
-    setAuditFilter(params.get('audit') === 'excluded' ? 'excluded' : 'all');
+    const requestedAudit = params.get('audit') === 'excluded' ? 'excluded' : 'all';
+    const requestedReason = params.get('test_reason') || 'all';
+    setAuditFilter(forceAuditFilter || requestedAudit);
+    setTestReasonFilter(requestedReason);
   }, [forceAuditFilter]);
 
   // Auto-refresh cada 30 segundos
@@ -611,7 +613,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   setAuditFilter('excluded');
                   setTestReasonFilter('manual_override_only');
                   if (!forceAuditFilter && typeof window !== 'undefined') {
-                    window.history.replaceState({}, '', '/admin/orders?audit=excluded');
+                    window.history.replaceState({}, '', '/admin/orders?audit=excluded&test_reason=manual_override_only');
                   }
                 }}
                 className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${testReasonFilter === 'manual_override_only' ? 'border-fuchsia-700 bg-fuchsia-950/40 text-fuchsia-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white'}`}
@@ -627,7 +629,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   setAuditFilter('excluded');
                   setTestReasonFilter(reason);
                   if (!forceAuditFilter && typeof window !== 'undefined') {
-                    window.history.replaceState({}, '', '/admin/orders?audit=excluded');
+                    window.history.replaceState({}, '', `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(reason)}`);
                   }
                 }}
                 className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${testReasonFilter === reason ? 'border-sky-700 bg-sky-950/40 text-sky-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white'}`}
@@ -779,7 +781,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                       setTestReasonFilter('all');
                     }
                     if (!forceAuditFilter && typeof window !== 'undefined') {
-                      const nextUrl = value === 'excluded' ? '/admin/orders?audit=excluded' : '/admin/orders';
+                      const nextUrl = value === 'excluded'
+                        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}`
+                        : '/admin/orders';
                       window.history.replaceState({}, '', nextUrl);
                     }
                   }}
@@ -794,7 +798,16 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   <AlertCircle className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
                   <select
                     value={testReasonFilter}
-                    onChange={(event) => setTestReasonFilter(event.target.value)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setTestReasonFilter(value);
+                      if (!forceAuditFilter && typeof window !== 'undefined') {
+                        const nextUrl = value === 'all'
+                          ? '/admin/orders?audit=excluded'
+                          : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}`;
+                        window.history.replaceState({}, '', nextUrl);
+                      }
+                    }}
                     className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"
                   >
                     <option value="all">Motivo QA: todos</option>

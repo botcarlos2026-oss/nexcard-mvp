@@ -318,6 +318,10 @@ Cambios concretos:
 7. se agregó además un scope sintético:
    - `Solo overrides manuales`
    - útil para revisar únicamente correcciones humanas dentro de `/admin/orders/qa`
+8. `/admin` ahora expone la señal de overrides manuales QA:
+   - contador dedicado en KPIs
+   - badge de alerta en el resumen operativo
+   - deep-link a `/admin/orders/qa?audit=excluded&test_reason=manual_override_only`
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

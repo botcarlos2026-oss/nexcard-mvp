@@ -110,13 +110,11 @@ const AdminDashboard = ({ dashboard }) => {
   const [searching, setSearching] = useState(false);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [lowStockDismissed, setLowStockDismissed] = useState(false);
-  const [pendingRefundsCount, setPendingRefundsCount] = useState(0);
   const [digestCopied, setDigestCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState('');
 
   useEffect(() => {
     api.checkLowStock().then(({ lowStockItems: items }) => setLowStockItems(items)).catch(() => {});
-    api.getPendingRefundsCount().then(setPendingRefundsCount).catch(() => {});
   }, []);
 
   const users = dashboard?.users || [];
@@ -129,6 +127,8 @@ const AdminDashboard = ({ dashboard }) => {
   const proactiveQueue = dashboard?.proactiveQueue || [];
   const operationalDigest = dashboard?.operationalDigest || null;
   const excludedOperationalOrdersCount = dashboard?.stats?.excludedOperationalOrdersCount || 0;
+  const manualOverrideQaOrdersCount = dashboard?.stats?.manualOverrideQaOrdersCount || 0;
+  const manualOverrideRealOrdersCount = dashboard?.stats?.manualOverrideRealOrdersCount || 0;
   const deliveryFormats = dashboard?.deliveryFormats || {};
   const transportReadiness = dashboard?.transportReadiness || null;
 
@@ -175,8 +175,14 @@ const AdminDashboard = ({ dashboard }) => {
       accent: 'amber',
       hint: statsSource.pendingOrders > statsSource.operationalPendingOrders ? `${statsSource.pendingOrders - statsSource.operationalPendingOrders} abiertos QA/internos excluidos` : null,
     },
-    { label: 'Devoluciones pendientes', value: `${pendingRefundsCount}`, accent: pendingRefundsCount > 0 ? 'red' : null, hint: pendingRefundsCount > 0 ? 'Requiere revisión' : null, href: '/admin/orders' },
-  ]), [statsSource, pendingRefundsCount]);
+    {
+      label: 'Overrides manuales QA',
+      value: `${manualOverrideQaOrdersCount}`,
+      accent: manualOverrideQaOrdersCount > 0 ? 'red' : null,
+      hint: manualOverrideRealOrdersCount > 0 ? `${manualOverrideRealOrdersCount} restore(s) manual(es) a orden real` : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola manual en QA' : 'Sin correcciones manuales abiertas'),
+      href: '/admin/orders/qa?audit=excluded&test_reason=manual_override_only',
+    },
+  ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideRealOrdersCount]);
 
   const funnelStats = useMemo(() => {
     const funnel = statsSource.operationalFunnel || { paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 };
@@ -257,7 +263,13 @@ const AdminDashboard = ({ dashboard }) => {
                 {excludedOperationalOrdersCount > 0 && (
                   <div className="mt-3 flex items-center gap-3 flex-wrap">
                     <AdminBadge variant="info">{excludedOperationalOrdersCount} orden(es) QA/interna(s) excluidas del resumen operativo</AdminBadge>
+                    {manualOverrideQaOrdersCount > 0 && (
+                      <AdminBadge variant="danger">{manualOverrideQaOrdersCount} override(s) manual(es) QA pendientes de revisión</AdminBadge>
+                    )}
                     <a href="/admin/orders/qa" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Abrir vista QA</a>
+                    {manualOverrideQaOrdersCount > 0 && (
+                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver solo overrides manuales</a>
+                    )}
                   </div>
                 )}
               </div>

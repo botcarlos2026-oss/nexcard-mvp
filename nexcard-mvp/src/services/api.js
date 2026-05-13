@@ -4,7 +4,7 @@ import { createOrdersApi } from './api/orders';
 import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
-import { isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
+import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const ERROR_MESSAGES = {
   'Failed to fetch': 'Sin conexión. Verifica tu internet e intenta nuevamente.',
@@ -215,8 +215,11 @@ export const api = {
     if (error) throw new Error(error.message || error);
     const paidOrders = (orders || []).filter(o => o.payment_status === 'paid');
     const operationalOrders = (orders || []).filter((order) => !isNonOperationalOrder(order));
+    const excludedOperationalOrders = (orders || []).filter((order) => isNonOperationalOrder(order));
     const operationalPaidOrders = paidOrders.filter((order) => !isNonOperationalOrder(order));
-    const excludedOperationalOrdersCount = (orders || []).length - operationalOrders.length;
+    const excludedOperationalOrdersCount = excludedOperationalOrders.length;
+    const manualOverrideQaOrdersCount = excludedOperationalOrders.filter((order) => isManualTestReason(order.test_reason)).length;
+    const manualOverrideRealOrdersCount = (orders || []).filter((order) => !order.is_test && isManualTestReason(order.test_reason)).length;
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const operationalRevenue = operationalPaidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const qaRevenue = totalRevenue - operationalRevenue;
@@ -507,6 +510,8 @@ export const api = {
         operationalAlertsCount: operationalAlerts.length,
         slaBreachesCount: slaBreaches.length,
         excludedOperationalOrdersCount,
+        manualOverrideQaOrdersCount,
+        manualOverrideRealOrdersCount,
         stageSla,
         proactiveSeverity: proactiveSummary.severity,
       },
