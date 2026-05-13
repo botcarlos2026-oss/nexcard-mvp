@@ -262,6 +262,24 @@ Validación ejecutada:
 - `npm run build` ✅
 - verificación headless en producción para `/`, `/preview` y `/admin` ✅
 
+### 2026-05-13 — dashboard operativo excluye QA/test del banner prioritario
+Se ajustó el resumen operativo de `/admin` para que no trate órdenes internas/QA como deuda real de operación.
+
+Cambios concretos:
+1. `src/services/api.js` ahora clasifica como **non-operational** las órdenes internas con señales de QA/test:
+   - emails admin internos
+   - correos `@nexcard.cl`
+   - nombres con patrones `qa`, `test`, `tst`, `smoke`, `demo`, `bot`
+2. `operationalAlerts`, `slaBreaches` y `proactiveSummary` usan solo órdenes operativas reales para el banner y digest
+3. revenue/funnel general no se tocó en este cambio; el ajuste fue focalizado al resumen prioritario para evitar falsos positivos
+
+Resultado observado al recalcular contra producción:
+- el banner crítico de `SLA roto: órdenes pagadas sin cierre` estaba inflado por órdenes de prueba/internas
+- con el filtro operativo aplicado, la cola prioritaria actual cae a `0`
+
+Validación ejecutada:
+- `npm run build` ✅
+
 ### 2026-05-13 — admin cards con shell superior + suite local operativa
 Se completó el cierre de `admin/cards` para dejarlo consistente tanto en UI como en testeo local.
 

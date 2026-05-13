@@ -4,6 +4,7 @@ import { createOrdersApi } from './api/orders';
 import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
+import { ADMIN_EMAILS } from '../config/admin';
 
 const ERROR_MESSAGES = {
   'Failed to fetch': 'Sin conexión. Verifica tu internet e intenta nuevamente.',
@@ -24,6 +25,23 @@ export const getErrorMessage = (error) => {
 };
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
+const NON_OPERATIONAL_ORDER_EMAILS = new Set([
+  ...ADMIN_EMAILS,
+  'admin@nexcard.cl',
+  'carlos@nexcard.cl',
+  'hola@nexcard.cl',
+]);
+const NON_OPERATIONAL_ORDER_NAME_REGEX = /\b(qa|test|tst|smoke|demo|bot)\b/i;
+
+const isNonOperationalOrder = (order) => {
+  const email = String(order?.customer_email || '').trim().toLowerCase();
+  const name = String(order?.customer_name || '').trim();
+  return (
+    NON_OPERATIONAL_ORDER_EMAILS.has(email)
+    || email.endsWith('@nexcard.cl')
+    || NON_OPERATIONAL_ORDER_NAME_REGEX.test(name)
+  );
+};
 
 export const getStoredAuth = () => {
   try {
@@ -213,6 +231,9 @@ export const api = {
     })();
     if (error) throw new Error(error.message || error);
     const paidOrders = (orders || []).filter(o => o.payment_status === 'paid');
+    const operationalOrders = (orders || []).filter((order) => !isNonOperationalOrder(order));
+    const operationalPaidOrders = paidOrders.filter((order) => !isNonOperationalOrder(order));
+    const excludedOperationalOrdersCount = (orders || []).length - operationalOrders.length;
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const pendingOrders = (orders || []).filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
     const paidOrdersCount = paidOrders.length;
@@ -224,14 +245,14 @@ export const api = {
       activated: paidOrders.filter(o => o.activation_completed).length,
     };
     const nowMs = Date.now();
-    const operationalAlerts = (orders || []).filter((order) => (order.observability_alerts || []).length > 0).map((order) => ({
+    const operationalAlerts = operationalOrders.filter((order) => (order.observability_alerts || []).length > 0).map((order) => ({
       id: order.id,
       customer_name: order.customer_name,
       customer_email: order.customer_email,
       funnel_stage: order.funnel_stage,
       alerts: order.observability_alerts,
     }));
-    const slaBreaches = paidOrders.filter((order) => {
+    const slaBreaches = operationalPaidOrders.filter((order) => {
       const paidAtMs = new Date(order.paid_at || order.updated_at || order.created_at).getTime();
       if (Number.isNaN(paidAtMs)) return false;
       const ageHours = (nowMs - paidAtMs) / (1000 * 60 * 60);
@@ -476,6 +497,7 @@ export const api = {
         funnel,
         operationalAlertsCount: operationalAlerts.length,
         slaBreachesCount: slaBreaches.length,
+        excludedOperationalOrdersCount,
         stageSla,
         proactiveSeverity: proactiveSummary.severity,
       },
