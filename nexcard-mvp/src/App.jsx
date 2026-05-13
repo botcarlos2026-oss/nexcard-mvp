@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AppRouteRenderer from './components/AppRouteRenderer';
 import { api, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
@@ -35,10 +35,10 @@ function App() {
     handleBackToCart,
   } = useCheckoutFlow();
 
-  const navigate = (newPath) => {
+  const navigate = useCallback((newPath) => {
     window.history.pushState({}, '', newPath);
     setPath(newPath);
-  };
+  }, []);
 
   useEffect(() => {
     const handleLocationChange = () => setPath(window.location.pathname);

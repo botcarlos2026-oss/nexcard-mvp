@@ -2,14 +2,23 @@ import { useEffect, useState } from 'react';
 import { getStoredAuth, setStoredAuth } from '../services/api';
 import { hasSupabase, supabase } from '../services/supabaseClient';
 
+const AUTH_INIT_TIMEOUT_MS = 4000;
+
 export function useAuthSessionSync() {
   const [user, setUser] = useState(() => getStoredAuth()?.user || null);
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    const watchdog = setTimeout(() => {
+      if (!cancelled) {
+        console.warn('Supabase auth init timeout; continuing with degraded session state');
+        setSessionReady(true);
+      }
+    }, AUTH_INIT_TIMEOUT_MS);
 
     if (!hasSupabase || !supabase) {
+      clearTimeout(watchdog);
       setSessionReady(true);
       return undefined;
     }
@@ -26,6 +35,7 @@ export function useAuthSessionSync() {
         if (cancelled) return;
         console.warn('Supabase auth init failed:', error);
       } finally {
+        clearTimeout(watchdog);
         if (!cancelled) {
           setSessionReady(true);
         }
@@ -35,6 +45,7 @@ export function useAuthSessionSync() {
     initSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      clearTimeout(watchdog);
       if (session?.user) {
         setUser(session.user);
         setStoredAuth({ user: session.user });
@@ -49,6 +60,7 @@ export function useAuthSessionSync() {
 
     return () => {
       cancelled = true;
+      clearTimeout(watchdog);
       listener?.subscription?.unsubscribe();
     };
   }, []);
