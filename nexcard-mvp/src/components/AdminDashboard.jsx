@@ -128,6 +128,7 @@ const AdminDashboard = ({ dashboard }) => {
   const proactiveSummary = dashboard?.proactiveSummary || null;
   const proactiveQueue = dashboard?.proactiveQueue || [];
   const operationalDigest = dashboard?.operationalDigest || null;
+  const excludedOperationalOrdersCount = dashboard?.stats?.excludedOperationalOrdersCount || 0;
   const deliveryFormats = dashboard?.deliveryFormats || {};
   const transportReadiness = dashboard?.transportReadiness || null;
 
@@ -236,6 +237,11 @@ const AdminDashboard = ({ dashboard }) => {
                 </p>
                 {proactiveSummary.secondary_count > 0 && (
                   <p className="text-xs mt-2 opacity-80">Además hay {proactiveSummary.secondary_count} caso(s) más en cola secundaria.</p>
+                )}
+                {excludedOperationalOrdersCount > 0 && (
+                  <div className="mt-3">
+                    <AdminBadge variant="info">{excludedOperationalOrdersCount} orden(es) QA/interna(s) excluidas del resumen operativo</AdminBadge>
+                  </div>
                 )}
               </div>
               <a href="/admin/orders" className="text-xs font-bold underline underline-offset-2 shrink-0">Ir a órdenes</a>

@@ -280,6 +280,9 @@ Resultado observado al recalcular contra producción:
 Validación ejecutada:
 - `npm run build` ✅
 
+Ajuste adicional:
+- `src/components/AdminDashboard.jsx` muestra ahora un badge explícito con la cantidad de órdenes QA/internas excluidas, para que el filtro sea visible y auditable dentro del panel.
+
 ### 2026-05-13 — admin cards con shell superior + suite local operativa
 Se completó el cierre de `admin/cards` para dejarlo consistente tanto en UI como en testeo local.
 
