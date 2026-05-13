@@ -15,6 +15,7 @@ export const ADMIN_ROUTES = new Set([
   '/admin/cards',
   '/admin/profiles',
   '/admin/orders',
+  '/admin/orders/qa',
   '/admin/crm',
   '/admin/nexreview',
   '/admin/emails',

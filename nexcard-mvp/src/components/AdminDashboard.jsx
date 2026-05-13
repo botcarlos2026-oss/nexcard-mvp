@@ -257,7 +257,7 @@ const AdminDashboard = ({ dashboard }) => {
                 {excludedOperationalOrdersCount > 0 && (
                   <div className="mt-3 flex items-center gap-3 flex-wrap">
                     <AdminBadge variant="info">{excludedOperationalOrdersCount} orden(es) QA/interna(s) excluidas del resumen operativo</AdminBadge>
-                    <a href="/admin/orders?audit=excluded" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver excluidas</a>
+                    <a href="/admin/orders/qa" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Abrir vista QA</a>
                   </div>
                 )}
               </div>

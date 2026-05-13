@@ -278,7 +278,7 @@ Cambios concretos:
 5. se centralizó el consumo frontend en:
    - `src/utils/orderOperationalSegmentation.js`
 6. `/admin` y `/admin/orders` consumen esa lógica centralizada
-7. el badge de auditoría en dashboard enlaza a `/admin/orders?audit=excluded`
+7. el badge de auditoría en dashboard enlaza a una vista dedicada `/admin/orders/qa`
 
 Reglas actuales de clasificación:
 - emails internos conocidos
@@ -299,6 +299,46 @@ Validación ejecutada:
 
 Documentación específica:
 - `docs/ORDERS_TEST_SEGREGATION_2026-05-13.md`
+
+### 2026-05-13 — vista dedicada QA/internal para órdenes excluidas
+Se agregó una superficie explícita para revisar órdenes QA/internas sin depender del filtro manual de `/admin/orders`.
+
+Cambios concretos:
+1. nueva ruta admin: `/admin/orders/qa`
+2. nueva vista `src/components/QAOrdersDashboard.jsx`
+3. reutiliza `OrdersDashboard` embebido, forzando `forceAuditFilter="excluded"`
+4. `AdminNav` incorpora acceso directo `QA Orders`
+5. `/admin` ahora enlaza esta vista desde el badge de órdenes excluidas
+
+Objetivo:
+- hacer observables los pedidos internos/QA de forma intencional
+- mantener `/admin` y `/admin/orders` enfocados en operación real por defecto
+- evitar duplicar lógica de tabla/detalle/acciones
+
+Validación ejecutada:
+- `npm run build` ✅
+
+### 2026-05-13 — override manual admin para segregación QA/test de órdenes
+Se agregó una corrección manual segura para cuando una orden real o interna quede mal clasificada por la heurística estructural.
+
+Cambios concretos:
+1. nueva migración:
+   - `supabase/migrations/202605131620_orders_test_override_admin.sql`
+2. nueva RPC protegida:
+   - `public.admin_override_order_test_classification(target_order_id, target_is_test, target_reason)`
+3. `/admin/orders` ahora permite:
+   - marcar manualmente una orden como `QA/test`
+   - restaurar manualmente una orden como operativa real
+   - guardar motivo explícito del override en `test_reason`
+4. el override persiste en DB y deja huella en `order_status_history`
+5. el listado de órdenes ahora muestra badge visible cuando una orden está excluida por QA/test
+
+Criterio operativo:
+- usar esta acción solo para corregir falsos positivos/falsos negativos
+- no reemplaza la clasificación automática base; la complementa con control admin explícito
+
+Validación ejecutada:
+- `npm run build` ✅
 
 ### 2026-05-13 — KPIs comerciales reales por defecto en `/admin`
 Se completó la segunda capa de segregación para que el dashboard comercial no mezcle revenue/funnel real con QA.

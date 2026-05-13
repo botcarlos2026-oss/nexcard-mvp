@@ -25,7 +25,7 @@ import AdminCard from './ui/AdminCard';
 import AdminStat from './ui/AdminStat';
 import { TH, TR, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
-import { isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
+import { deriveOrderTestClassification, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const currency = (cents) => {
   return new Intl.NumberFormat('es-CL', {
@@ -112,7 +112,7 @@ const deriveTraceabilityMoments = (order) => {
   ];
 };
 
-const OrdersDashboard = ({ orders = [] }) => {
+const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = false }) => {
   const [rows, setRows] = useState(orders);
   const [searchTerm, setSearchTerm] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('all');
@@ -128,6 +128,7 @@ const OrdersDashboard = ({ orders = [] }) => {
   const [nfcQrDataUrl, setNfcQrDataUrl] = useState(null);
   const [draftShipping, setDraftShipping] = useState({ carrier: '', tracking_code: '' });
   const [shippingBusy, setShippingBusy] = useState(false);
+  const [testOverrideReason, setTestOverrideReason] = useState('');
   const DISPATCH_CHECKLIST = [
     'NFC programado con el link del cliente',
     'Diseño impreso y verificado',
@@ -168,10 +169,14 @@ const OrdersDashboard = ({ orders = [] }) => {
   }, [orders, lastChecked]);
 
   useEffect(() => {
+    if (forceAuditFilter) {
+      setAuditFilter(forceAuditFilter);
+      return;
+    }
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     setAuditFilter(params.get('audit') === 'excluded' ? 'excluded' : 'all');
-  }, []);
+  }, [forceAuditFilter]);
 
   // Auto-refresh cada 30 segundos
   useEffect(() => {
@@ -312,6 +317,7 @@ const OrdersDashboard = ({ orders = [] }) => {
     setNfcQrDataUrl(null);
     setChecklistDone(Array(5).fill(false));
     setRefundForm({ reason: 'Producto defectuoso', amount_cents: selectedOrder.amount_cents || '', notes: '' });
+    setTestOverrideReason(selectedOrder.test_reason || '');
     // Auto-cargar slug si hay cards vinculadas
     if (selectedOrder.related_cards?.length > 0) {
       loadSlugForOrder(selectedOrder);
@@ -430,6 +436,30 @@ const OrdersDashboard = ({ orders = [] }) => {
     }
   };
 
+  const applyTestOverride = async (targetOrder, nextIsTest) => {
+    if (!targetOrder) return;
+
+    setBusyOrderId(targetOrder.id);
+    setFeedback({ type: '', message: '' });
+    try {
+      const response = await api.overrideOrderTestClassification(targetOrder.id, {
+        is_test: nextIsTest,
+        test_reason: testOverrideReason,
+      });
+      setRows(response.orders || []);
+      setFeedback({
+        type: 'success',
+        message: nextIsTest
+          ? `Orden ${targetOrder.id} marcada manualmente como QA/test.`
+          : `Orden ${targetOrder.id} restaurada manualmente como operativa real.`,
+      });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la clasificación QA/test.' });
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
   const processRefund = async () => {
     if (!selectedOrder) return;
     const amount = Number(refundForm.amount_cents);
@@ -512,12 +542,8 @@ const OrdersDashboard = ({ orders = [] }) => {
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <AdminShell
-      active="orders"
-      title="Orders Control Center"
-      subtitle="Caja, producción y cumplimiento en una sola mesa de control operativa."
-    >
+  const content = (
+    <>
       {/* Stats */}
       <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         {stats.map((stat) => (
@@ -530,7 +556,7 @@ const OrdersDashboard = ({ orders = [] }) => {
           <AdminBadge variant={auditFilter === 'excluded' ? 'info' : 'default'}>
             {excludedOrdersCount} orden(es) QA/interna(s)
           </AdminBadge>
-          {auditFilter === 'excluded' ? (
+          {auditFilter === 'excluded' && !forceAuditFilter ? (
             <button
               type="button"
               onClick={() => {
@@ -665,14 +691,14 @@ const OrdersDashboard = ({ orders = [] }) => {
                   onChange={(event) => {
                     const value = event.target.value;
                     setAuditFilter(value);
-                    if (typeof window !== 'undefined') {
+                    if (!forceAuditFilter && typeof window !== 'undefined') {
                       const nextUrl = value === 'excluded' ? '/admin/orders?audit=excluded' : '/admin/orders';
                       window.history.replaceState({}, '', nextUrl);
                     }
                   }}
                   className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
                 >
-                  <option value="all">Auditoría: todas</option>
+                  {!forceAuditFilter && <option value="all">Auditoría: todas</option>}
                   <option value="excluded">Solo QA/internas</option>
                 </select>
               </label>
@@ -718,6 +744,11 @@ const OrdersDashboard = ({ orders = [] }) => {
                       <div>
                         <p className="font-bold text-white text-sm">{order.customerLabel}</p>
                         <p className="text-xs text-zinc-500 font-medium">{order.customer_email || order.customer_phone || 'Sin contacto'}</p>
+                        {isNonOperationalOrder(order) && (
+                          <div className="mt-1.5">
+                            <AdminBadge variant="warning">QA/test · {formatLabel(deriveOrderTestClassification(order).reason)}</AdminBadge>
+                          </div>
+                        )}
                       </div>
                     </TD>
                     <TD className="font-bold text-white">{currency(order.totalCents)}</TD>
@@ -838,11 +869,62 @@ const OrdersDashboard = ({ orders = [] }) => {
                 )}
               </div>
 
-              <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Cliente</p>
-                <p className="font-bold text-white">{selectedOrder.customerLabel}</p>
-                <p className="text-sm text-zinc-400 font-medium">{selectedOrder.customer_email || 'Sin email'}</p>
-                <p className="text-sm text-zinc-400 font-medium">{selectedOrder.customer_phone || 'Sin teléfono'}</p>
+              <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 space-y-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Cliente</p>
+                  <p className="font-bold text-white">{selectedOrder.customerLabel}</p>
+                  <p className="text-sm text-zinc-400 font-medium">{selectedOrder.customer_email || 'Sin email'}</p>
+                  <p className="text-sm text-zinc-400 font-medium">{selectedOrder.customer_phone || 'Sin teléfono'}</p>
+                </div>
+
+                <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Segregación QA/test</p>
+                      <p className="text-sm font-semibold text-white mt-1">
+                        {selectedOrder.is_test ? 'Excluida de operación real' : 'Incluida en operación real'}
+                      </p>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Motivo actual: {selectedOrder.test_reason ? formatLabel(selectedOrder.test_reason) : 'sin motivo'}
+                      </p>
+                    </div>
+                    <AdminBadge variant={selectedOrder.is_test ? 'warning' : 'success'}>
+                      {selectedOrder.is_test ? 'QA/test' : 'Operativa real'}
+                    </AdminBadge>
+                  </div>
+                  <textarea
+                    value={testOverrideReason}
+                    onChange={(event) => setTestOverrideReason(event.target.value)}
+                    disabled={busyOrderId === selectedOrder.id}
+                    rows="2"
+                    placeholder={selectedOrder.is_test ? 'Ej: pedido real corregido manualmente' : 'Ej: smoke interno / demo'}
+                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors resize-none"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {selectedOrder.is_test ? (
+                      <button
+                        type="button"
+                        onClick={() => applyTestOverride(selectedOrder, false)}
+                        disabled={busyOrderId === selectedOrder.id}
+                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                      >
+                        Restaurar como orden real
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => applyTestOverride(selectedOrder, true)}
+                        disabled={busyOrderId === selectedOrder.id}
+                        className="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                      >
+                        Marcar como QA/test
+                      </button>
+                    )}
+                    <p className="text-[11px] text-zinc-500 self-center">
+                      Override manual persistente para corregir clasificaciones erróneas sin tocar datos del cliente.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1547,6 +1629,18 @@ const OrdersDashboard = ({ orders = [] }) => {
           )}
         </AdminCard>
       </div>
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <AdminShell
+      active="orders"
+      title="Orders Control Center"
+      subtitle="Caja, producción y cumplimiento en una sola mesa de control operativa."
+    >
+      {content}
     </AdminShell>
   );
 };

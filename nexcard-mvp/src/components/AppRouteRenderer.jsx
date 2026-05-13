@@ -9,6 +9,7 @@ import InventoryDashboard from './InventoryDashboard';
 import AdminCardsDashboard from './AdminCardsDashboard';
 import AdminProfilesDashboard from './AdminProfilesDashboard';
 import OrdersDashboard from './OrdersDashboard';
+import QAOrdersDashboard from './QAOrdersDashboard';
 import CRMDashboard from './CRMDashboard';
 import NexReviewDashboard from './NexReviewDashboard';
 import ReviewCardsDashboard from './ReviewCardsDashboard';
@@ -86,6 +87,7 @@ export default function AppRouteRenderer({
   if (path === '/admin/profiles') return <AdminProfilesDashboard profiles={profilesAdminData} />;
   if (path === '/admin/nexreview') return <NexReviewDashboard profiles={profilesAdminData} />;
   if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
+  if (path === '/admin/orders/qa') return <QAOrdersDashboard orders={ordersAdminData} />;
   if (path === '/admin/emails') return <EmailDashboard />;
   if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
   if (path === '/admin/products') return <ProductsDashboard />;

@@ -565,6 +565,26 @@ export const api = {
     return fetchOrders();
   },
 
+  overrideOrderTestClassification: async (orderId, { is_test, test_reason }) => {
+    if (!hasSupabase) {
+      throw new Error('Override QA/test requiere Supabase configurado');
+    }
+
+    if (typeof is_test !== 'boolean') {
+      throw new Error('Debes indicar si la orden debe quedar marcada o no como QA/test');
+    }
+
+    const { error } = await supabase.rpc('admin_override_order_test_classification', {
+      target_order_id: orderId,
+      target_is_test: is_test,
+      target_reason: test_reason || null,
+    });
+
+    if (error) throw new Error(error.message);
+
+    return fetchOrders();
+  },
+
   transitionOrderState: async (orderId, payload) => paymentsApi.transitionOrderState(orderId, payload),
 
   markOrderDelivered: async (orderId, reason) => {

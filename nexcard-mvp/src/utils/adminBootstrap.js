@@ -7,6 +7,7 @@ const ADMIN_ROUTE_LOADERS = {
   '/admin/profiles': async (api) => ({ kind: 'profiles', payload: await api.getAdminProfiles() }),
   '/admin/nexreview': async (api) => ({ kind: 'profiles', payload: await api.getAdminProfiles() }),
   '/admin/orders': async (api) => ({ kind: 'orders', payload: await api.getOrders() }),
+  '/admin/orders/qa': async (api) => ({ kind: 'orders', payload: await api.getOrders() }),
   '/admin/crm': async () => ({ kind: 'noop', payload: null }),
   '/admin/emails': async () => ({ kind: 'noop', payload: null }),
   '/admin/review-cards': async () => ({ kind: 'noop', payload: null }),
