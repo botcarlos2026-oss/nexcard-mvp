@@ -25,24 +25,7 @@ import AdminCard from './ui/AdminCard';
 import AdminStat from './ui/AdminStat';
 import { TH, TR, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
-
-const NON_OPERATIONAL_ORDER_EMAILS = new Set([
-  'bot.carlos.2026@gmail.com',
-  'carlos.alvarez.contreras@gmail.com',
-  'admin@nexcard.cl',
-  'carlos@nexcard.cl',
-  'hola@nexcard.cl',
-]);
-const NON_OPERATIONAL_ORDER_NAME_REGEX = /\b(qa|test|tst|smoke|demo|bot)\b/i;
-const isNonOperationalOrder = (order) => {
-  const email = String(order?.customer_email || '').trim().toLowerCase();
-  const name = String(order?.customer_name || order?.customerLabel || '').trim();
-  return (
-    NON_OPERATIONAL_ORDER_EMAILS.has(email)
-    || email.endsWith('@nexcard.cl')
-    || NON_OPERATIONAL_ORDER_NAME_REGEX.test(name)
-  );
-};
+import { isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const currency = (cents) => {
   return new Intl.NumberFormat('es-CL', {

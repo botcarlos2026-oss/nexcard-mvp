@@ -4,7 +4,7 @@ import { createOrdersApi } from './api/orders';
 import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
-import { ADMIN_EMAILS } from '../config/admin';
+import { isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const ERROR_MESSAGES = {
   'Failed to fetch': 'Sin conexión. Verifica tu internet e intenta nuevamente.',
@@ -25,23 +25,6 @@ export const getErrorMessage = (error) => {
 };
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
-const NON_OPERATIONAL_ORDER_EMAILS = new Set([
-  ...ADMIN_EMAILS,
-  'admin@nexcard.cl',
-  'carlos@nexcard.cl',
-  'hola@nexcard.cl',
-]);
-const NON_OPERATIONAL_ORDER_NAME_REGEX = /\b(qa|test|tst|smoke|demo|bot)\b/i;
-
-const isNonOperationalOrder = (order) => {
-  const email = String(order?.customer_email || '').trim().toLowerCase();
-  const name = String(order?.customer_name || '').trim();
-  return (
-    NON_OPERATIONAL_ORDER_EMAILS.has(email)
-    || email.endsWith('@nexcard.cl')
-    || NON_OPERATIONAL_ORDER_NAME_REGEX.test(name)
-  );
-};
 
 export const getStoredAuth = () => {
   try {

@@ -262,28 +262,43 @@ Validación ejecutada:
 - `npm run build` ✅
 - verificación headless en producción para `/`, `/preview` y `/admin` ✅
 
-### 2026-05-13 — dashboard operativo excluye QA/test del banner prioritario
-Se ajustó el resumen operativo de `/admin` para que no trate órdenes internas/QA como deuda real de operación.
+### 2026-05-13 — segregación estructural de órdenes QA/test
+Se reemplazó la exclusión puramente heurística por una marca persistente en base de datos para separar operación real vs QA.
 
 Cambios concretos:
-1. `src/services/api.js` ahora clasifica como **non-operational** las órdenes internas con señales de QA/test:
-   - emails admin internos
-   - correos `@nexcard.cl`
-   - nombres con patrones `qa`, `test`, `tst`, `smoke`, `demo`, `bot`
-2. `operationalAlerts`, `slaBreaches` y `proactiveSummary` usan solo órdenes operativas reales para el banner y digest
-3. revenue/funnel general no se tocó en este cambio; el ajuste fue focalizado al resumen prioritario para evitar falsos positivos
+1. nueva migración:
+   - `supabase/migrations/202605131250_orders_test_segmentation.sql`
+2. `public.orders` ahora incorpora:
+   - `is_test boolean not null default false`
+   - `test_reason text`
+3. se creó clasificación server-side:
+   - `public.classify_order_test_signal(customer_name, customer_email)`
+   - trigger `before insert/update` para marcar automáticamente órdenes internas/QA
+4. se ejecutó backfill histórico para clasificar órdenes ya existentes
+5. se centralizó el consumo frontend en:
+   - `src/utils/orderOperationalSegmentation.js`
+6. `/admin` y `/admin/orders` consumen esa lógica centralizada
+7. el badge de auditoría en dashboard enlaza a `/admin/orders?audit=excluded`
 
-Resultado observado al recalcular contra producción:
-- el banner crítico de `SLA roto: órdenes pagadas sin cierre` estaba inflado por órdenes de prueba/internas
-- con el filtro operativo aplicado, la cola prioritaria actual cae a `0`
+Reglas actuales de clasificación:
+- emails internos conocidos
+- dominio `@nexcard.cl`
+- nombres con patrones `qa`, `test`, `tst`, `smoke`, `demo`, `bot`
+
+Resultado auditado tras backfill en producción:
+- `24` órdenes totales
+- `24` clasificadas como QA/internas
+- `0` órdenes operativas reales hoy
+- `0` SLA breaches reales
+- `0` alertas operativas reales
 
 Validación ejecutada:
+- aplicación puntual remota de la migración ✅
+- registro en historial de migraciones ✅
 - `npm run build` ✅
 
-Ajuste adicional:
-- `src/components/AdminDashboard.jsx` muestra ahora un badge explícito con la cantidad de órdenes QA/internas excluidas, para que el filtro sea visible y auditable dentro del panel.
-- ese badge ahora enlaza a `/admin/orders?audit=excluded`
-- `src/components/OrdersDashboard.jsx` interpreta `audit=excluded` y activa un filtro dedicado `Solo QA/internas`
+Documentación específica:
+- `docs/ORDERS_TEST_SEGREGATION_2026-05-13.md`
 
 ### 2026-05-13 — admin cards con shell superior + suite local operativa
 Se completó el cierre de `admin/cards` para dejarlo consistente tanto en UI como en testeo local.
