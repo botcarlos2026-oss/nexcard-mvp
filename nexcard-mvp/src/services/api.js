@@ -231,25 +231,53 @@ export const api = {
       else acc.fresh += 1;
       return acc;
     }, { fresh: 0, over24h: 0, over72h: 0 });
-    const manualOverrideQaSeverity = manualOverrideQaOrders.reduce((acc, order) => {
+    const manualOverrideQaScored = manualOverrideQaOrders.map((order) => {
       const updatedAtMs = new Date(order.updated_at || order.created_at).getTime();
-      const ageHours = Number.isNaN(updatedAtMs) ? 0 : (nowMs - updatedAtMs) / (1000 * 60 * 60);
+      const ageHours = Number.isNaN(updatedAtMs) ? 0 : Math.round((nowMs - updatedAtMs) / (1000 * 60 * 60));
       const isPaid = order.payment_status === 'paid';
       const notShipped = !['shipped', 'delivered'].includes(order.fulfillment_status);
       const notActivated = !order.activation_completed;
       const notReady = !['ready', 'shipped', 'delivered'].includes(order.fulfillment_status);
       let severity = 'low';
       let score = 1;
-      if (ageHours >= 72) { severity = 'medium'; score += 2; }
-      else if (ageHours >= 24) { severity = 'low'; score += 1; }
-      if (isPaid && notActivated) { severity = 'high'; score += 3; }
-      if (isPaid && notShipped && notActivated && ageHours >= 72) { severity = 'critical'; score += 4; }
-      else if (isPaid && notReady && ageHours >= 24) { severity = severity === 'critical' ? 'critical' : 'high'; score += 2; }
+      const reasons = [];
+      if (ageHours >= 72) { severity = 'medium'; score += 2; reasons.push('aging >72h'); }
+      else if (ageHours >= 24) { score += 1; reasons.push('aging >24h'); }
+      if (isPaid && notActivated) { severity = 'high'; score += 3; reasons.push('paid sin activación'); }
+      if (isPaid && notShipped && notActivated && ageHours >= 72) {
+        severity = 'critical';
+        score += 4;
+        reasons.push('sin despacho');
+      } else if (isPaid && notReady && ageHours >= 24) {
+        severity = severity === 'critical' ? 'critical' : 'high';
+        score += 2;
+        reasons.push('sin producción lista');
+      }
+      return {
+        id: order.id,
+        folio: order.folio || null,
+        customer_name: order.customer_name || order.customer_full_name || 'Cliente sin nombre',
+        customer_email: order.customer_email || null,
+        payment_status: order.payment_status,
+        fulfillment_status: order.fulfillment_status,
+        activation_completed: !!order.activation_completed,
+        age_hours: ageHours,
+        severity,
+        score,
+        reasons,
+      };
+    });
+
+    const manualOverrideQaSeverity = manualOverrideQaScored.reduce((acc, order) => {
       acc.total += 1;
-      acc[severity] += 1;
-      if (score > acc.maxScore) acc.maxScore = score;
+      acc[order.severity] += 1;
+      if (order.score > acc.maxScore) acc.maxScore = order.score;
       return acc;
     }, { low: 0, medium: 0, high: 0, critical: 0, total: 0, maxScore: 0 });
+
+    const topManualOverrideQueue = [...manualOverrideQaScored]
+      .sort((a, b) => (b.score - a.score) || (b.age_hours - a.age_hours))
+      .slice(0, 5);
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const operationalRevenue = operationalPaidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const qaRevenue = totalRevenue - operationalRevenue;
@@ -553,6 +581,7 @@ export const api = {
       weeklyFunnelTrend,
       proactiveSummary,
       proactiveQueue,
+      topManualOverrideQueue,
       operationalDigest,
       deliveryFormats,
       transportReadiness,

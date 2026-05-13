@@ -125,6 +125,7 @@ const AdminDashboard = ({ dashboard }) => {
   const weeklyFunnelTrend = dashboard?.weeklyFunnelTrend || [];
   const proactiveSummary = dashboard?.proactiveSummary || null;
   const proactiveQueue = dashboard?.proactiveQueue || [];
+  const topManualOverrideQueue = dashboard?.topManualOverrideQueue || [];
   const operationalDigest = dashboard?.operationalDigest || null;
   const excludedOperationalOrdersCount = dashboard?.stats?.excludedOperationalOrdersCount || 0;
   const manualOverrideQaOrdersCount = dashboard?.stats?.manualOverrideQaOrdersCount || 0;
@@ -409,21 +410,69 @@ const AdminDashboard = ({ dashboard }) => {
       </div>
 
       {manualOverrideQaOrdersCount > 0 && (
-        <AdminCard className="mb-6">
-          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-            <div>
-              <h2 className="font-bold text-lg text-white">Severidad cola overrides manuales QA</h2>
-              <p className="text-sm text-zinc-400 font-medium">Prioriza lo más riesgoso: aging + pagada + no despachada + no activada.</p>
+        <div className="grid lg:grid-cols-[1.1fr,0.9fr] gap-6 mb-6">
+          <AdminCard>
+            <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <div>
+                <h2 className="font-bold text-lg text-white">Severidad cola overrides manuales QA</h2>
+                <p className="text-sm text-zinc-400 font-medium">Prioriza lo más riesgoso: aging + pagada + no despachada + no activada.</p>
+              </div>
+              <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2">Abrir cola QA</a>
             </div>
-            <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2">Abrir cola QA</a>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <AdminStat label="Críticas" value={manualOverrideQaSeverity.critical || 0} accent="red" hint={manualOverrideQaSeverity.critical > 0 ? 'Pagadas, sin envío/activación y con aging alto' : null} />
-            <AdminStat label="High" value={manualOverrideQaSeverity.high || 0} accent="amber" hint={manualOverrideQaSeverity.high > 0 ? 'Pagadas sin activación o atascadas' : null} />
-            <AdminStat label=">24h" value={manualOverrideQaAging.over24h || 0} accent="amber" hint="Overrides manuales envejeciendo" />
-            <AdminStat label=">72h" value={manualOverrideQaAging.over72h || 0} accent="red" hint="Deuda operativa real" />
-          </div>
-        </AdminCard>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <AdminStat label="Críticas" value={manualOverrideQaSeverity.critical || 0} accent="red" hint={manualOverrideQaSeverity.critical > 0 ? 'Pagadas, sin envío/activación y con aging alto' : null} />
+              <AdminStat label="High" value={manualOverrideQaSeverity.high || 0} accent="amber" hint={manualOverrideQaSeverity.high > 0 ? 'Pagadas sin activación o atascadas' : null} />
+              <AdminStat label=">24h" value={manualOverrideQaAging.over24h || 0} accent="amber" hint="Overrides manuales envejeciendo" />
+              <AdminStat label=">72h" value={manualOverrideQaAging.over72h || 0} accent="red" hint="Deuda operativa real" />
+            </div>
+          </AdminCard>
+
+          <AdminCard>
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 className="font-bold text-lg text-white">Top 5 overrides críticos</h2>
+                <p className="text-sm text-zinc-400 font-medium">Acción inmediata sobre la cola manual más riesgosa.</p>
+              </div>
+              <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2">Ver todo</a>
+            </div>
+            <div className="space-y-3">
+              {topManualOverrideQueue.length === 0 ? (
+                <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm font-medium text-zinc-400">Sin overrides manuales priorizados en este momento.</div>
+              ) : topManualOverrideQueue.map((order) => (
+                <a
+                  key={order.id}
+                  href={`/admin/orders/qa?audit=excluded&test_reason=manual_override_only${order.age_hours >= 72 ? '&override_age=72h' : order.age_hours >= 24 ? '&override_age=24h' : ''}`}
+                  className="block rounded-xl bg-zinc-800 border border-zinc-700 p-4 hover:bg-zinc-700/60 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-sm text-white">{order.customer_name}</p>
+                      <p className="text-xs text-zinc-400 mt-0.5">{order.folio || order.id}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <AdminBadge variant={order.severity === 'critical' ? 'danger' : order.severity === 'high' ? 'warning' : 'default'}>
+                        {order.severity}
+                      </AdminBadge>
+                      <AdminBadge variant={order.age_hours >= 72 ? 'danger' : order.age_hours >= 24 ? 'warning' : 'default'}>
+                        {order.age_hours}h
+                      </AdminBadge>
+                    </div>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-3">
+                    {order.reasons?.join(' · ') || 'Sin señales adicionales'}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    <AdminBadge variant={order.payment_status === 'paid' ? 'success' : 'default'}>{order.payment_status || 'sin pago'}</AdminBadge>
+                    <AdminBadge variant="info">{order.fulfillment_status || 'sin fulfillment'}</AdminBadge>
+                    <AdminBadge variant={order.activation_completed ? 'success' : 'warning'}>
+                      {order.activation_completed ? 'activada' : 'sin activar'}
+                    </AdminBadge>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </AdminCard>
+        </div>
       )}
 
       {/* Gráfico ventas por día */}

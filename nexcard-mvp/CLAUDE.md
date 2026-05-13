@@ -331,6 +331,12 @@ Cambios concretos:
    - score derivado de `aging + pagada + no enviada + no activada`
    - resumen visible en `/admin`
    - ordenamiento descendente automático en `/admin/orders/qa` cuando el scope es `manual_override_only`
+11. `/admin` ahora muestra además un top 5 de overrides críticos:
+   - nombre / folio
+   - severidad
+   - aging en horas
+   - estado de pago / fulfillment / activación
+   - CTA directo a la cola QA filtrada
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional
