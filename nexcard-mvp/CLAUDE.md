@@ -322,6 +322,11 @@ Cambios concretos:
    - contador dedicado en KPIs
    - badge de alerta en el resumen operativo
    - deep-link a `/admin/orders/qa?audit=excluded&test_reason=manual_override_only`
+9. aging operativo de overrides manuales QA:
+   - bucket `>24h`
+   - bucket `>72h`
+   - deep-links a QA con `override_age=24h|72h`
+   - `OrdersDashboard` entiende `override_age` cuando el scope es `manual_override_only`
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

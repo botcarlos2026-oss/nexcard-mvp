@@ -168,6 +168,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [dateFilter, setDateFilter] = useState('all');
   const [auditFilter, setAuditFilter] = useState('all');
   const [testReasonFilter, setTestReasonFilter] = useState('all');
+  const [overrideAgeFilter, setOverrideAgeFilter] = useState('all');
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [lastChecked, setLastChecked] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -186,8 +187,10 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     const params = new URLSearchParams(window.location.search);
     const requestedAudit = params.get('audit') === 'excluded' ? 'excluded' : 'all';
     const requestedReason = params.get('test_reason') || 'all';
+    const requestedOverrideAge = params.get('override_age') || 'all';
     setAuditFilter(forceAuditFilter || requestedAudit);
     setTestReasonFilter(requestedReason);
+    setOverrideAgeFilter(requestedOverrideAge);
   }, [forceAuditFilter]);
 
   // Auto-refresh cada 30 segundos
@@ -272,14 +275,21 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   }, [testReasonCounts, manualOverrideCount]);
 
   const auditScopedOrders = useMemo(() => {
+    const nowMs = Date.now();
     return normalizedOrders.filter((order) => {
       const matchesAudit = auditFilter === 'all' || (auditFilter === 'excluded' && order.isNonOperational);
       const matchesReason = testReasonFilter === 'all'
         || (testReasonFilter === 'manual_override_only' && isManualTestReason(order.testReasonResolved))
         || order.testReasonResolved === testReasonFilter;
-      return matchesAudit && matchesReason;
+      let matchesOverrideAge = true;
+      if (testReasonFilter === 'manual_override_only' && overrideAgeFilter !== 'all') {
+        const updatedAtMs = new Date(order.updated_at || order.created_at).getTime();
+        const ageHours = Number.isNaN(updatedAtMs) ? 0 : (nowMs - updatedAtMs) / (1000 * 60 * 60);
+        matchesOverrideAge = overrideAgeFilter === '72h' ? ageHours >= 72 : ageHours >= 24;
+      }
+      return matchesAudit && matchesReason && matchesOverrideAge;
     });
-  }, [normalizedOrders, auditFilter, testReasonFilter]);
+  }, [normalizedOrders, auditFilter, testReasonFilter, overrideAgeFilter]);
 
   const paymentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.payment_status).filter(Boolean)))], [normalizedOrders]);
   const fulfillmentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.fulfillment_status).filter(Boolean)))], [normalizedOrders]);
@@ -612,6 +622,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 onClick={() => {
                   setAuditFilter('excluded');
                   setTestReasonFilter('manual_override_only');
+                  setOverrideAgeFilter('all');
                   if (!forceAuditFilter && typeof window !== 'undefined') {
                     window.history.replaceState({}, '', '/admin/orders?audit=excluded&test_reason=manual_override_only');
                   }
@@ -628,6 +639,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 onClick={() => {
                   setAuditFilter('excluded');
                   setTestReasonFilter(reason);
+                  setOverrideAgeFilter('all');
                   if (!forceAuditFilter && typeof window !== 'undefined') {
                     window.history.replaceState({}, '', `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(reason)}`);
                   }
@@ -643,6 +655,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 onClick={() => {
                   setAuditFilter('all');
                   setTestReasonFilter('all');
+                  setOverrideAgeFilter('all');
                   if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
                 }}
                 className="text-xs font-bold text-zinc-400 underline underline-offset-2 hover:text-white"
@@ -779,10 +792,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                     setAuditFilter(value);
                     if (value === 'all') {
                       setTestReasonFilter('all');
+                      setOverrideAgeFilter('all');
                     }
                     if (!forceAuditFilter && typeof window !== 'undefined') {
                       const nextUrl = value === 'excluded'
-                        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}`
+                        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}`
                         : '/admin/orders';
                       window.history.replaceState({}, '', nextUrl);
                     }
@@ -794,37 +808,65 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 </select>
               </label>
               {(auditFilter === 'excluded' || forceAuditFilter) && testReasonOptions.length > 1 && (
-                <label className="relative block">
-                  <AlertCircle className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                  <select
-                    value={testReasonFilter}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setTestReasonFilter(value);
-                      if (!forceAuditFilter && typeof window !== 'undefined') {
-                        const nextUrl = value === 'all'
-                          ? '/admin/orders?audit=excluded'
-                          : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}`;
-                        window.history.replaceState({}, '', nextUrl);
-                      }
-                    }}
-                    className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"
-                  >
-                    <option value="all">Motivo QA: todos</option>
-                    {testReasonOptions.filter((reason) => reason !== 'all').map((reason) => (
-                      <option key={reason} value={reason}>
-                        {reason === 'manual_override_only'
-                          ? `Solo overrides manuales (${manualOverrideCount})`
-                          : `${formatLabel(reason)} (${testReasonCounts[reason] || 0})`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <>
+                  <label className="relative block">
+                    <AlertCircle className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                    <select
+                      value={testReasonFilter}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setTestReasonFilter(value);
+                        if (value !== 'manual_override_only') {
+                          setOverrideAgeFilter('all');
+                        }
+                        if (!forceAuditFilter && typeof window !== 'undefined') {
+                          const nextUrl = value === 'all'
+                            ? '/admin/orders?audit=excluded'
+                            : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}${value === 'manual_override_only' && overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}`;
+                          window.history.replaceState({}, '', nextUrl);
+                        }
+                      }}
+                      className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"
+                    >
+                      <option value="all">Motivo QA: todos</option>
+                      {testReasonOptions.filter((reason) => reason !== 'all').map((reason) => (
+                        <option key={reason} value={reason}>
+                          {reason === 'manual_override_only'
+                            ? `Solo overrides manuales (${manualOverrideCount})`
+                            : `${formatLabel(reason)} (${testReasonCounts[reason] || 0})`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {testReasonFilter === 'manual_override_only' && (
+                    <label className="relative block">
+                      <Clock3 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                      <select
+                        value={overrideAgeFilter}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setOverrideAgeFilter(value);
+                          if (!forceAuditFilter && typeof window !== 'undefined') {
+                            const nextUrl = value === 'all'
+                              ? '/admin/orders?audit=excluded&test_reason=manual_override_only'
+                              : `/admin/orders?audit=excluded&test_reason=manual_override_only&override_age=${encodeURIComponent(value)}`;
+                            window.history.replaceState({}, '', nextUrl);
+                          }
+                        }}
+                        className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
+                      >
+                        <option value="all">Override age: todos</option>
+                        <option value="24h">Override age: ≥24h</option>
+                        <option value="72h">Override age: ≥72h</option>
+                      </select>
+                    </label>
+                  )}
+                </>
               )}
             </div>
           </div>
 
-          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}`} className="overflow-x-auto">
+          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}`} className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-zinc-800/50 border-b border-zinc-800">
                 <tr className="text-xs uppercase tracking-wide text-zinc-500">

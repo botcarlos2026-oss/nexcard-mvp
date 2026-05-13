@@ -218,8 +218,18 @@ export const api = {
     const excludedOperationalOrders = (orders || []).filter((order) => isNonOperationalOrder(order));
     const operationalPaidOrders = paidOrders.filter((order) => !isNonOperationalOrder(order));
     const excludedOperationalOrdersCount = excludedOperationalOrders.length;
-    const manualOverrideQaOrdersCount = excludedOperationalOrders.filter((order) => isManualTestReason(order.test_reason)).length;
+    const manualOverrideQaOrders = excludedOperationalOrders.filter((order) => isManualTestReason(order.test_reason));
+    const manualOverrideQaOrdersCount = manualOverrideQaOrders.length;
     const manualOverrideRealOrdersCount = (orders || []).filter((order) => !order.is_test && isManualTestReason(order.test_reason)).length;
+    const manualOverrideQaAging = manualOverrideQaOrders.reduce((acc, order) => {
+      const updatedAtMs = new Date(order.updated_at || order.created_at).getTime();
+      if (Number.isNaN(updatedAtMs)) return acc;
+      const ageHours = (nowMs - updatedAtMs) / (1000 * 60 * 60);
+      if (ageHours >= 72) acc.over72h += 1;
+      else if (ageHours >= 24) acc.over24h += 1;
+      else acc.fresh += 1;
+      return acc;
+    }, { fresh: 0, over24h: 0, over72h: 0 });
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const operationalRevenue = operationalPaidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const qaRevenue = totalRevenue - operationalRevenue;
@@ -512,6 +522,7 @@ export const api = {
         excludedOperationalOrdersCount,
         manualOverrideQaOrdersCount,
         manualOverrideRealOrdersCount,
+        manualOverrideQaAging,
         stageSla,
         proactiveSeverity: proactiveSummary.severity,
       },

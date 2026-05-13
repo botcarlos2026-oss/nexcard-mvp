@@ -129,6 +129,7 @@ const AdminDashboard = ({ dashboard }) => {
   const excludedOperationalOrdersCount = dashboard?.stats?.excludedOperationalOrdersCount || 0;
   const manualOverrideQaOrdersCount = dashboard?.stats?.manualOverrideQaOrdersCount || 0;
   const manualOverrideRealOrdersCount = dashboard?.stats?.manualOverrideRealOrdersCount || 0;
+  const manualOverrideQaAging = useMemo(() => dashboard?.stats?.manualOverrideQaAging || { fresh: 0, over24h: 0, over72h: 0 }, [dashboard]);
   const deliveryFormats = dashboard?.deliveryFormats || {};
   const transportReadiness = dashboard?.transportReadiness || null;
 
@@ -179,10 +180,16 @@ const AdminDashboard = ({ dashboard }) => {
       label: 'Overrides manuales QA',
       value: `${manualOverrideQaOrdersCount}`,
       accent: manualOverrideQaOrdersCount > 0 ? 'red' : null,
-      hint: manualOverrideRealOrdersCount > 0 ? `${manualOverrideRealOrdersCount} restore(s) manual(es) a orden real` : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola manual en QA' : 'Sin correcciones manuales abiertas'),
+      hint: manualOverrideQaAging.over72h > 0
+        ? `${manualOverrideQaAging.over72h} con aging >72h`
+        : manualOverrideQaAging.over24h > 0
+          ? `${manualOverrideQaAging.over24h} con aging >24h`
+          : manualOverrideRealOrdersCount > 0
+            ? `${manualOverrideRealOrdersCount} restore(s) manual(es) a orden real`
+            : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola manual en QA' : 'Sin correcciones manuales abiertas'),
       href: '/admin/orders/qa?audit=excluded&test_reason=manual_override_only',
     },
-  ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideRealOrdersCount]);
+  ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideRealOrdersCount, manualOverrideQaAging]);
 
   const funnelStats = useMemo(() => {
     const funnel = statsSource.operationalFunnel || { paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 };
@@ -266,9 +273,21 @@ const AdminDashboard = ({ dashboard }) => {
                     {manualOverrideQaOrdersCount > 0 && (
                       <AdminBadge variant="danger">{manualOverrideQaOrdersCount} override(s) manual(es) QA pendientes de revisión</AdminBadge>
                     )}
+                    {manualOverrideQaAging.over72h > 0 && (
+                      <AdminBadge variant="danger">{manualOverrideQaAging.over72h} override(s) manual(es) con aging &gt;72h</AdminBadge>
+                    )}
+                    {manualOverrideQaAging.over24h > 0 && manualOverrideQaAging.over72h === 0 && (
+                      <AdminBadge variant="warning">{manualOverrideQaAging.over24h} override(s) manual(es) con aging &gt;24h</AdminBadge>
+                    )}
                     <a href="/admin/orders/qa" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Abrir vista QA</a>
                     {manualOverrideQaOrdersCount > 0 && (
                       <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver solo overrides manuales</a>
+                    )}
+                    {manualOverrideQaAging.over24h > 0 && (
+                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&override_age=24h" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver aging &gt;24h</a>
+                    )}
+                    {manualOverrideQaAging.over72h > 0 && (
+                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&override_age=72h" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver aging &gt;72h</a>
                     )}
                   </div>
                 )}
