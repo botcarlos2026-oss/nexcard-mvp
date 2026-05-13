@@ -149,8 +149,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             Tarjeta NFC · Compatible con iPhone y Android
           </div>
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-[1.05] tracking-tight">
-            Una NexCard para tu<br />
-            <span className="text-emerald-400">perfil profesional o tu negocio</span>
+            Tu tarjeta de presentación,<br />
+            <span className="text-emerald-400">que se actualiza sola</span>
           </h1>
           <p className="text-lg md:text-xl text-zinc-400 mb-6 max-w-3xl mx-auto leading-relaxed">
             Comparte tu contacto completo con un solo toque. Sin apps, sin papel y con una experiencia pensada para dos líneas claras: <strong className="text-white">Perfil Profesional</strong> y <strong className="text-white">Perfil Negocio</strong>.
@@ -257,16 +257,17 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               <p className="text-zinc-500 text-xs mt-1.5 leading-snug">compatible iPhone y Android</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
             {[
-              { quote: 'Lo instalé en 5 minutos y mis clientes quedaron impresionados. Nunca más olvidé repartir tarjetas.', name: 'Rodrigo M.', role: 'Consultor independiente' },
-              { quote: 'Equipamos a todo el equipo de ventas. Profesional, moderno y nada de papel desechable.', name: 'Valentina S.', role: 'Gerenta comercial' },
-              { quote: 'La instalé en el mesón y ahora cada cliente que paga me pide el contacto. Increíble herramienta.', name: 'Felipe A.', role: 'Dueño de café' },
-            ].map((t, i) => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-left">
-                <p className="text-zinc-300 text-sm leading-relaxed mb-4">"{t.quote}"</p>
-                <p className="text-white font-bold text-sm">{t.name}</p>
-                <p className="text-zinc-500 text-xs">{t.role}</p>
+              { icon: '👔', title: 'Ejecutivos y consultores', desc: 'Networking en eventos, reuniones y conferencias' },
+              { icon: '📈', title: 'Equipos de ventas', desc: 'Más conversiones con un contacto que no se pierde' },
+              { icon: '🏪', title: 'Dueños de pymes', desc: 'En la caja, en el mesón, en cada interacción' },
+              { icon: '💼', title: 'Profesionales freelance', desc: 'Imagen profesional sin imprimir cada mes' },
+            ].map((item, i) => (
+              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                <div className="text-3xl mb-3">{item.icon}</div>
+                <p className="text-white font-bold text-sm mb-1">{item.title}</p>
+                <p className="text-zinc-400 text-xs leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
