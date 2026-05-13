@@ -213,6 +213,7 @@ export const api = {
       }
     })();
     if (error) throw new Error(error.message || error);
+    const nowMs = Date.now();
     const paidOrders = (orders || []).filter(o => o.payment_status === 'paid');
     const operationalOrders = (orders || []).filter((order) => !isNonOperationalOrder(order));
     const excludedOperationalOrders = (orders || []).filter((order) => isNonOperationalOrder(order));
@@ -230,6 +231,25 @@ export const api = {
       else acc.fresh += 1;
       return acc;
     }, { fresh: 0, over24h: 0, over72h: 0 });
+    const manualOverrideQaSeverity = manualOverrideQaOrders.reduce((acc, order) => {
+      const updatedAtMs = new Date(order.updated_at || order.created_at).getTime();
+      const ageHours = Number.isNaN(updatedAtMs) ? 0 : (nowMs - updatedAtMs) / (1000 * 60 * 60);
+      const isPaid = order.payment_status === 'paid';
+      const notShipped = !['shipped', 'delivered'].includes(order.fulfillment_status);
+      const notActivated = !order.activation_completed;
+      const notReady = !['ready', 'shipped', 'delivered'].includes(order.fulfillment_status);
+      let severity = 'low';
+      let score = 1;
+      if (ageHours >= 72) { severity = 'medium'; score += 2; }
+      else if (ageHours >= 24) { severity = 'low'; score += 1; }
+      if (isPaid && notActivated) { severity = 'high'; score += 3; }
+      if (isPaid && notShipped && notActivated && ageHours >= 72) { severity = 'critical'; score += 4; }
+      else if (isPaid && notReady && ageHours >= 24) { severity = severity === 'critical' ? 'critical' : 'high'; score += 2; }
+      acc.total += 1;
+      acc[severity] += 1;
+      if (score > acc.maxScore) acc.maxScore = score;
+      return acc;
+    }, { low: 0, medium: 0, high: 0, critical: 0, total: 0, maxScore: 0 });
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const operationalRevenue = operationalPaidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const qaRevenue = totalRevenue - operationalRevenue;
@@ -258,7 +278,6 @@ export const api = {
       delivered: funnel.delivered - operationalFunnel.delivered,
       activated: funnel.activated - operationalFunnel.activated,
     };
-    const nowMs = Date.now();
     const operationalAlerts = operationalOrders.filter((order) => (order.observability_alerts || []).length > 0).map((order) => ({
       id: order.id,
       customer_name: order.customer_name,
@@ -523,6 +542,7 @@ export const api = {
         manualOverrideQaOrdersCount,
         manualOverrideRealOrdersCount,
         manualOverrideQaAging,
+        manualOverrideQaSeverity,
         stageSla,
         proactiveSeverity: proactiveSummary.severity,
       },

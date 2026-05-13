@@ -76,6 +76,26 @@ const formatActorLabel = (entry) => {
   return 'sistema';
 };
 
+const deriveManualOverrideSeverity = (order) => {
+  if (!isManualTestReason(order?.testReasonResolved || order?.test_reason)) {
+    return { level: null, score: 0, ageHours: 0 };
+  }
+  const updatedAtMs = new Date(order?.updated_at || order?.created_at).getTime();
+  const ageHours = Number.isNaN(updatedAtMs) ? 0 : Math.round((Date.now() - updatedAtMs) / (1000 * 60 * 60));
+  const isPaid = order?.payment_status === 'paid';
+  const notShipped = !['shipped', 'delivered'].includes(order?.fulfillment_status);
+  const notActivated = !order?.activation_completed;
+  const notReady = !['ready', 'shipped', 'delivered'].includes(order?.fulfillment_status);
+  let level = 'low';
+  let score = 1;
+  if (ageHours >= 72) { level = 'medium'; score += 2; }
+  else if (ageHours >= 24) { level = 'low'; score += 1; }
+  if (isPaid && notActivated) { level = 'high'; score += 3; }
+  if (isPaid && notShipped && notActivated && ageHours >= 72) { level = 'critical'; score += 4; }
+  else if (isPaid && notReady && ageHours >= 24) { level = level === 'critical' ? 'critical' : 'high'; score += 2; }
+  return { level, score, ageHours };
+};
+
 const paymentBadgeVariant = (status) => {
   if (status === 'paid') return 'success';
   if (status === 'pending') return 'warning';
@@ -252,6 +272,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       qaClassification,
       isNonOperational: qaClassification.isTest,
       testReasonResolved: qaClassification.reason || null,
+      manualOverrideSeverity: deriveManualOverrideSeverity({ ...order, testReasonResolved: qaClassification.reason || null }),
     };
   }), [rows]);
 
@@ -298,7 +319,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     const term = searchTerm.trim().toLowerCase();
     const now = new Date();
 
-    return auditScopedOrders.filter((order) => {
+    const baseOrders = auditScopedOrders.filter((order) => {
       const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
       const matchesFulfillment = fulfillmentFilter === 'all' || order.fulfillment_status === fulfillmentFilter;
 
@@ -331,7 +352,17 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
 
       return haystack.includes(term);
     });
-  }, [auditScopedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter]);
+
+    if (testReasonFilter === 'manual_override_only') {
+      return [...baseOrders].sort((a, b) => {
+        const scoreDelta = (b.manualOverrideSeverity?.score || 0) - (a.manualOverrideSeverity?.score || 0);
+        if (scoreDelta !== 0) return scoreDelta;
+        return (b.manualOverrideSeverity?.ageHours || 0) - (a.manualOverrideSeverity?.ageHours || 0);
+      });
+    }
+
+    return baseOrders;
+  }, [auditScopedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter, testReasonFilter]);
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedOrderId) || filteredOrders[0] || null;
 
@@ -667,6 +698,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
           <p className="text-xs text-zinc-500">
             Breakdown QA/test: {manualOverrideCount > 0 ? `Solo overrides manuales (${manualOverrideCount}) · ` : ''}{Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
           </p>
+          {testReasonFilter === 'manual_override_only' && (
+            <p className="text-xs text-zinc-500">
+              Priorización activa: severidad desc por aging + pagada + no enviada + no activada.
+            </p>
+          )}
         </div>
       )}
 

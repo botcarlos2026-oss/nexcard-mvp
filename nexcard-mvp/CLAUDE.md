@@ -327,6 +327,10 @@ Cambios concretos:
    - bucket `>72h`
    - deep-links a QA con `override_age=24h|72h`
    - `OrdersDashboard` entiende `override_age` cuando el scope es `manual_override_only`
+10. priorización por severidad en cola de overrides manuales QA:
+   - score derivado de `aging + pagada + no enviada + no activada`
+   - resumen visible en `/admin`
+   - ordenamiento descendente automático en `/admin/orders/qa` cuando el scope es `manual_override_only`
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

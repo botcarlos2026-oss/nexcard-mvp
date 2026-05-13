@@ -130,6 +130,7 @@ const AdminDashboard = ({ dashboard }) => {
   const manualOverrideQaOrdersCount = dashboard?.stats?.manualOverrideQaOrdersCount || 0;
   const manualOverrideRealOrdersCount = dashboard?.stats?.manualOverrideRealOrdersCount || 0;
   const manualOverrideQaAging = useMemo(() => dashboard?.stats?.manualOverrideQaAging || { fresh: 0, over24h: 0, over72h: 0 }, [dashboard]);
+  const manualOverrideQaSeverity = useMemo(() => dashboard?.stats?.manualOverrideQaSeverity || { low: 0, medium: 0, high: 0, critical: 0, total: 0, maxScore: 0 }, [dashboard]);
   const deliveryFormats = dashboard?.deliveryFormats || {};
   const transportReadiness = dashboard?.transportReadiness || null;
 
@@ -273,6 +274,12 @@ const AdminDashboard = ({ dashboard }) => {
                     {manualOverrideQaOrdersCount > 0 && (
                       <AdminBadge variant="danger">{manualOverrideQaOrdersCount} override(s) manual(es) QA pendientes de revisión</AdminBadge>
                     )}
+                    {manualOverrideQaSeverity.critical > 0 && (
+                      <AdminBadge variant="danger">{manualOverrideQaSeverity.critical} crítica(s)</AdminBadge>
+                    )}
+                    {manualOverrideQaSeverity.high > 0 && (
+                      <AdminBadge variant="warning">{manualOverrideQaSeverity.high} high</AdminBadge>
+                    )}
                     {manualOverrideQaAging.over72h > 0 && (
                       <AdminBadge variant="danger">{manualOverrideQaAging.over72h} override(s) manual(es) con aging &gt;72h</AdminBadge>
                     )}
@@ -400,6 +407,24 @@ const AdminDashboard = ({ dashboard }) => {
             : <React.Fragment key={i}>{inner}</React.Fragment>;
         })}
       </div>
+
+      {manualOverrideQaOrdersCount > 0 && (
+        <AdminCard className="mb-6">
+          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <div>
+              <h2 className="font-bold text-lg text-white">Severidad cola overrides manuales QA</h2>
+              <p className="text-sm text-zinc-400 font-medium">Prioriza lo más riesgoso: aging + pagada + no despachada + no activada.</p>
+            </div>
+            <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2">Abrir cola QA</a>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <AdminStat label="Críticas" value={manualOverrideQaSeverity.critical || 0} accent="red" hint={manualOverrideQaSeverity.critical > 0 ? 'Pagadas, sin envío/activación y con aging alto' : null} />
+            <AdminStat label="High" value={manualOverrideQaSeverity.high || 0} accent="amber" hint={manualOverrideQaSeverity.high > 0 ? 'Pagadas sin activación o atascadas' : null} />
+            <AdminStat label=">24h" value={manualOverrideQaAging.over24h || 0} accent="amber" hint="Overrides manuales envejeciendo" />
+            <AdminStat label=">72h" value={manualOverrideQaAging.over72h || 0} accent="red" hint="Deuda operativa real" />
+          </div>
+        </AdminCard>
+      )}
 
       {/* Gráfico ventas por día */}
       <AdminCard className="mb-6">
