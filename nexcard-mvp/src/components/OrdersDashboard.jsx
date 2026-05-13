@@ -208,9 +208,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     const requestedAudit = params.get('audit') === 'excluded' ? 'excluded' : 'all';
     const requestedReason = params.get('test_reason') || 'all';
     const requestedOverrideAge = params.get('override_age') || 'all';
+    const requestedOrderId = params.get('order_id') || null;
     setAuditFilter(forceAuditFilter || requestedAudit);
     setTestReasonFilter(requestedReason);
     setOverrideAgeFilter(requestedOverrideAge);
+    if (requestedOrderId) setSelectedOrderId(requestedOrderId);
   }, [forceAuditFilter]);
 
   // Auto-refresh cada 30 segundos
@@ -994,7 +996,15 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                     <TD className="text-right">
                       <button
                         type="button"
-                        onClick={() => setSelectedOrderId(order.id)}
+                        onClick={() => {
+                          setSelectedOrderId(order.id);
+                          if (typeof window !== 'undefined') {
+                            const params = new URLSearchParams(window.location.search);
+                            params.set('order_id', order.id);
+                            const nextPath = `${window.location.pathname}?${params.toString()}`;
+                            window.history.replaceState({}, '', nextPath);
+                          }
+                        }}
                         className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
                       >
                         Ver detalle

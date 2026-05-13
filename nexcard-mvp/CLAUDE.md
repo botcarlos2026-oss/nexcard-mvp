@@ -337,6 +337,9 @@ Cambios concretos:
    - aging en horas
    - estado de pago / fulfillment / activación
    - CTA directo a la cola QA filtrada
+12. deep-link al detalle de orden QA:
+   - `OrdersDashboard` acepta `order_id` por querystring
+   - el panel Top 5 en `/admin` abre la cola QA con la orden exacta ya seleccionada
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

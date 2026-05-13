@@ -441,7 +441,7 @@ const AdminDashboard = ({ dashboard }) => {
               ) : topManualOverrideQueue.map((order) => (
                 <a
                   key={order.id}
-                  href={`/admin/orders/qa?audit=excluded&test_reason=manual_override_only${order.age_hours >= 72 ? '&override_age=72h' : order.age_hours >= 24 ? '&override_age=24h' : ''}`}
+                  href={`/admin/orders/qa?audit=excluded&test_reason=manual_override_only${order.age_hours >= 72 ? '&override_age=72h' : order.age_hours >= 24 ? '&override_age=24h' : ''}&order_id=${encodeURIComponent(order.id)}`}
                   className="block rounded-xl bg-zinc-800 border border-zinc-700 p-4 hover:bg-zinc-700/60 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
