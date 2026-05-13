@@ -25,7 +25,7 @@ import AdminCard from './ui/AdminCard';
 import AdminStat from './ui/AdminStat';
 import { TH, TR, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
-import { deriveOrderTestClassification, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
+import { deriveOrderTestClassification } from '../utils/orderOperationalSegmentation';
 
 const currency = (cents) => {
   return new Intl.NumberFormat('es-CL', {
@@ -158,6 +158,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [refundBusy, setRefundBusy] = useState(false);
   const [dateFilter, setDateFilter] = useState('all');
   const [auditFilter, setAuditFilter] = useState('all');
+  const [testReasonFilter, setTestReasonFilter] = useState('all');
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [lastChecked, setLastChecked] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -220,6 +221,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     const totalCostCents = items.reduce((sum, item) => sum + ((item.unit_cost_cents || 0) * (item.quantity || 0)), 0);
     const customerName = order.customer_name || order.customer_full_name || 'Cliente sin nombre';
     const paymentRecord = payments[0] || null;
+    const qaClassification = deriveOrderTestClassification(order);
 
     return {
       ...order,
@@ -233,10 +235,32 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       paymentProvider: paymentRecord?.provider || order.payment_method || '—',
       paymentReference: paymentRecord?.transaction_reference || '—',
       paidAt: paymentRecord?.paid_at || null,
+      qaClassification,
+      isNonOperational: qaClassification.isTest,
+      testReasonResolved: qaClassification.reason || null,
     };
   }), [rows]);
 
-  const excludedOrdersCount = useMemo(() => normalizedOrders.filter((order) => isNonOperationalOrder(order)).length, [normalizedOrders]);
+  const excludedOrdersCount = useMemo(() => normalizedOrders.filter((order) => order.isNonOperational).length, [normalizedOrders]);
+  const excludedOrders = useMemo(() => normalizedOrders.filter((order) => order.isNonOperational), [normalizedOrders]);
+
+  const testReasonCounts = useMemo(() => {
+    return excludedOrders.reduce((acc, order) => {
+      const reason = order.testReasonResolved || 'unclassified';
+      acc[reason] = (acc[reason] || 0) + 1;
+      return acc;
+    }, {});
+  }, [excludedOrders]);
+
+  const testReasonOptions = useMemo(() => ['all', ...Object.keys(testReasonCounts).sort()], [testReasonCounts]);
+
+  const auditScopedOrders = useMemo(() => {
+    return normalizedOrders.filter((order) => {
+      const matchesAudit = auditFilter === 'all' || (auditFilter === 'excluded' && order.isNonOperational);
+      const matchesReason = testReasonFilter === 'all' || order.testReasonResolved === testReasonFilter;
+      return matchesAudit && matchesReason;
+    });
+  }, [normalizedOrders, auditFilter, testReasonFilter]);
 
   const paymentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.payment_status).filter(Boolean)))], [normalizedOrders]);
   const fulfillmentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.fulfillment_status).filter(Boolean)))], [normalizedOrders]);
@@ -245,12 +269,10 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     const term = searchTerm.trim().toLowerCase();
     const now = new Date();
 
-    return normalizedOrders.filter((order) => {
+    return auditScopedOrders.filter((order) => {
       const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
       const matchesFulfillment = fulfillmentFilter === 'all' || order.fulfillment_status === fulfillmentFilter;
-      const matchesAudit = auditFilter === 'all' || (auditFilter === 'excluded' && isNonOperationalOrder(order));
 
-      // Filtro fecha
       if (dateFilter !== 'all') {
         const orderDate = new Date(order.created_at);
         if (dateFilter === 'today') {
@@ -264,7 +286,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
         }
       }
 
-      if (!matchesPayment || !matchesFulfillment || !matchesAudit) return false;
+      if (!matchesPayment || !matchesFulfillment) return false;
       if (!term) return true;
 
       const haystack = [
@@ -275,11 +297,12 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
         order.payment_method,
         order.fulfillment_status,
         order.payment_status,
+        order.testReasonResolved,
       ].filter(Boolean).join(' ').toLowerCase();
 
       return haystack.includes(term);
     });
-  }, [normalizedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter, auditFilter]);
+  }, [auditScopedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter]);
 
   const selectedOrder = filteredOrders.find((order) => order.id === selectedOrderId) || filteredOrders[0] || null;
 
@@ -488,11 +511,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   };
 
   const stats = useMemo(() => {
-    const paidOrders = normalizedOrders.filter((order) => order.payment_status === 'paid');
+    const paidOrders = auditScopedOrders.filter((order) => order.payment_status === 'paid');
     const paidRevenue = paidOrders.reduce((sum, order) => sum + order.totalCents, 0);
-    const pendingOrders = normalizedOrders.filter((order) => !['delivered', 'cancelled'].includes(order.fulfillment_status)).length;
-    const overdueOrders = normalizedOrders.filter((order) => ['pending', 'new'].includes(order.payment_status) || ['new'].includes(order.fulfillment_status)).length;
-    const avgTicket = normalizedOrders.length ? normalizedOrders.reduce((sum, order) => sum + order.totalCents, 0) / normalizedOrders.length : 0;
+    const pendingOrders = auditScopedOrders.filter((order) => !['delivered', 'cancelled'].includes(order.fulfillment_status)).length;
+    const overdueOrders = auditScopedOrders.filter((order) => ['pending', 'new'].includes(order.payment_status) || ['new'].includes(order.fulfillment_status)).length;
+    const avgTicket = auditScopedOrders.length ? auditScopedOrders.reduce((sum, order) => sum + order.totalCents, 0) / auditScopedOrders.length : 0;
 
     return [
       { label: 'Ventas cobradas', value: currency(paidRevenue), accent: 'emerald' },
@@ -500,12 +523,12 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       { label: 'Pedidos atrasados', value: `${overdueOrders}`, accent: 'red' },
       { label: 'Ticket promedio', value: currency(avgTicket), accent: null },
     ];
-  }, [normalizedOrders]);
+  }, [auditScopedOrders]);
 
   const funnelSnapshot = useMemo(() => {
-    const paidBase = normalizedOrders.filter((order) => order.payment_status === 'paid').length;
+    const paidBase = auditScopedOrders.filter((order) => order.payment_status === 'paid').length;
     const counts = FUNNEL_STEPS.map((step) => {
-      const reached = normalizedOrders.filter((order) => deriveFunnelReached(order)[step.key]).length;
+      const reached = auditScopedOrders.filter((order) => deriveFunnelReached(order)[step.key]).length;
       return {
         ...step,
         count: reached,
@@ -516,12 +539,12 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     return {
       paidBase,
       counts,
-      exceptions: normalizedOrders.filter((order) => (order.observability_alerts || []).length > 0),
+      exceptions: auditScopedOrders.filter((order) => (order.observability_alerts || []).length > 0),
     };
-  }, [normalizedOrders]);
+  }, [auditScopedOrders]);
 
   const exportCSV = () => {
-    const headers = ['ID', 'Cliente', 'Email', 'Método Pago', 'Estado Pago', 'Fulfillment', 'Monto CLP', 'Fecha'];
+    const headers = ['ID', 'Cliente', 'Email', 'Método Pago', 'Estado Pago', 'Fulfillment', 'Motivo QA/test', 'Monto CLP', 'Fecha'];
     const csvRows = filteredOrders.map(o => [
       o.id,
       o.customerLabel,
@@ -529,6 +552,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       o.payment_method || '',
       o.payment_status || '',
       o.fulfillment_status || '',
+      o.testReasonResolved || '',
       o.totalCents,
       formatDate(o.created_at),
     ]);
@@ -552,22 +576,44 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       </div>
 
       {excludedOrdersCount > 0 && (
-        <div className="mb-6 flex items-center gap-3 flex-wrap">
-          <AdminBadge variant={auditFilter === 'excluded' ? 'info' : 'default'}>
-            {excludedOrdersCount} orden(es) QA/interna(s)
-          </AdminBadge>
-          {auditFilter === 'excluded' && !forceAuditFilter ? (
-            <button
-              type="button"
-              onClick={() => {
-                setAuditFilter('all');
-                if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
-              }}
-              className="text-xs font-bold text-zinc-400 underline underline-offset-2 hover:text-white"
-            >
-              Limpiar filtro QA
-            </button>
-          ) : null}
+        <div className="mb-6 space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <AdminBadge variant={auditFilter === 'excluded' ? 'info' : 'default'}>
+              {excludedOrdersCount} orden(es) QA/interna(s)
+            </AdminBadge>
+            {Object.entries(testReasonCounts).map(([reason, count]) => (
+              <button
+                key={reason}
+                type="button"
+                onClick={() => {
+                  setAuditFilter('excluded');
+                  setTestReasonFilter(reason);
+                  if (!forceAuditFilter && typeof window !== 'undefined') {
+                    window.history.replaceState({}, '', '/admin/orders?audit=excluded');
+                  }
+                }}
+                className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${testReasonFilter === reason ? 'border-sky-700 bg-sky-950/40 text-sky-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white'}`}
+              >
+                {formatLabel(reason)} · {count}
+              </button>
+            ))}
+            {(auditFilter === 'excluded' || testReasonFilter !== 'all') && !forceAuditFilter ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setAuditFilter('all');
+                  setTestReasonFilter('all');
+                  if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
+                }}
+                className="text-xs font-bold text-zinc-400 underline underline-offset-2 hover:text-white"
+              >
+                Limpiar filtro QA
+              </button>
+            ) : null}
+          </div>
+          <p className="text-xs text-zinc-500">
+            Breakdown QA/test: {Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
+          </p>
         </div>
       )}
 
@@ -691,6 +737,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   onChange={(event) => {
                     const value = event.target.value;
                     setAuditFilter(value);
+                    if (value === 'all') {
+                      setTestReasonFilter('all');
+                    }
                     if (!forceAuditFilter && typeof window !== 'undefined') {
                       const nextUrl = value === 'excluded' ? '/admin/orders?audit=excluded' : '/admin/orders';
                       window.history.replaceState({}, '', nextUrl);
@@ -702,10 +751,27 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   <option value="excluded">Solo QA/internas</option>
                 </select>
               </label>
+              {(auditFilter === 'excluded' || forceAuditFilter) && testReasonOptions.length > 1 && (
+                <label className="relative block">
+                  <AlertCircle className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                  <select
+                    value={testReasonFilter}
+                    onChange={(event) => setTestReasonFilter(event.target.value)}
+                    className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"
+                  >
+                    <option value="all">Motivo QA: todos</option>
+                    {testReasonOptions.filter((reason) => reason !== 'all').map((reason) => (
+                      <option key={reason} value={reason}>
+                        {formatLabel(reason)} ({testReasonCounts[reason] || 0})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           </div>
 
-          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}`} className="overflow-x-auto">
+          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}`} className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-zinc-800/50 border-b border-zinc-800">
                 <tr className="text-xs uppercase tracking-wide text-zinc-500">
@@ -744,9 +810,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                       <div>
                         <p className="font-bold text-white text-sm">{order.customerLabel}</p>
                         <p className="text-xs text-zinc-500 font-medium">{order.customer_email || order.customer_phone || 'Sin contacto'}</p>
-                        {isNonOperationalOrder(order) && (
+                        {order.isNonOperational && (
                           <div className="mt-1.5">
-                            <AdminBadge variant="warning">QA/test · {formatLabel(deriveOrderTestClassification(order).reason)}</AdminBadge>
+                            <AdminBadge variant="warning">QA/test · {formatLabel(order.testReasonResolved)}</AdminBadge>
                           </div>
                         )}
                       </div>

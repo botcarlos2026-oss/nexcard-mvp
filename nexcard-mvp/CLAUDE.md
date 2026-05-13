@@ -309,10 +309,17 @@ Cambios concretos:
 3. reutiliza `OrdersDashboard` embebido, forzando `forceAuditFilter="excluded"`
 4. `AdminNav` incorpora acceso directo `QA Orders`
 5. `/admin` ahora enlaza esta vista desde el badge de órdenes excluidas
+6. `OrdersDashboard` ahora expone breakdown y filtro por `test_reason`
+   - `internal_email`
+   - `internal_domain`
+   - `name_pattern`
+   - fallbacks estructurales
+   - overrides manuales admin
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional
 - mantener `/admin` y `/admin/orders` enfocados en operación real por defecto
+- permitir auditoría rápida del motivo exacto por el que una orden cayó fuera de operación real
 - evitar duplicar lógica de tabla/detalle/acciones
 
 Validación ejecutada:
