@@ -56,7 +56,7 @@ export default function ComingSoon() {
         {/* Badge */}
         <div className="cs-element inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
           <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-          Próximamente · Abril 2026
+          🇨🇱 Hecho en Chile · Lanzamiento mayo 2026
         </div>
 
         {/* Headline */}
@@ -107,17 +107,23 @@ export default function ComingSoon() {
           </div>
         )}
 
-        {/* Features preview */}
-        <div className="grid grid-cols-2 gap-4 mt-14">
-          {[
-            { icon: '📱', label: 'Tarjeta NFC' },
-            { icon: '🔗', label: 'Perfil digital' },
-          ].map((f) => (
-            <div key={f.label} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
-              <div className="text-2xl mb-2">{f.icon}</div>
-              <p className="text-xs font-semibold text-zinc-400">{f.label}</p>
-            </div>
-          ))}
+        {/* Beneficios de unirse */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-14">
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
+            <div className="text-3xl mb-3">🎁</div>
+            <p className="text-white font-semibold mb-1 text-sm">50% off</p>
+            <p className="text-zinc-500 text-xs">En tu primer pack si te suscribes hoy</p>
+          </div>
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
+            <div className="text-3xl mb-3">🚀</div>
+            <p className="text-white font-semibold mb-1 text-sm">Acceso anticipado</p>
+            <p className="text-zinc-500 text-xs">7 días antes del lanzamiento</p>
+          </div>
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
+            <div className="text-3xl mb-3">💎</div>
+            <p className="text-white font-semibold mb-1 text-sm">Personalización gratis</p>
+            <p className="text-zinc-500 text-xs">Diseño personalizado sin costo</p>
+          </div>
         </div>
 
         {/* Footer */}
