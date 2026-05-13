@@ -201,7 +201,7 @@ export const api = {
   updateMyProfile: async (payload) => profilesApi.updateMyProfile(payload),
 
   getAdminDashboard: async () => {
-    if (!hasSupabase) throw new Error('Admin deshabilitado');
+    if (!hasSupabase) return request('/admin/dashboard');
     const { data: profiles } = await supabase.from('profiles').select('*');
     const { orders, error } = await (async () => {
       try {
@@ -681,7 +681,7 @@ export const api = {
   getProfileSlugForOrder: async (orderId, customerEmail) => profilesApi.getProfileSlugForOrder(orderId, customerEmail),
 
   getAdminCards: async () => {
-    if (!hasSupabase) return { cards: [], profiles: [] };
+    if (!hasSupabase) return request('/admin/cards');
     return fetchAdminCards();
   },
 

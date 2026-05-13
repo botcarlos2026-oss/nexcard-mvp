@@ -57,10 +57,23 @@ trap 'FAILED=$?; cleanup; exit $FAILED' EXIT
 # Kill stale local dev processes that commonly block the runner.
 pkill -f "react-scripts start" >/dev/null 2>&1 || true
 pkill -f "node server/index.js" >/dev/null 2>&1 || true
+lsof -ti tcp:"${FRONTEND_PORT}" | xargs kill >/dev/null 2>&1 || true
+lsof -ti tcp:"${BACKEND_PORT}" | xargs kill >/dev/null 2>&1 || true
 
 rm -f "$FRONTEND_LOG" "$BACKEND_LOG"
 
 node ./scripts/e2e-env-check.js "$MODE"
+
+if [[ "$MODE" == "cards-lifecycle" ]]; then
+  echo "[e2e] cards-lifecycle mode: forcing local auth/API fixtures"
+  export REACT_APP_DISABLE_SUPABASE="true"
+  unset REACT_APP_SUPABASE_URL
+  unset REACT_APP_SUPABASE_ANON_KEY
+  unset SUPABASE_URL
+  unset SUPABASE_ANON_KEY
+else
+  unset REACT_APP_DISABLE_SUPABASE
+fi
 
 echo "[e2e] Starting frontend on http://localhost:${FRONTEND_PORT}"
 PORT="$FRONTEND_PORT" npm start >"$FRONTEND_LOG" 2>&1 &
@@ -71,7 +84,7 @@ PORT="$BACKEND_PORT" node server/index.js >"$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
 echo "[e2e] Waiting for frontend/backend readiness..."
-npx wait-on --timeout "$WAIT_TIMEOUT_MS" "http://localhost:${FRONTEND_PORT}" "http://localhost:${BACKEND_PORT}"
+npx wait-on --timeout "$WAIT_TIMEOUT_MS" "http://localhost:${FRONTEND_PORT}" "http://localhost:${BACKEND_PORT}/api/health"
 
 echo "[e2e] Running Cypress (mode: $MODE)"
 npx cypress run "$@"

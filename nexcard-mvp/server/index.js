@@ -32,9 +32,74 @@ function ensureDb() {
   }
 }
 
+function ensureLifecycleFixtures(db) {
+  let changed = false;
+  db.cards = db.cards || [];
+  db.card_events = db.card_events || [];
+
+  const upsertCard = (fixture) => {
+    const index = db.cards.findIndex((card) => card.card_code === fixture.card_code);
+    if (index >= 0) {
+      db.cards[index] = { ...db.cards[index], ...fixture };
+    } else {
+      db.cards.push(fixture);
+    }
+    changed = true;
+  };
+
+  const ensureEvent = (fixture) => {
+    const exists = db.card_events.some((event) => event.card_id === fixture.card_id && event.event_type === fixture.event_type && event.created_at === fixture.created_at);
+    if (!exists) {
+      db.card_events.push(fixture);
+      changed = true;
+    }
+  };
+
+  if (!db.cards.some((card) => card.card_code === 'NXC-REV-001')) {
+    upsertCard({
+      id: 'card-4',
+      profile_id: 'profile-1',
+      order_id: 'ord-1001',
+      card_code: 'NXC-REV-001',
+      public_token: 'nxc-revoked-token',
+      status: 'revoked',
+      activation_status: 'revoked',
+      created_at: '2026-03-30T10:00:00.000Z',
+      updated_at: '2026-04-09T02:13:38.664Z',
+      revoked_at: '2026-04-09T02:13:38.664Z',
+      deleted_at: null,
+    });
+  }
+
+  if (!db.cards.some((card) => card.card_code === 'NXC-ARC-001')) {
+    upsertCard({
+      id: 'card-5',
+      profile_id: 'profile-2',
+      order_id: 'ord-1002',
+      card_code: 'NXC-ARC-001',
+      public_token: 'nxc-archived-token',
+      status: 'archived',
+      activation_status: 'revoked',
+      created_at: '2026-03-30T11:00:00.000Z',
+      updated_at: '2026-04-09T03:13:38.664Z',
+      archived_at: '2026-04-09T03:13:38.664Z',
+      deleted_at: '2026-04-09T03:13:38.664Z',
+    });
+  }
+
+  ensureEvent({ id: 'evt-card-4-revoked', card_id: 'card-4', event_type: 'revoked', created_at: '2026-04-09T02:13:38.664Z' });
+  ensureEvent({ id: 'evt-card-5-archived', card_id: 'card-5', event_type: 'archived', created_at: '2026-04-09T03:13:38.664Z' });
+
+  return changed;
+}
+
 function readDb() {
   ensureDb();
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  if (ensureLifecycleFixtures(db)) {
+    writeDb(db);
+  }
+  return db;
 }
 
 function writeDb(db) {
@@ -221,6 +286,30 @@ app.get('/api/admin/dashboard', (_req, res) => {
     })),
     recentOrders: db.orders.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5),
   });
+});
+
+app.get('/api/admin/cards', (_req, res) => {
+  const db = readDb();
+  const profilesById = Object.fromEntries((db.profiles || []).map((profile) => [profile.id, profile]));
+  const eventsByCardId = (db.card_events || []).reduce((acc, event) => {
+    if (!acc[event.card_id]) acc[event.card_id] = [];
+    acc[event.card_id].push(event);
+    return acc;
+  }, {});
+
+  const cards = (db.cards || []).map((card) => {
+    const profile = card.profile_id ? profilesById[card.profile_id] : null;
+    const events = (eventsByCardId[card.id] || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return {
+      ...card,
+      profile_name: profile?.full_name || null,
+      profile_slug: profile?.slug || null,
+      last_event: events[0] || null,
+      events,
+    };
+  }).sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+
+  res.json({ cards, profiles: db.profiles || [] });
 });
 
 app.get('/api/admin/inventory', (_req, res) => {

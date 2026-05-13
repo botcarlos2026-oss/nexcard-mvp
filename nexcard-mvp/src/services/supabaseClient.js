@@ -2,8 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseDisabled = process.env.REACT_APP_DISABLE_SUPABASE === 'true';
 
-export const supabase = (supabaseUrl && supabaseKey)
+export const supabase = (!supabaseDisabled && supabaseUrl && supabaseKey)
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 

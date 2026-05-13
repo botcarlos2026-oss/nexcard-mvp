@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CreditCard, Archive, ShieldBan, Link as LinkIcon, Loader2, CheckCircle2, AlertCircle, Search, Clock3, Filter, UserPlus, X, Zap, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
+import AdminShell from './AdminShell';
 
 const badgeClasses = {
   printed: 'bg-zinc-800 text-zinc-200 border border-zinc-700',
@@ -173,15 +174,12 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 font-sans text-zinc-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:justify-between lg:items-end">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Cards Control Center</h1>
-            <p className="text-zinc-400 font-medium">Lifecycle mínimo NFC: visibilidad, filtros rápidos y acciones controladas sobre tarjetas.</p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <AdminShell
+      active="cards"
+      title="Cards Control Center"
+      subtitle="Lifecycle mínimo NFC: visibilidad, filtros rápidos y acciones controladas sobre tarjetas."
+      actions={(
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
               <input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por código, token, profile o evento" className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 py-3 pl-10 pr-4 text-sm font-medium text-zinc-100 shadow-sm outline-none transition focus:border-emerald-500 sm:w-80" />
@@ -196,8 +194,9 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
               </select>
             </label>
           </div>
-        </div>
-
+      )}
+    >
+      <div className="max-w-7xl">
         {feedback.message && (
           <div className={`mb-6 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-300' : 'border-rose-800 bg-rose-950/40 text-rose-300'}`}>
             {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
@@ -375,7 +374,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
           </div>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 };
 

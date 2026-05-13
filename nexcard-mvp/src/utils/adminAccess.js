@@ -19,9 +19,22 @@ function readStoredUser() {
   }
 }
 
+function resolveLocalAdminAccess() {
+  const storedUser = readStoredUser();
+  const storedEmail = storedUser?.email || null;
+  const isAdmin = storedUser?.role === 'admin' || isAdminEmail(storedEmail);
+  return {
+    isAdmin,
+    source: storedUser?.role === 'admin' ? 'local_role' : (isAdmin ? 'local_email_fallback' : 'local_anonymous'),
+    session: null,
+    email: storedEmail,
+    user: storedUser,
+  };
+}
+
 async function resolveAdminRoleFromSupabase() {
   if (!hasSupabase || !supabase) {
-    return { isAdmin: false, source: 'disabled' };
+    return resolveLocalAdminAccess();
   }
 
   let session = null;
@@ -38,10 +51,8 @@ async function resolveAdminRoleFromSupabase() {
     const storedUser = readStoredUser();
     const storedEmail = storedUser?.email || null;
     return {
-      isAdmin: isAdminEmail(storedEmail),
+      ...resolveLocalAdminAccess(),
       source: storedEmail ? 'stored_auth_fallback' : 'session_error',
-      session: null,
-      email: storedEmail,
       error,
     };
   }

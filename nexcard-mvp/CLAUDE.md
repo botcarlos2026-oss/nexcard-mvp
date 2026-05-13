@@ -262,6 +262,31 @@ Validación ejecutada:
 - `npm run build` ✅
 - verificación headless en producción para `/`, `/preview` y `/admin` ✅
 
+### 2026-05-13 — admin cards con shell superior + suite local operativa
+Se completó el cierre de `admin/cards` para dejarlo consistente tanto en UI como en testeo local.
+
+Cambios concretos:
+1. **Menú superior restaurado en Cards**
+   - `src/components/AdminCardsDashboard.jsx` ahora monta sobre `AdminShell`
+   - con eso recupera navegación superior/backoffice compartido y mantiene el dark mode del módulo
+
+2. **Acceso admin local soportado sin Supabase para E2E**
+   - `src/utils/adminAccess.js` y `src/utils/adminBootstrap.js` ahora aceptan fallback local basado en `nexcard_auth`
+   - esto evita que `/admin/cards` quede con tabla vacía al correr fixtures offline
+
+3. **Suite `admin-cards` desacoplada de Supabase real**
+   - `src/services/supabaseClient.js` respeta `REACT_APP_DISABLE_SUPABASE=true`
+   - `scripts/run-e2e-local.sh` fuerza ese flag en modo `cards-lifecycle`, limpia puertos ocupados y espera backend vía `/api/health`
+   - `.env.e2e.local` quedó completado con tokens/estados/card codes de revoked + archived
+
+4. **Fixtures lifecycle sembradas en backend local**
+   - `server/index.js` expone `/api/admin/cards`
+   - `server/data/db.json` y `server/data/seed.json` incluyen tarjetas revoked/archived + `card_events`
+
+Validación ejecutada:
+- `npm run test:e2e:admin-cards` ✅ (4/4 passing)
+- `npm run build` ✅
+
 ### 2026-05-11 — smoke test funcional de observabilidad capa 2
 Se ejecutó un smoke test real en producción, pero con enfoque controlado y limpieza posterior.
 

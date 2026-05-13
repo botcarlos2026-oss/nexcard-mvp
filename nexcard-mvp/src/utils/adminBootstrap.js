@@ -1,4 +1,3 @@
-import { hasSupabase, supabase } from '../services/supabaseClient';
 import { getCurrentAdminAccess } from './adminAccess';
 
 const ADMIN_ROUTE_LOADERS = {
@@ -18,10 +17,6 @@ const ADMIN_ROUTE_LOADERS = {
 };
 
 export async function ensureAdminAccess({ navigate }) {
-  if (!hasSupabase || !supabase) {
-    throw new Error('Admin deshabilitado: Supabase Auth es obligatorio');
-  }
-
   const adminAccess = await getCurrentAdminAccess();
   const isAdmin = adminAccess?.isAdmin;
 
