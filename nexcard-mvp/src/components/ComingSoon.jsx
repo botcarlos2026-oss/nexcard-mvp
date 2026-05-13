@@ -61,12 +61,12 @@ export default function ComingSoon() {
 
         {/* Headline */}
         <h1 className="cs-element text-4xl sm:text-5xl font-bold mb-6 leading-[1.05] tracking-[-0.02em]">
-          Tu tarjeta de visita<br />
-          <span className="text-emerald-400">del siglo XXI</span>
+          Deja de imprimir tarjetas<br />
+          <span className="text-emerald-400">que terminan en la basura</span>
         </h1>
 
         <p className="cs-element text-zinc-400 text-lg mb-10 leading-relaxed">
-          Estamos trabajando para lanzar muy pronto. Deja tu email y te avisamos el día que abramos.
+          Una tarjeta NFC. Toda tu información profesional al toque. Actualizable para siempre.
         </p>
 
         {/* Form */}
