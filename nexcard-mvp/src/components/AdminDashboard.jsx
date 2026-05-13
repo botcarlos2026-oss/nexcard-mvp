@@ -157,20 +157,36 @@ const AdminDashboard = ({ dashboard }) => {
   };
 
   const stats = useMemo(() => ([
-    { label: 'Ingresos cobrados', value: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.totalRevenue || 0), accent: 'emerald' },
-    { label: 'Perfiles activos', value: `${statsSource.totalProfiles || 0}`, accent: null },
-    { label: 'Pedidos abiertos', value: `${statsSource.pendingOrders || 0}`, accent: 'amber' },
+    {
+      label: 'Ingresos cobrados reales',
+      value: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.operationalRevenue || 0),
+      accent: 'emerald',
+      hint: statsSource.qaRevenue > 0 ? `QA/interno excluido: ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.qaRevenue || 0)}` : 'Sin revenue QA excluido',
+    },
+    {
+      label: 'Perfiles activos',
+      value: `${statsSource.totalProfiles || 0}`,
+      accent: null,
+      hint: statsSource.qaOrders > 0 ? `${statsSource.qaOrders} orden(es) QA/interna(s) fuera del KPI` : null,
+    },
+    {
+      label: 'Pedidos abiertos reales',
+      value: `${statsSource.operationalPendingOrders || 0}`,
+      accent: 'amber',
+      hint: statsSource.pendingOrders > statsSource.operationalPendingOrders ? `${statsSource.pendingOrders - statsSource.operationalPendingOrders} abiertos QA/internos excluidos` : null,
+    },
     { label: 'Devoluciones pendientes', value: `${pendingRefundsCount}`, accent: pendingRefundsCount > 0 ? 'red' : null, hint: pendingRefundsCount > 0 ? 'Requiere revisión' : null, href: '/admin/orders' },
   ]), [statsSource, pendingRefundsCount]);
 
   const funnelStats = useMemo(() => {
-    const funnel = statsSource.funnel || { paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 };
+    const funnel = statsSource.operationalFunnel || { paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 };
+    const qaFunnel = statsSource.qaFunnel || { paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 };
     return [
-      { label: 'Paid', value: funnel.paid || 0, accent: 'emerald' },
-      { label: 'Ready', value: funnel.ready || 0, accent: 'amber' },
-      { label: 'Shipped', value: funnel.shipped || 0, accent: 'blue' },
-      { label: 'Delivered', value: funnel.delivered || 0, accent: 'emerald' },
-      { label: 'Activated', value: funnel.activated || 0, accent: 'emerald' },
+      { label: 'Paid', value: funnel.paid || 0, accent: 'emerald', hint: qaFunnel.paid > 0 ? `+${qaFunnel.paid} QA` : null },
+      { label: 'Ready', value: funnel.ready || 0, accent: 'amber', hint: qaFunnel.ready > 0 ? `+${qaFunnel.ready} QA` : null },
+      { label: 'Shipped', value: funnel.shipped || 0, accent: 'blue', hint: qaFunnel.shipped > 0 ? `+${qaFunnel.shipped} QA` : null },
+      { label: 'Delivered', value: funnel.delivered || 0, accent: 'emerald', hint: qaFunnel.delivered > 0 ? `+${qaFunnel.delivered} QA` : null },
+      { label: 'Activated', value: funnel.activated || 0, accent: 'emerald', hint: qaFunnel.activated > 0 ? `+${qaFunnel.activated} QA` : null },
     ];
   }, [statsSource]);
 
@@ -358,8 +374,8 @@ const AdminDashboard = ({ dashboard }) => {
       <AdminCard className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="font-bold text-lg text-white">Ventas últimos 7 días</h2>
-            <p className="text-sm text-zinc-400 font-medium">Ingresos diarios en CLP</p>
+            <h2 className="font-bold text-lg text-white">Ventas reales últimos 7 días</h2>
+            <p className="text-sm text-zinc-400 font-medium">Ingresos diarios en CLP excluyendo QA/interno</p>
           </div>
           <BarChart2 size={20} className="text-emerald-500" />
         </div>
@@ -368,7 +384,7 @@ const AdminDashboard = ({ dashboard }) => {
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         {funnelStats.map((stat) => (
-          <AdminStat key={stat.label} label={stat.label} value={stat.value} accent={stat.accent} />
+          <AdminStat key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} accent={stat.accent} />
         ))}
       </div>
 
@@ -381,8 +397,8 @@ const AdminDashboard = ({ dashboard }) => {
       <AdminCard className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="font-bold text-lg text-white">Tendencia semanal del embudo</h2>
-            <p className="text-sm text-zinc-400 font-medium">Volumen diario por etapa para detectar cuellos persistentes</p>
+            <h2 className="font-bold text-lg text-white">Tendencia semanal del embudo real</h2>
+            <p className="text-sm text-zinc-400 font-medium">Volumen diario por etapa excluyendo órdenes QA/internas</p>
           </div>
           <TrendingUp size={20} className="text-fuchsia-400" />
         </div>
@@ -392,22 +408,25 @@ const AdminDashboard = ({ dashboard }) => {
       {/* Métricas conversión */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <AdminStat
-          label="Total órdenes"
-          value={statsSource.totalOrders || 0}
+          label="Total órdenes reales"
+          value={statsSource.operationalOrders || 0}
+          hint={statsSource.qaOrders > 0 ? `QA/internas: ${statsSource.qaOrders}` : null}
         />
         <AdminStat
-          label="Tasa de pago"
-          value={`${statsSource.totalOrders > 0
-            ? Math.round(((statsSource.paidOrders || 0) / statsSource.totalOrders) * 100)
+          label="Tasa de pago real"
+          value={`${statsSource.operationalOrders > 0
+            ? Math.round(((statsSource.operationalPaidOrders || 0) / statsSource.operationalOrders) * 100)
             : 0}%`}
           accent="emerald"
+          hint={statsSource.totalOrders > statsSource.operationalOrders ? `Base total: ${statsSource.totalOrders}` : null}
         />
         <AdminStat
-          label="Ticket promedio"
-          value={statsSource.totalOrders > 0
-            ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format((statsSource.totalRevenue || 0) / statsSource.totalOrders)
+          label="Ticket promedio real"
+          value={statsSource.operationalPaidOrders > 0
+            ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format((statsSource.operationalRevenue || 0) / statsSource.operationalPaidOrders)
             : '$0'}
           accent="amber"
+          hint={statsSource.qaRevenue > 0 ? `Revenue QA excluido: ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.qaRevenue || 0)}` : null}
         />
       </div>
 
@@ -684,9 +703,13 @@ const AdminDashboard = ({ dashboard }) => {
         <div className="space-y-6">
           {/* Últimos pedidos */}
           <AdminCard>
-            <h3 className="font-bold text-lg text-white mb-4">Últimos pedidos</h3>
+            <h3 className="font-bold text-lg text-white mb-4">Últimos pedidos reales</h3>
             <div className="space-y-3">
-              {recentOrders.map(order => (
+              {recentOrders.length === 0 ? (
+                <div className="p-4 rounded-xl bg-zinc-800 border border-zinc-700 text-sm text-zinc-400 font-medium">
+                  Sin pedidos reales todavía. El panel está mostrando solo operación no-QA.
+                </div>
+              ) : recentOrders.map(order => (
                 <div key={order.id} className="p-4 rounded-xl bg-zinc-800 border border-zinc-700">
                   <div className="flex justify-between gap-4 items-start">
                     <div>

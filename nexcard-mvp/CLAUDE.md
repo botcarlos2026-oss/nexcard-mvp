@@ -300,6 +300,33 @@ Validación ejecutada:
 Documentación específica:
 - `docs/ORDERS_TEST_SEGREGATION_2026-05-13.md`
 
+### 2026-05-13 — KPIs comerciales reales por defecto en `/admin`
+Se completó la segunda capa de segregación para que el dashboard comercial no mezcle revenue/funnel real con QA.
+
+Cambios concretos:
+1. `src/services/api.js` ahora separa:
+   - `operationalRevenue`
+   - `qaRevenue`
+   - `operationalOrders`
+   - `qaOrders`
+   - `operationalPendingOrders`
+   - `operationalPaidOrders`
+   - `operationalFunnel`
+   - `qaFunnel`
+2. `stageSla` y `weeklyFunnelTrend` pasan a calcularse sobre base real (no-QA)
+3. `recentOrders` del dashboard ahora muestra solo pedidos reales
+4. `src/components/AdminDashboard.jsx` fue ajustado para presentar:
+   - ingresos cobrados reales
+   - pedidos abiertos reales
+   - tasa de pago real
+   - ticket promedio real
+   - hints explícitos con revenue/volumen QA excluido
+   - embudo semanal real y últimos pedidos reales
+
+Resultado esperado:
+- `/admin` queda orientado a operación/comercial real por defecto
+- la contaminación QA sigue visible, pero ya no distorsiona KPI principal
+
 ### 2026-05-13 — admin cards con shell superior + suite local operativa
 Se completó el cierre de `admin/cards` para dejarlo consistente tanto en UI como en testeo local.
 

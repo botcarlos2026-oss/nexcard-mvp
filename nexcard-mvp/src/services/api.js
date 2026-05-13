@@ -218,14 +218,32 @@ export const api = {
     const operationalPaidOrders = paidOrders.filter((order) => !isNonOperationalOrder(order));
     const excludedOperationalOrdersCount = (orders || []).length - operationalOrders.length;
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
+    const operationalRevenue = operationalPaidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
+    const qaRevenue = totalRevenue - operationalRevenue;
     const pendingOrders = (orders || []).filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
+    const operationalPendingOrders = operationalOrders.filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
     const paidOrdersCount = paidOrders.length;
+    const operationalPaidOrdersCount = operationalPaidOrders.length;
     const funnel = {
       paid: paidOrdersCount,
       ready: paidOrders.filter(o => ['ready', 'shipped', 'delivered'].includes(o.fulfillment_status)).length,
       shipped: paidOrders.filter(o => ['shipped', 'delivered'].includes(o.fulfillment_status)).length,
       delivered: paidOrders.filter(o => o.fulfillment_status === 'delivered').length,
       activated: paidOrders.filter(o => o.activation_completed).length,
+    };
+    const operationalFunnel = {
+      paid: operationalPaidOrdersCount,
+      ready: operationalPaidOrders.filter(o => ['ready', 'shipped', 'delivered'].includes(o.fulfillment_status)).length,
+      shipped: operationalPaidOrders.filter(o => ['shipped', 'delivered'].includes(o.fulfillment_status)).length,
+      delivered: operationalPaidOrders.filter(o => o.fulfillment_status === 'delivered').length,
+      activated: operationalPaidOrders.filter(o => o.activation_completed).length,
+    };
+    const qaFunnel = {
+      paid: funnel.paid - operationalFunnel.paid,
+      ready: funnel.ready - operationalFunnel.ready,
+      shipped: funnel.shipped - operationalFunnel.shipped,
+      delivered: funnel.delivered - operationalFunnel.delivered,
+      activated: funnel.activated - operationalFunnel.activated,
     };
     const nowMs = Date.now();
     const operationalAlerts = operationalOrders.filter((order) => (order.observability_alerts || []).length > 0).map((order) => ({
@@ -254,7 +272,7 @@ export const api = {
       shipped_to_delivered: [],
       delivered_to_activated: [],
     };
-    paidOrders.forEach((order) => {
+    operationalPaidOrders.forEach((order) => {
       const paidAtMs = new Date(order.paid_at || order.updated_at || order.created_at).getTime();
       const readyAtMs = order.ready_at ? new Date(order.ready_at).getTime() : NaN;
       const shippedAtMs = order.shipped_at ? new Date(order.shipped_at).getTime() : NaN;
@@ -287,7 +305,7 @@ export const api = {
       const nextDate = new Date(date);
       nextDate.setDate(nextDate.getDate() + 1);
 
-      const dayOrders = paidOrders.filter((order) => {
+      const dayOrders = operationalPaidOrders.filter((order) => {
         const createdAt = new Date(order.created_at).getTime();
         return createdAt >= date.getTime() && createdAt < nextDate.getTime();
       });
@@ -381,7 +399,7 @@ export const api = {
       `- Casos prioritarios: ${proactiveSummary.count}`,
       `- Alertas operativas: ${operationalAlerts.length}`,
       `- SLA rotos: ${slaBreaches.length}`,
-      `- Funnel hoy: paid ${funnel.paid} | ready ${funnel.ready} | shipped ${funnel.shipped} | delivered ${funnel.delivered} | activated ${funnel.activated}`,
+      `- Funnel real: paid ${operationalFunnel.paid} | ready ${operationalFunnel.ready} | shipped ${operationalFunnel.shipped} | delivered ${operationalFunnel.delivered} | activated ${operationalFunnel.activated}`,
       stageSlaDigest.length > 0 ? `- SLA promedio: ${stageSlaDigest.join(' | ')}` : '- SLA promedio: sin muestra cerrada suficiente',
       proactiveQueue.length > 0 ? `- Acciones sugeridas: ${proactiveQueue.map((item) => `${item.title} (${item.count})`).join(' · ')}` : '- Acciones sugeridas: sin excepciones prioritarias',
       `- Recomendación: ${proactiveSummary.action}`,
@@ -404,7 +422,7 @@ export const api = {
         `Casos prioritarios: ${proactiveSummary.count}`,
         `Alertas operativas: ${operationalAlerts.length}`,
         `SLA rotos: ${slaBreaches.length}`,
-        `Funnel: paid ${funnel.paid} | ready ${funnel.ready} | shipped ${funnel.shipped} | delivered ${funnel.delivered} | activated ${funnel.activated}`,
+        `Funnel real: paid ${operationalFunnel.paid} | ready ${operationalFunnel.ready} | shipped ${operationalFunnel.shipped} | delivered ${operationalFunnel.delivered} | activated ${operationalFunnel.activated}`,
         stageSlaDigest.length > 0 ? `SLA promedio: ${stageSlaDigest.join(' | ')}` : `SLA promedio: sin muestra cerrada suficiente`,
         `Acción: ${proactiveSummary.action}`,
       ].join('\n'),
@@ -419,11 +437,11 @@ export const api = {
         `SLA rotos: ${slaBreaches.length}`,
         ``,
         `Funnel actual`,
-        `- Paid: ${funnel.paid}`,
-        `- Ready: ${funnel.ready}`,
-        `- Shipped: ${funnel.shipped}`,
-        `- Delivered: ${funnel.delivered}`,
-        `- Activated: ${funnel.activated}`,
+        `- Paid: ${operationalFunnel.paid}`,
+        `- Ready: ${operationalFunnel.ready}`,
+        `- Shipped: ${operationalFunnel.shipped}`,
+        `- Delivered: ${operationalFunnel.delivered}`,
+        `- Activated: ${operationalFunnel.activated}`,
         ``,
         `SLA promedio`,
         ...(stageSlaDigest.length > 0 ? stageSlaDigest.map((line) => `- ${line}`) : ['- Sin muestra cerrada suficiente']),
@@ -475,9 +493,17 @@ export const api = {
         totalProfiles: profiles?.length || 0,
         totalOrders: orders?.length || 0,
         totalRevenue,
+        operationalRevenue,
+        qaRevenue,
         pendingOrders,
+        operationalPendingOrders,
         paidOrders: paidOrdersCount,
+        operationalPaidOrders: operationalPaidOrdersCount,
+        operationalOrders: operationalOrders.length,
+        qaOrders: excludedOperationalOrdersCount,
         funnel,
+        operationalFunnel,
+        qaFunnel,
         operationalAlertsCount: operationalAlerts.length,
         slaBreachesCount: slaBreaches.length,
         excludedOperationalOrdersCount,
@@ -485,7 +511,7 @@ export const api = {
         proactiveSeverity: proactiveSummary.severity,
       },
       users,
-      recentOrders: (orders || []).slice(0, 5),
+      recentOrders: operationalOrders.slice(0, 5),
       operationalAlerts: operationalAlerts.slice(0, 8),
       slaBreaches: slaBreaches.slice(0, 8),
       weeklyFunnelTrend,
