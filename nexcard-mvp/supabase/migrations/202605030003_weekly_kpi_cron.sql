@@ -10,7 +10,7 @@ BEGIN
     PERFORM cron.schedule(
       'send-weekly-kpi-report',
       '0 12 * * 1',
-      $$
+      $cron$
       SELECT net.http_post(
         url := current_setting('app.supabase_url') || '/functions/v1/send-weekly-kpi-report',
         headers := jsonb_build_object(
@@ -19,7 +19,7 @@ BEGIN
         ),
         body := '{"trigger":"cron"}'
       );
-      $$
+      $cron$
     );
   ELSE
     RAISE NOTICE 'pg_cron no disponible — invocar send-weekly-kpi-report manualmente o vía Vercel Cron Jobs';

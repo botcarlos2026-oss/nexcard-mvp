@@ -102,6 +102,13 @@ const AdminDashboard = ({ dashboard }) => {
   const [copiedFormat, setCopiedFormat] = useState('');
   const [quickActionBusyId, setQuickActionBusyId] = useState('');
   const [quickActionMessage, setQuickActionMessage] = useState({ type: '', text: '' });
+  const [kpiConfigForm, setKpiConfigForm] = useState({
+    sla_targets: '{\n  "paid_to_ready": 24,\n  "ready_to_shipped": 24,\n  "shipped_to_delivered": 72,\n  "delivered_to_activated": 24\n}',
+    payment_method_fees: '{\n  "webpay": 0.0295,\n  "transbank": 0.0295,\n  "mercado_pago": 0.0349,\n  "mercado-pago": 0.0349,\n  "default": 0\n}',
+    wow_alert_thresholds: '{\n  "revenue_drop_pct": -20,\n  "payment_rate_drop_pts": -8,\n  "carrier_delivery_rate_drop_pts": -10,\n  "sku_claim_rate_pct": 8\n}',
+  });
+  const [kpiConfigBusy, setKpiConfigBusy] = useState('');
+  const [kpiConfigMessage, setKpiConfigMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
     setDashboardState(dashboard);
@@ -109,6 +116,19 @@ const AdminDashboard = ({ dashboard }) => {
 
   useEffect(() => {
     api.checkLowStock().then(({ lowStockItems: items }) => setLowStockItems(items)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api.getKpiRuntimeConfig().then(({ configs }) => {
+      if (!configs?.length) return;
+      setKpiConfigForm((prev) => {
+        const next = { ...prev };
+        configs.forEach((row) => {
+          if (row?.key) next[row.key] = JSON.stringify(row.config || {}, null, 2);
+        });
+        return next;
+      });
+    }).catch(() => {});
   }, []);
 
   const users = dashboardState?.users || [];
@@ -298,6 +318,20 @@ const AdminDashboard = ({ dashboard }) => {
       window.setTimeout(() => setCopiedFormat(''), 1800);
     } catch {
       setCopiedFormat('');
+    }
+  };
+  const handleSaveKpiConfig = async (key) => {
+    setKpiConfigBusy(key);
+    setKpiConfigMessage({ type: '', text: '' });
+    try {
+      const parsed = JSON.parse(kpiConfigForm[key] || '{}');
+      await api.upsertKpiRuntimeConfig({ key, config: parsed, active: true });
+      await reloadDashboard();
+      setKpiConfigMessage({ type: 'success', text: `Config KPI ${key} guardada.` });
+    } catch (error) {
+      setKpiConfigMessage({ type: 'error', text: error.message || `No pude guardar ${key}.` });
+    } finally {
+      setKpiConfigBusy('');
     }
   };
   const proactiveTone = proactiveSummary?.severity === 'critical'
@@ -761,6 +795,51 @@ const AdminDashboard = ({ dashboard }) => {
           <AdminStat label="Ready → Shipped" value={slaTargets.ready_to_shipped != null ? `${slaTargets.ready_to_shipped}h` : '—'} accent="blue" />
           <AdminStat label="Shipped → Delivered" value={slaTargets.shipped_to_delivered != null ? `${slaTargets.shipped_to_delivered}h` : '—'} accent="emerald" />
           <AdminStat label="Delivered → Activated" value={slaTargets.delivered_to_activated != null ? `${slaTargets.delivered_to_activated}h` : '—'} accent="fuchsia" />
+        </div>
+      </AdminCard>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">KPI runtime config</h2>
+            <p className="text-sm text-zinc-400 font-medium">Edita parámetros persistentes sin tocar código. JSON válido requerido.</p>
+          </div>
+          <AdminBadge variant={runtimeConfigLoaded ? 'success' : 'warning'}>
+            {runtimeConfigLoaded ? 'runtime activo' : 'solo fallback'}
+          </AdminBadge>
+        </div>
+        {kpiConfigMessage.text ? (
+          <div className={`mb-4 rounded-xl border px-3 py-2 text-xs font-semibold ${kpiConfigMessage.type === 'error' ? 'border-red-800 bg-red-950/40 text-red-300' : 'border-emerald-800 bg-emerald-950/40 text-emerald-300'}`}>
+            {kpiConfigMessage.text}
+          </div>
+        ) : null}
+        <div className="grid lg:grid-cols-3 gap-4">
+          {[
+            { key: 'sla_targets', label: 'SLA targets' },
+            { key: 'payment_method_fees', label: 'Fees por método' },
+            { key: 'wow_alert_thresholds', label: 'Thresholds WoW' },
+          ].map((item) => (
+            <div key={item.key} className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <p className="text-sm font-bold text-white">{item.label}</p>
+                <button
+                  type="button"
+                  onClick={() => handleSaveKpiConfig(item.key)}
+                  disabled={kpiConfigBusy === item.key}
+                  className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                >
+                  {kpiConfigBusy === item.key ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Guardar
+                </button>
+              </div>
+              <textarea
+                value={kpiConfigForm[item.key] || '{}'}
+                onChange={(e) => setKpiConfigForm((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                className="min-h-[220px] w-full rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-xs font-mono text-zinc-200 outline-none focus:border-emerald-600"
+                spellCheck={false}
+              />
+            </div>
+          ))}
         </div>
       </AdminCard>
 
