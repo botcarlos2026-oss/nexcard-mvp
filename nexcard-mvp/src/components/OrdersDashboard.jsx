@@ -190,6 +190,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [auditFilter, setAuditFilter] = useState('all');
   const [testReasonFilter, setTestReasonFilter] = useState('all');
   const [overrideAgeFilter, setOverrideAgeFilter] = useState('all');
+  const [reviewStatusFilter, setReviewStatusFilter] = useState('all');
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [lastChecked, setLastChecked] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -209,10 +210,12 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     const requestedAudit = params.get('audit') === 'excluded' ? 'excluded' : 'all';
     const requestedReason = params.get('test_reason') || 'all';
     const requestedOverrideAge = params.get('override_age') || 'all';
+    const requestedReviewStatus = params.get('review_status') || 'all';
     const requestedOrderId = params.get('order_id') || null;
     setAuditFilter(forceAuditFilter || requestedAudit);
     setTestReasonFilter(requestedReason);
     setOverrideAgeFilter(requestedOverrideAge);
+    setReviewStatusFilter(requestedReviewStatus === 'pending' || requestedReviewStatus === 'reviewed' ? requestedReviewStatus : 'all');
     if (requestedOrderId) setSelectedOrderId(requestedOrderId);
   }, [forceAuditFilter]);
 
@@ -291,6 +294,8 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   }, [excludedOrders]);
 
   const manualOverrideCount = useMemo(() => excludedOrders.filter((order) => isManualTestReason(order.testReasonResolved)).length, [excludedOrders]);
+  const manualOverridePendingCount = useMemo(() => excludedOrders.filter((order) => isManualTestReason(order.testReasonResolved) && !order.qa_reviewed_at).length, [excludedOrders]);
+  const manualOverrideReviewedCount = useMemo(() => excludedOrders.filter((order) => isManualTestReason(order.testReasonResolved) && order.qa_reviewed_at).length, [excludedOrders]);
 
   const testReasonOptions = useMemo(() => {
     const base = ['all'];
@@ -311,9 +316,13 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
         const ageHours = Number.isNaN(updatedAtMs) ? 0 : (nowMs - updatedAtMs) / (1000 * 60 * 60);
         matchesOverrideAge = overrideAgeFilter === '72h' ? ageHours >= 72 : ageHours >= 24;
       }
-      return matchesAudit && matchesReason && matchesOverrideAge;
+      const matchesReviewStatus = testReasonFilter !== 'manual_override_only'
+        || reviewStatusFilter === 'all'
+        || (reviewStatusFilter === 'pending' && !order.qa_reviewed_at)
+        || (reviewStatusFilter === 'reviewed' && !!order.qa_reviewed_at);
+      return matchesAudit && matchesReason && matchesOverrideAge && matchesReviewStatus;
     });
-  }, [normalizedOrders, auditFilter, testReasonFilter, overrideAgeFilter]);
+  }, [normalizedOrders, auditFilter, testReasonFilter, overrideAgeFilter, reviewStatusFilter]);
 
   const paymentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.payment_status).filter(Boolean)))], [normalizedOrders]);
   const fulfillmentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.fulfillment_status).filter(Boolean)))], [normalizedOrders]);
@@ -676,8 +685,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   setAuditFilter('excluded');
                   setTestReasonFilter('manual_override_only');
                   setOverrideAgeFilter('all');
+                  setReviewStatusFilter('pending');
                   if (!forceAuditFilter && typeof window !== 'undefined') {
-                    window.history.replaceState({}, '', '/admin/orders?audit=excluded&test_reason=manual_override_only');
+                    window.history.replaceState({}, '', '/admin/orders?audit=excluded&test_reason=manual_override_only&review_status=pending');
                   }
                 }}
                 className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${testReasonFilter === 'manual_override_only' ? 'border-fuchsia-700 bg-fuchsia-950/40 text-fuchsia-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white'}`}
@@ -693,6 +703,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   setAuditFilter('excluded');
                   setTestReasonFilter(reason);
                   setOverrideAgeFilter('all');
+                  setReviewStatusFilter('all');
                   if (!forceAuditFilter && typeof window !== 'undefined') {
                     window.history.replaceState({}, '', `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(reason)}`);
                   }
@@ -709,6 +720,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   setAuditFilter('all');
                   setTestReasonFilter('all');
                   setOverrideAgeFilter('all');
+                  setReviewStatusFilter('all');
                   if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
                 }}
                 className="text-xs font-bold text-zinc-400 underline underline-offset-2 hover:text-white"
@@ -718,11 +730,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
             ) : null}
           </div>
           <p className="text-xs text-zinc-500">
-            Breakdown QA/test: {manualOverrideCount > 0 ? `Solo overrides manuales (${manualOverrideCount}) · ` : ''}{Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
+            Breakdown QA/test: {manualOverrideCount > 0 ? `Solo overrides manuales (${manualOverrideCount}) · Pendientes (${manualOverridePendingCount}) · Revisadas (${manualOverrideReviewedCount}) · ` : ''}{Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
           </p>
           {testReasonFilter === 'manual_override_only' && (
             <p className="text-xs text-zinc-500">
-              Priorización activa: severidad desc por aging + pagada + no enviada + no activada.
+              Priorización activa: severidad desc por aging + pagada + no enviada + no activada. Estado revisión: {reviewStatusFilter === 'pending' ? 'solo pendientes' : reviewStatusFilter === 'reviewed' ? 'solo revisadas' : 'todas'}.
             </p>
           )}
         </div>
@@ -851,10 +863,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                     if (value === 'all') {
                       setTestReasonFilter('all');
                       setOverrideAgeFilter('all');
+                      setReviewStatusFilter('all');
                     }
                     if (!forceAuditFilter && typeof window !== 'undefined') {
                       const nextUrl = value === 'excluded'
-                        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}`
+                        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${testReasonFilter === 'manual_override_only' && reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}`
                         : '/admin/orders';
                       window.history.replaceState({}, '', nextUrl);
                     }
@@ -876,11 +889,17 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                         setTestReasonFilter(value);
                         if (value !== 'manual_override_only') {
                           setOverrideAgeFilter('all');
+                          setReviewStatusFilter('all');
+                        } else if (reviewStatusFilter === 'all') {
+                          setReviewStatusFilter('pending');
                         }
                         if (!forceAuditFilter && typeof window !== 'undefined') {
+                          const effectiveReviewStatus = value === 'manual_override_only'
+                            ? (reviewStatusFilter === 'all' ? 'pending' : reviewStatusFilter)
+                            : 'all';
                           const nextUrl = value === 'all'
                             ? '/admin/orders?audit=excluded'
-                            : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}${value === 'manual_override_only' && overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}`;
+                            : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}${value === 'manual_override_only' && overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value === 'manual_override_only' && effectiveReviewStatus !== 'all' ? `&review_status=${encodeURIComponent(effectiveReviewStatus)}` : ''}`;
                           window.history.replaceState({}, '', nextUrl);
                         }
                       }}
@@ -897,34 +916,53 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                     </select>
                   </label>
                   {testReasonFilter === 'manual_override_only' && (
-                    <label className="relative block">
-                      <Clock3 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                      <select
-                        value={overrideAgeFilter}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setOverrideAgeFilter(value);
-                          if (!forceAuditFilter && typeof window !== 'undefined') {
-                            const nextUrl = value === 'all'
-                              ? '/admin/orders?audit=excluded&test_reason=manual_override_only'
-                              : `/admin/orders?audit=excluded&test_reason=manual_override_only&override_age=${encodeURIComponent(value)}`;
-                            window.history.replaceState({}, '', nextUrl);
-                          }
-                        }}
-                        className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
-                      >
-                        <option value="all">Override age: todos</option>
-                        <option value="24h">Override age: ≥24h</option>
-                        <option value="72h">Override age: ≥72h</option>
-                      </select>
-                    </label>
+                    <>
+                      <label className="relative block">
+                        <Clock3 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                        <select
+                          value={overrideAgeFilter}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setOverrideAgeFilter(value);
+                            if (!forceAuditFilter && typeof window !== 'undefined') {
+                              const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${value !== 'all' ? `&override_age=${encodeURIComponent(value)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}`;
+                              window.history.replaceState({}, '', nextUrl);
+                            }
+                          }}
+                          className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
+                        >
+                          <option value="all">Override age: todos</option>
+                          <option value="24h">Override age: ≥24h</option>
+                          <option value="72h">Override age: ≥72h</option>
+                        </select>
+                      </label>
+                      <label className="relative block">
+                        <CheckCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                        <select
+                          value={reviewStatusFilter}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setReviewStatusFilter(value);
+                            if (!forceAuditFilter && typeof window !== 'undefined') {
+                              const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value !== 'all' ? `&review_status=${encodeURIComponent(value)}` : ''}`;
+                              window.history.replaceState({}, '', nextUrl);
+                            }
+                          }}
+                          className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
+                        >
+                          <option value="all">Revisión: todas</option>
+                          <option value="pending">Revisión: pendientes</option>
+                          <option value="reviewed">Revisión: revisadas</option>
+                        </select>
+                      </label>
+                    </>
                   )}
                 </>
               )}
             </div>
           </div>
 
-          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}`} className="overflow-x-auto">
+          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}`} className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-zinc-800/50 border-b border-zinc-800">
                 <tr className="text-xs uppercase tracking-wide text-zinc-500">

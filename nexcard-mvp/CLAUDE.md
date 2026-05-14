@@ -350,6 +350,10 @@ Cambios concretos:
    - el override manual resetea estos campos para forzar nueva revisión si alguien reclasifica
    - existe RPC separada `admin_review_order_test_classification(...)`
    - dashboard y cola priorizan overrides manuales QA aún no revisados
+15. filtro por estado de revisión QA manual:
+   - `OrdersDashboard` acepta `review_status=all|pending|reviewed`
+   - la cola manual puede separarse entre pendientes y revisadas
+   - los deep-links desde `/admin` apuntan por defecto a pendientes para foco operativo
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

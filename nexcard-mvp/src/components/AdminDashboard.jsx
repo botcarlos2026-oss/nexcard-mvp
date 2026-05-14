@@ -192,7 +192,7 @@ const AdminDashboard = ({ dashboard }) => {
             : manualOverrideRealOrdersCount > 0
               ? `${manualOverrideRealOrdersCount} restore(s) manual(es) a orden real`
               : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola manual en QA' : 'Sin correcciones manuales abiertas'),
-      href: '/admin/orders/qa?audit=excluded&test_reason=manual_override_only',
+      href: '/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending',
     },
   ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideQaReviewedCount, manualOverrideRealOrdersCount, manualOverrideQaAging]);
 
@@ -295,13 +295,13 @@ const AdminDashboard = ({ dashboard }) => {
                     )}
                     <a href="/admin/orders/qa" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Abrir vista QA</a>
                     {manualOverrideQaOrdersCount > 0 && (
-                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver solo overrides manuales</a>
+                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver overrides pendientes</a>
                     )}
                     {manualOverrideQaAging.over24h > 0 && (
-                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&override_age=24h" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver aging &gt;24h</a>
+                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&override_age=24h&review_status=pending" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver aging &gt;24h</a>
                     )}
                     {manualOverrideQaAging.over72h > 0 && (
-                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&override_age=72h" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver aging &gt;72h</a>
+                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&override_age=72h&review_status=pending" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver aging &gt;72h</a>
                     )}
                   </div>
                 )}
@@ -447,7 +447,7 @@ const AdminDashboard = ({ dashboard }) => {
               ) : topManualOverrideQueue.map((order) => (
                 <a
                   key={order.id}
-                  href={`/admin/orders/qa?audit=excluded&test_reason=manual_override_only${order.age_hours >= 72 ? '&override_age=72h' : order.age_hours >= 24 ? '&override_age=24h' : ''}&order_id=${encodeURIComponent(order.id)}`}
+                  href={`/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending${order.age_hours >= 72 ? '&override_age=72h' : order.age_hours >= 24 ? '&override_age=24h' : ''}&order_id=${encodeURIComponent(order.id)}`}
                   className="block rounded-xl bg-zinc-800 border border-zinc-700 p-4 hover:bg-zinc-700/60 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
