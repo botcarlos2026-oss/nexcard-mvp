@@ -345,6 +345,11 @@ Cambios concretos:
      - `Mantener QA`
      - `Restaurar real`
    - esto reduce clics para revisión humana de la cola crítica
+14. auditoría separada de revisión QA:
+   - `orders` ahora guarda `qa_reviewed_at`, `qa_reviewed_by`, `qa_reviewed_by_label`, `qa_review_note`
+   - el override manual resetea estos campos para forzar nueva revisión si alguien reclasifica
+   - existe RPC separada `admin_review_order_test_classification(...)`
+   - dashboard y cola priorizan overrides manuales QA aún no revisados
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

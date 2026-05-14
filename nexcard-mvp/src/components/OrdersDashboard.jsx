@@ -158,6 +158,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [draftShipping, setDraftShipping] = useState({ carrier: '', tracking_code: '' });
   const [shippingBusy, setShippingBusy] = useState(false);
   const [testOverrideReason, setTestOverrideReason] = useState('');
+  const [reviewNote, setReviewNote] = useState('');
   const DISPATCH_CHECKLIST = [
     'NFC programado con el link del cliente',
     'Diseño impreso y verificado',
@@ -409,6 +410,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     setChecklistDone(Array(5).fill(false));
     setRefundForm({ reason: 'Producto defectuoso', amount_cents: selectedOrder.amount_cents || '', notes: '' });
     setTestOverrideReason(selectedOrder.test_reason || '');
+    setReviewNote(selectedOrder.qa_review_note || '');
     // Auto-cargar slug si hay cards vinculadas
     if (selectedOrder.related_cards?.length > 0) {
       loadSlugForOrder(selectedOrder);
@@ -546,6 +548,24 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       });
     } catch (error) {
       setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la clasificación QA/test.' });
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const reviewTestClassification = async (targetOrder) => {
+    if (!targetOrder) return;
+
+    setBusyOrderId(targetOrder.id);
+    setFeedback({ type: '', message: '' });
+    try {
+      const response = await api.reviewOrderTestClassification(targetOrder.id, {
+        review_note: reviewNote,
+      });
+      setRows(response.orders || []);
+      setFeedback({ type: 'success', message: `Orden ${targetOrder.id} marcada como revisada en auditoría QA.` });
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message || 'No fue posible registrar la revisión QA/test.' });
     } finally {
       setBusyOrderId(null);
     }
@@ -1097,6 +1117,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                       <p className="text-xs text-zinc-500 mt-1">
                         Último override: {selectedOrderOverrideAudit ? `${formatActorLabel(selectedOrderOverrideAudit)} · ${formatDate(selectedOrderOverrideAudit.changed_at)}` : 'sin trazabilidad manual registrada'}
                       </p>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Última revisión: {selectedOrder.qa_reviewed_at ? `${selectedOrder.qa_reviewed_by_label || 'admin'} · ${formatDate(selectedOrder.qa_reviewed_at)}` : 'pendiente de revisión'}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       {selectedOrder.manualOverrideSeverity?.level && (
@@ -1110,12 +1133,12 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                     </div>
                   </div>
                   {selectedOrder.is_test && isManualTestReason(selectedOrder.test_reason) && (
-                    <div className="rounded-xl border border-fuchsia-800 bg-fuchsia-950/20 p-4">
+                    <div className="rounded-xl border border-fuchsia-800 bg-fuchsia-950/20 p-4 space-y-3">
                       <div className="flex items-start justify-between gap-3 flex-wrap">
                         <div>
                           <p className="text-xs font-bold uppercase tracking-widest text-fuchsia-300">Decisión rápida</p>
                           <p className="text-sm text-zinc-300 mt-1">
-                            Esta orden llegó aquí por override manual. Puedes cerrarla en 1 clic: mantener QA o restaurarla a operación real.
+                            Esta orden llegó aquí por override manual. Ahora puedes distinguir quién la clasificó y quién la auditó después.
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -1136,6 +1159,27 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                             Restaurar real
                           </button>
                         </div>
+                      </div>
+                      <textarea
+                        value={reviewNote}
+                        onChange={(event) => setReviewNote(event.target.value)}
+                        disabled={busyOrderId === selectedOrder.id}
+                        rows="2"
+                        placeholder="Nota de auditoría: ej. revisada y se mantiene QA por smoke controlado"
+                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors resize-none"
+                      />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => reviewTestClassification(selectedOrder)}
+                          disabled={busyOrderId === selectedOrder.id}
+                          className="px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                        >
+                          Marcar revisión QA
+                        </button>
+                        <p className="text-[11px] text-zinc-500">
+                          La revisión queda separada del override y se reinicia si alguien reclasifica la orden.
+                        </p>
                       </div>
                     </div>
                   )}

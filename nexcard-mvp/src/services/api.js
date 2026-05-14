@@ -219,7 +219,9 @@ export const api = {
     const excludedOperationalOrders = (orders || []).filter((order) => isNonOperationalOrder(order));
     const operationalPaidOrders = paidOrders.filter((order) => !isNonOperationalOrder(order));
     const excludedOperationalOrdersCount = excludedOperationalOrders.length;
-    const manualOverrideQaOrders = excludedOperationalOrders.filter((order) => isManualTestReason(order.test_reason));
+    const manualOverrideQaOrdersAll = excludedOperationalOrders.filter((order) => isManualTestReason(order.test_reason));
+    const manualOverrideQaOrders = manualOverrideQaOrdersAll.filter((order) => !order.qa_reviewed_at);
+    const manualOverrideQaReviewedCount = manualOverrideQaOrdersAll.length - manualOverrideQaOrders.length;
     const manualOverrideQaOrdersCount = manualOverrideQaOrders.length;
     const manualOverrideRealOrdersCount = (orders || []).filter((order) => !order.is_test && isManualTestReason(order.test_reason)).length;
     const manualOverrideQaAging = manualOverrideQaOrders.reduce((acc, order) => {
@@ -568,6 +570,7 @@ export const api = {
         slaBreachesCount: slaBreaches.length,
         excludedOperationalOrdersCount,
         manualOverrideQaOrdersCount,
+        manualOverrideQaReviewedCount,
         manualOverrideRealOrdersCount,
         manualOverrideQaAging,
         manualOverrideQaSeverity,
@@ -643,6 +646,21 @@ export const api = {
       target_order_id: orderId,
       target_is_test: is_test,
       target_reason: test_reason || null,
+    });
+
+    if (error) throw new Error(error.message);
+
+    return fetchOrders();
+  },
+
+  reviewOrderTestClassification: async (orderId, { review_note }) => {
+    if (!hasSupabase) {
+      throw new Error('Revisión QA/test requiere Supabase configurado');
+    }
+
+    const { error } = await supabase.rpc('admin_review_order_test_classification', {
+      target_order_id: orderId,
+      review_note: review_note || null,
     });
 
     if (error) throw new Error(error.message);

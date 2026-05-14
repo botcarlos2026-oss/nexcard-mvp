@@ -129,6 +129,7 @@ const AdminDashboard = ({ dashboard }) => {
   const operationalDigest = dashboard?.operationalDigest || null;
   const excludedOperationalOrdersCount = dashboard?.stats?.excludedOperationalOrdersCount || 0;
   const manualOverrideQaOrdersCount = dashboard?.stats?.manualOverrideQaOrdersCount || 0;
+  const manualOverrideQaReviewedCount = dashboard?.stats?.manualOverrideQaReviewedCount || 0;
   const manualOverrideRealOrdersCount = dashboard?.stats?.manualOverrideRealOrdersCount || 0;
   const manualOverrideQaAging = useMemo(() => dashboard?.stats?.manualOverrideQaAging || { fresh: 0, over24h: 0, over72h: 0 }, [dashboard]);
   const manualOverrideQaSeverity = useMemo(() => dashboard?.stats?.manualOverrideQaSeverity || { low: 0, medium: 0, high: 0, critical: 0, total: 0, maxScore: 0 }, [dashboard]);
@@ -186,12 +187,14 @@ const AdminDashboard = ({ dashboard }) => {
         ? `${manualOverrideQaAging.over72h} con aging >72h`
         : manualOverrideQaAging.over24h > 0
           ? `${manualOverrideQaAging.over24h} con aging >24h`
-          : manualOverrideRealOrdersCount > 0
-            ? `${manualOverrideRealOrdersCount} restore(s) manual(es) a orden real`
-            : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola manual en QA' : 'Sin correcciones manuales abiertas'),
+          : manualOverrideQaReviewedCount > 0
+            ? `${manualOverrideQaReviewedCount} ya revisada(s)`
+            : manualOverrideRealOrdersCount > 0
+              ? `${manualOverrideRealOrdersCount} restore(s) manual(es) a orden real`
+              : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola manual en QA' : 'Sin correcciones manuales abiertas'),
       href: '/admin/orders/qa?audit=excluded&test_reason=manual_override_only',
     },
-  ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideRealOrdersCount, manualOverrideQaAging]);
+  ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideQaReviewedCount, manualOverrideRealOrdersCount, manualOverrideQaAging]);
 
   const funnelStats = useMemo(() => {
     const funnel = statsSource.operationalFunnel || { paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 };
@@ -274,6 +277,9 @@ const AdminDashboard = ({ dashboard }) => {
                     <AdminBadge variant="info">{excludedOperationalOrdersCount} orden(es) QA/interna(s) excluidas del resumen operativo</AdminBadge>
                     {manualOverrideQaOrdersCount > 0 && (
                       <AdminBadge variant="danger">{manualOverrideQaOrdersCount} override(s) manual(es) QA pendientes de revisión</AdminBadge>
+                    )}
+                    {manualOverrideQaReviewedCount > 0 && (
+                      <AdminBadge variant="success">{manualOverrideQaReviewedCount} override(s) QA ya revisada(s)</AdminBadge>
                     )}
                     {manualOverrideQaSeverity.critical > 0 && (
                       <AdminBadge variant="danger">{manualOverrideQaSeverity.critical} crítica(s)</AdminBadge>
