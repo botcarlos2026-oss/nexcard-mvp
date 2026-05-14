@@ -276,6 +276,8 @@ const AdminDashboard = ({ dashboard }) => {
   const productStats = useMemo(() => statsSource.productStats || [], [statsSource]);
   const slaTargets = useMemo(() => statsSource.slaTargets || {}, [statsSource]);
   const wowAlerts = useMemo(() => statsSource.wowAlerts || [], [statsSource]);
+  const executiveScore = useMemo(() => statsSource.executiveScore || null, [statsSource]);
+  const runtimeConfigLoaded = useMemo(() => !!statsSource.runtimeConfigLoaded, [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const handleCopyDigest = async () => {
@@ -359,6 +361,24 @@ const AdminDashboard = ({ dashboard }) => {
                 )}
               </div>
               <a href="/admin/orders" className="text-xs font-bold underline underline-offset-2 shrink-0">Ir a órdenes</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {executiveScore && (
+        <div className="mb-6">
+          <div className={`rounded-xl border px-5 py-4 ${executiveScore.band === 'critical' ? 'border-red-800 bg-red-950/25' : executiveScore.band === 'watch' ? 'border-amber-800 bg-amber-950/25' : 'border-emerald-800 bg-emerald-950/20'}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-widest font-bold text-zinc-400">Executive score</p>
+                <p className="mt-1 text-3xl font-bold text-white">{executiveScore.score}</p>
+                <p className="text-sm text-zinc-300 mt-1">Banda: {executiveScore.band}. {runtimeConfigLoaded ? 'Usando parámetros persistidos + fallback seguro.' : 'Usando fallback seguro en código hasta activar config persistente.'}</p>
+                {executiveScore.reasons?.length ? <p className="text-xs text-zinc-400 mt-2">Drivers: {executiveScore.reasons.join(' · ')}</p> : null}
+              </div>
+              <AdminBadge variant={executiveScore.band === 'critical' ? 'danger' : executiveScore.band === 'watch' ? 'warning' : 'success'}>
+                {executiveScore.band}
+              </AdminBadge>
             </div>
           </div>
         </div>
@@ -733,7 +753,7 @@ const AdminDashboard = ({ dashboard }) => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-bold text-lg text-white">Targets SLA activos</h2>
-            <p className="text-sm text-zinc-400 font-medium">Configurable desde `src/config/admin.js`</p>
+            <p className="text-sm text-zinc-400 font-medium">{runtimeConfigLoaded ? 'Tomados desde config persistente activa (con fallback seguro).' : 'Fallback desde `src/config/admin.js` hasta activar config persistente.'}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

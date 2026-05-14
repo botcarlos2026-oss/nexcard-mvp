@@ -206,6 +206,21 @@ export const api = {
 
   getAdminDashboard: async () => {
     if (!hasSupabase) return request('/admin/dashboard');
+    const loadKpiRuntimeConfig = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('kpi_runtime_config')
+          .select('key, config, active, updated_at')
+          .eq('active', true);
+        if (error) throw error;
+        return (data || []).reduce((acc, row) => {
+          acc[row.key] = row.config || {};
+          return acc;
+        }, {});
+      } catch {
+        return {};
+      }
+    };
     const getStageTimestampMs = (order, key) => {
       const rawValue = ({
         paid: order.paid_at || order.updated_at || order.created_at,
@@ -229,7 +244,11 @@ export const api = {
       if (!previous) return current ? 100 : 0;
       return round1(((current - previous) / previous) * 100);
     };
-    const getPaymentFeeRate = (paymentMethod) => KPI_PAYMENT_METHOD_FEES[paymentMethod] ?? KPI_PAYMENT_METHOD_FEES.default ?? 0;
+    const runtimeConfig = await loadKpiRuntimeConfig();
+    const effectiveSlaTargets = { ...KPI_SLA_TARGET_HOURS, ...(runtimeConfig.sla_targets || {}) };
+    const effectivePaymentFees = { ...KPI_PAYMENT_METHOD_FEES, ...(runtimeConfig.payment_method_fees || {}) };
+    const effectiveWowThresholds = { ...KPI_WOW_ALERT_THRESHOLDS, ...(runtimeConfig.wow_alert_thresholds || {}) };
+    const getPaymentFeeRate = (paymentMethod) => effectivePaymentFees[paymentMethod] ?? effectivePaymentFees.default ?? 0;
     const isOperationallyOpen = (order) => (
       order.payment_status === 'paid'
       && !['failed', 'cancelled', 'refunded'].includes(order.payment_status)
@@ -447,7 +466,7 @@ export const api = {
     const stageSla = Object.fromEntries(
       Object.entries(stageSlaRaw).map(([key, values]) => {
         const avgHours = values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)) : null;
-        const targetHours = KPI_SLA_TARGET_HOURS[key] || null;
+        const targetHours = effectiveSlaTargets[key] || null;
         const breachCount = targetHours != null ? values.filter((value) => value > targetHours).length : 0;
         return [key, {
           avg_hours: avgHours,
@@ -609,7 +628,7 @@ export const api = {
       return acc;
     }, {});
     const wowAlerts = [];
-    if ((kpiComparisons.revenue_7d?.delta_pct ?? 0) <= KPI_WOW_ALERT_THRESHOLDS.revenue_drop_pct) {
+    if ((kpiComparisons.revenue_7d?.delta_pct ?? 0) <= effectiveWowThresholds.revenue_drop_pct) {
       wowAlerts.push({
         key: 'revenue_drop',
         severity: 'danger',
@@ -617,7 +636,7 @@ export const api = {
         detail: `${kpiComparisons.revenue_7d.delta_pct}% vs ventana previa`,
       });
     }
-    if ((kpiComparisons.payment_rate_7d?.delta_pts ?? 0) <= KPI_WOW_ALERT_THRESHOLDS.payment_rate_drop_pts) {
+    if ((kpiComparisons.payment_rate_7d?.delta_pts ?? 0) <= effectiveWowThresholds.payment_rate_drop_pts) {
       wowAlerts.push({
         key: 'payment_rate_drop',
         severity: 'warning',
@@ -627,7 +646,7 @@ export const api = {
     }
     carrierStats.forEach((carrier) => {
       const previousRate = previousCarrierRateMap[carrier.key];
-      if (previousRate != null && carrier.delivery_rate != null && (carrier.delivery_rate - previousRate) <= KPI_WOW_ALERT_THRESHOLDS.carrier_delivery_rate_drop_pts) {
+      if (previousRate != null && carrier.delivery_rate != null && (carrier.delivery_rate - previousRate) <= effectiveWowThresholds.carrier_delivery_rate_drop_pts) {
         wowAlerts.push({
           key: `carrier_${carrier.key}`,
           severity: 'warning',
@@ -637,7 +656,7 @@ export const api = {
       }
     });
     productStats.forEach((product) => {
-      if ((product.claim_rate ?? 0) >= KPI_WOW_ALERT_THRESHOLDS.sku_claim_rate_pct) {
+      if ((product.claim_rate ?? 0) >= effectiveWowThresholds.sku_claim_rate_pct) {
         wowAlerts.push({
           key: `sku_claim_${product.key}`,
           severity: 'danger',
@@ -646,6 +665,35 @@ export const api = {
         });
       }
     });
+    const executiveScore = (() => {
+      let score = 100;
+      const reasons = [];
+      const revenueDelta = kpiComparisons.revenue_7d?.delta_pct ?? 0;
+      const paymentRateDelta = kpiComparisons.payment_rate_7d?.delta_pts ?? 0;
+      if (revenueDelta < 0) {
+        const penalty = Math.min(25, Math.abs(revenueDelta) * 0.6);
+        score -= penalty;
+        reasons.push(`Revenue 7d ${revenueDelta}%`);
+      }
+      if (paymentRateDelta < 0) {
+        const penalty = Math.min(20, Math.abs(paymentRateDelta) * 1.5);
+        score -= penalty;
+        reasons.push(`Pago ${paymentRateDelta} pts`);
+      }
+      score -= Math.min(20, (slaBreaches.length || 0) * 2);
+      score -= Math.min(15, wowAlerts.length * 3);
+      const avgClaimRate = productStats.length ? productStats.reduce((sum, item) => sum + (item.claim_rate || 0), 0) / productStats.length : 0;
+      if (avgClaimRate > 0) {
+        score -= Math.min(20, avgClaimRate * 1.2);
+        reasons.push(`Claim avg ${round1(avgClaimRate)}%`);
+      }
+      const band = score >= 85 ? 'strong' : score >= 70 ? 'healthy' : score >= 50 ? 'watch' : 'critical';
+      return {
+        score: Math.max(0, round1(score)),
+        band,
+        reasons: reasons.slice(0, 4),
+      };
+    })();
     const alertBuckets = {
       paid_without_production: operationalAlerts.filter((order) => order.alerts?.includes('Pagada sin entrar a producción')),
       advanced_without_card: operationalAlerts.filter((order) => order.alerts?.includes('Orden avanzada sin card vinculada')),
@@ -847,9 +895,12 @@ export const api = {
         paymentMethodStats,
         carrierStats,
         productStats,
-        slaTargets: KPI_SLA_TARGET_HOURS,
-        paymentMethodFees: KPI_PAYMENT_METHOD_FEES,
+        slaTargets: effectiveSlaTargets,
+        paymentMethodFees: effectivePaymentFees,
         wowAlerts: wowAlerts.slice(0, 6),
+        wowThresholds: effectiveWowThresholds,
+        runtimeConfigLoaded: Object.keys(runtimeConfig).length > 0,
+        executiveScore,
         proactiveSeverity: proactiveSummary.severity,
       },
       users,
@@ -944,6 +995,28 @@ export const api = {
     if (error) throw new Error(error.message);
 
     return fetchOrders();
+  },
+
+  getKpiRuntimeConfig: async () => {
+    if (!hasSupabase) return { configs: [] };
+    const { data, error } = await supabase
+      .from('kpi_runtime_config')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return { configs: data || [] };
+  },
+
+  upsertKpiRuntimeConfig: async ({ key, config, active = true }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    if (!key) throw new Error('Key requerida');
+    const { data, error } = await supabase
+      .from('kpi_runtime_config')
+      .upsert({ key, config: config || {}, active }, { onConflict: 'key' })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   transitionOrderState: async (orderId, payload) => paymentsApi.transitionOrderState(orderId, payload),
