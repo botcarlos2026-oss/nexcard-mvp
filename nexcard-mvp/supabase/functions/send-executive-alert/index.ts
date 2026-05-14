@@ -87,7 +87,9 @@ serve(async (req) => {
       });
     }
 
-    const payloadHash = await sha256(JSON.stringify({ alertKey, payload }));
+    const requestedRecipients = Array.isArray(body?.recipients) ? body.recipients.filter(Boolean) : [];
+    const recipients = requestedRecipients.length > 0 ? requestedRecipients : ADMIN_RECIPIENTS;
+    const payloadHash = await sha256(JSON.stringify({ alertKey, payload, recipients }));
     const { data: existingHash } = await supabase
       .from('kpi_alert_history')
       .select('id, created_at, provider_message_id')
@@ -98,6 +100,16 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingHash) {
+      await supabase.from('kpi_alert_history').insert({
+        alert_key: alertKey,
+        alert_band: payload.band,
+        payload_hash: payloadHash,
+        channel: 'email',
+        status: 'omitted',
+        provider: 'resend',
+        payload,
+        metadata: { reason: 'duplicate_payload_hash', dry_run: body?.dry_run !== false, actor_email: access.email || null, recipients },
+      });
       return new Response(JSON.stringify({ skipped: true, reason: 'duplicate_payload_hash', existing: existingHash }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
@@ -141,7 +153,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           from: 'NexCard <hola@nexcard.cl>',
-          to: ADMIN_RECIPIENTS,
+          to: recipients,
           subject,
           html,
         }),
@@ -174,7 +186,7 @@ serve(async (req) => {
       provider: 'resend',
       provider_message_id: providerMessageId,
       payload,
-      metadata: { dry_run: dryRun, actor_email: access.email || null },
+      metadata: { dry_run: dryRun, actor_email: access.email || null, recipients },
     });
 
     await supabase.from('kpi_alert_state').upsert({
@@ -187,13 +199,13 @@ serve(async (req) => {
 
     try {
       await supabase.rpc('log_email_event', {
-        p_recipient_email: ADMIN_RECIPIENTS[0],
+        p_recipient_email: recipients[0],
         p_email_type: 'internal_notification',
         p_subject: subject,
         p_status: status,
         p_provider: 'resend',
         p_provider_message_id: providerMessageId,
-        p_metadata: { audience: 'internal', alert_key: alertKey, payload_hash: payloadHash, dry_run: dryRun },
+        p_metadata: { audience: 'internal', alert_key: alertKey, payload_hash: payloadHash, dry_run: dryRun, recipients },
       });
     } catch {
       // no crítico

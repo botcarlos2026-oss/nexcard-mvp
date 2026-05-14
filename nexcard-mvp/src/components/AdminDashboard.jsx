@@ -107,6 +107,7 @@ const AdminDashboard = ({ dashboard }) => {
     payment_method_fees: { webpay: 0.0295, transbank: 0.0295, mercado_pago: 0.0349, 'mercado-pago': 0.0349, default: 0 },
     wow_alert_thresholds: { revenue_drop_pct: -20, payment_rate_drop_pts: -8, carrier_delivery_rate_drop_pts: -10, sku_claim_rate_pct: 8 },
     executive_alert_policy: { enabled: 1, cooldown_minutes: 180, dedupe_by_band: 1, min_band_watch: 1, min_band_critical: 1 },
+    executive_alert_routing: { enabled: 1, auto_dispatch: 0, dry_run_default: 1, recipients_csv: 'carlos.alvarez.contreras@gmail.com,bot.carlos.2026@gmail.com' },
   });
   const [kpiConfigBusy, setKpiConfigBusy] = useState('');
   const [kpiConfigMessage, setKpiConfigMessage] = useState({ type: '', text: '' });
@@ -160,6 +161,10 @@ const AdminDashboard = ({ dashboard }) => {
   const deliveryFormats = dashboardState?.deliveryFormats || {};
   const transportReadiness = dashboardState?.transportReadiness || null;
   const executiveAlertState = transportReadiness?.executive_alert_state || null;
+  const alertHistorySummary = useMemo(() => kpiAlertHistory.reduce((acc, entry) => {
+    acc[entry.status] = (acc[entry.status] || 0) + 1;
+    return acc;
+  }, { sent: 0, dry_run: 0, omitted: 0, failed: 0 }), [kpiAlertHistory]);
 
   const reloadDashboard = async () => {
     const refreshed = await api.getAdminDashboard();
@@ -377,7 +382,7 @@ const AdminDashboard = ({ dashboard }) => {
     setAlertDispatchBusy(true);
     setKpiConfigMessage({ type: '', text: '' });
     try {
-      const result = await api.dispatchExecutiveAlert({ payload: transportReadiness.executive_alert_payload, dryRun });
+      const result = await api.dispatchExecutiveAlert({ payload: transportReadiness.executive_alert_payload, dryRun, recipients: executiveAlertState?.recipients || [] });
       await reloadDashboard();
       setKpiConfigMessage({ type: 'success', text: result?.skipped ? `Alerta omitida: ${result.reason}.` : `Alerta ejecutiva ${dryRun ? 'dry-run' : 'real'} procesada.` });
     } catch (error) {
@@ -851,6 +856,12 @@ const AdminDashboard = ({ dashboard }) => {
             {kpiAlertHistory.length ? `${kpiAlertHistory.length} evento(s)` : 'sin historial'}
           </AdminBadge>
         </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <AdminStat label="Emitidas" value={alertHistorySummary.sent || 0} accent="emerald" />
+          <AdminStat label="Dry-run" value={alertHistorySummary.dry_run || 0} accent="amber" />
+          <AdminStat label="Omitidas" value={alertHistorySummary.omitted || 0} accent="blue" />
+          <AdminStat label="Fallidas" value={alertHistorySummary.failed || 0} accent="red" />
+        </div>
         <div className="space-y-3">
           {kpiAlertHistory.length === 0 ? (
             <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-400">Todavía no hay alertas ejecutivas emitidas o simuladas.</div>
@@ -940,42 +951,52 @@ const AdminDashboard = ({ dashboard }) => {
               key: 'sla_targets',
               label: 'SLA targets',
               fields: [
-                ['paid_to_ready', 'Paid → Ready', 1],
-                ['ready_to_shipped', 'Ready → Shipped', 1],
-                ['shipped_to_delivered', 'Shipped → Delivered', 1],
-                ['delivered_to_activated', 'Delivered → Activated', 1],
+                ['paid_to_ready', 'Paid → Ready', 'number', 1],
+                ['ready_to_shipped', 'Ready → Shipped', 'number', 1],
+                ['shipped_to_delivered', 'Shipped → Delivered', 'number', 1],
+                ['delivered_to_activated', 'Delivered → Activated', 'number', 1],
               ],
             },
             {
               key: 'payment_method_fees',
               label: 'Fees por método',
               fields: [
-                ['webpay', 'Webpay', 0.0001],
-                ['transbank', 'Transbank', 0.0001],
-                ['mercado_pago', 'Mercado Pago', 0.0001],
-                ['mercado-pago', 'Mercado Pago slug', 0.0001],
-                ['default', 'Default', 0.0001],
+                ['webpay', 'Webpay', 'number', 0.0001],
+                ['transbank', 'Transbank', 'number', 0.0001],
+                ['mercado_pago', 'Mercado Pago', 'number', 0.0001],
+                ['mercado-pago', 'Mercado Pago slug', 'number', 0.0001],
+                ['default', 'Default', 'number', 0.0001],
               ],
             },
             {
               key: 'wow_alert_thresholds',
               label: 'Thresholds WoW',
               fields: [
-                ['revenue_drop_pct', 'Revenue drop %', 1],
-                ['payment_rate_drop_pts', 'Payment rate pts', 1],
-                ['carrier_delivery_rate_drop_pts', 'Carrier pts', 1],
-                ['sku_claim_rate_pct', 'Claim rate %', 1],
+                ['revenue_drop_pct', 'Revenue drop %', 'number', 1],
+                ['payment_rate_drop_pts', 'Payment rate pts', 'number', 1],
+                ['carrier_delivery_rate_drop_pts', 'Carrier pts', 'number', 1],
+                ['sku_claim_rate_pct', 'Claim rate %', 'number', 1],
               ],
             },
             {
               key: 'executive_alert_policy',
               label: 'Policy alertas ejecutivas',
               fields: [
-                ['enabled', 'Enabled (1/0)', 1],
-                ['cooldown_minutes', 'Cooldown min', 1],
-                ['dedupe_by_band', 'Dedupe por banda (1/0)', 1],
-                ['min_band_watch', 'Min watch', 1],
-                ['min_band_critical', 'Min critical', 1],
+                ['enabled', 'Enabled (1/0)', 'number', 1],
+                ['cooldown_minutes', 'Cooldown min', 'number', 1],
+                ['dedupe_by_band', 'Dedupe por banda (1/0)', 'number', 1],
+                ['min_band_watch', 'Min watch', 'number', 1],
+                ['min_band_critical', 'Min critical', 'number', 1],
+              ],
+            },
+            {
+              key: 'executive_alert_routing',
+              label: 'Routing alertas ejecutivas',
+              fields: [
+                ['enabled', 'Routing enabled (1/0)', 'number', 1],
+                ['auto_dispatch', 'Auto dispatch (1/0)', 'number', 1],
+                ['dry_run_default', 'Dry-run default (1/0)', 'number', 1],
+                ['recipients_csv', 'Recipients CSV', 'text', null],
               ],
             },
           ].map((item) => (
@@ -993,16 +1014,25 @@ const AdminDashboard = ({ dashboard }) => {
                 </button>
               </div>
               <div className="space-y-3">
-                {item.fields.map(([fieldKey, fieldLabel, step]) => (
+                {item.fields.map(([fieldKey, fieldLabel, fieldType = 'number', step]) => (
                   <label key={fieldKey} className="block">
                     <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-zinc-500">{fieldLabel}</span>
-                    <input
-                      type="number"
-                      step={step}
-                      value={kpiConfigForm[item.key]?.[fieldKey] ?? 0}
-                      onChange={(e) => updateKpiConfigField(item.key, fieldKey, Number(e.target.value))}
-                      className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-600"
-                    />
+                    {fieldType === 'text' ? (
+                      <input
+                        type="text"
+                        value={kpiConfigForm[item.key]?.[fieldKey] ?? ''}
+                        onChange={(e) => updateKpiConfigField(item.key, fieldKey, e.target.value)}
+                        className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-600"
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        step={step}
+                        value={kpiConfigForm[item.key]?.[fieldKey] ?? 0}
+                        onChange={(e) => updateKpiConfigField(item.key, fieldKey, Number(e.target.value))}
+                        className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-600"
+                      />
+                    )}
                   </label>
                 ))}
               </div>
@@ -1255,9 +1285,14 @@ const AdminDashboard = ({ dashboard }) => {
               <div className="space-y-1 text-xs text-zinc-300">
                 <p>Should send: {executiveAlertState?.should_send ? 'sí' : 'no'}</p>
                 <p>Cooldown: {executiveAlertState?.cooldown_minutes ?? 'n/a'} min</p>
+                <p>Routing enabled: {executiveAlertState?.routing_enabled ? 'sí' : 'no'}</p>
+                <p>Auto dispatch: {executiveAlertState?.auto_dispatch ? 'sí' : 'no'}</p>
+                <p>Dry-run default: {executiveAlertState?.dry_run_default ? 'sí' : 'no'}</p>
                 <p>Last band: {executiveAlertState?.last_band || '—'}</p>
                 <p>Last sent: {executiveAlertState?.last_sent_at ? new Date(executiveAlertState.last_sent_at).toLocaleString('es-CL') : '—'}</p>
                 <p>Blocked: {executiveAlertState?.blocked_reason || '—'}</p>
+                <p>Recipients: {(executiveAlertState?.recipients || []).join(', ') || '—'}</p>
+                {executiveAlertState?.auto_dispatch_result ? <p>Último auto-dispatch: {executiveAlertState.auto_dispatch_result.ok ? 'ok' : executiveAlertState.auto_dispatch_result.message || 'falló'}</p> : null}
               </div>
               <button
                 type="button"

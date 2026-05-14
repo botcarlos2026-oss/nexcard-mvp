@@ -5,7 +5,7 @@ import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
 import { createKpisApi } from './api/kpis';
-import { KPI_EXECUTIVE_ALERT_POLICY, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
+import { KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const ERROR_MESSAGES = {
@@ -49,6 +49,9 @@ const KPI_RUNTIME_CONFIG_META = {
     min: 0,
     max: 1440,
   },
+  executive_alert_routing: {
+    allowedKeys: ['enabled', 'auto_dispatch', 'dry_run_default', 'recipients_csv'],
+  },
 };
 
 const validateKpiRuntimeConfig = (key, config) => {
@@ -58,6 +61,18 @@ const validateKpiRuntimeConfig = (key, config) => {
 
   const unknownKeys = Object.keys(config).filter((entry) => !meta.allowedKeys.includes(entry));
   if (unknownKeys.length > 0) throw new Error(`Campos no permitidos en ${key}: ${unknownKeys.join(', ')}`);
+
+  if (key === 'executive_alert_routing') {
+    ['enabled', 'auto_dispatch', 'dry_run_default'].forEach((entry) => {
+      const value = config[entry];
+      if (value == null) return;
+      if (![0, 1].includes(Number(value))) throw new Error(`El campo ${entry} en ${key} debe ser 0 o 1.`);
+    });
+    if (config.recipients_csv != null && typeof config.recipients_csv !== 'string') {
+      throw new Error(`El campo recipients_csv en ${key} debe ser texto.`);
+    }
+    return true;
+  }
 
   for (const [entry, value] of Object.entries(config)) {
     if (typeof value !== 'number' || Number.isNaN(value)) throw new Error(`El campo ${entry} en ${key} debe ser numérico.`);
@@ -288,6 +303,7 @@ export const api = {
     const effectivePaymentFees = { ...KPI_PAYMENT_METHOD_FEES, ...(runtimeConfig.payment_method_fees || {}) };
     const effectiveWowThresholds = { ...KPI_WOW_ALERT_THRESHOLDS, ...(runtimeConfig.wow_alert_thresholds || {}) };
     const effectiveExecutiveAlertPolicy = { ...KPI_EXECUTIVE_ALERT_POLICY, ...(runtimeConfig.executive_alert_policy || {}) };
+    const effectiveExecutiveAlertRouting = { ...KPI_EXECUTIVE_ALERT_ROUTING, ...(runtimeConfig.executive_alert_routing || {}) };
     const getPaymentFeeRate = (paymentMethod) => effectivePaymentFees[paymentMethod] ?? effectivePaymentFees.default ?? 0;
     const isOperationallyOpen = (order) => (
       order.payment_status === 'paid'
@@ -901,6 +917,27 @@ export const api = {
     const blockedBySameBand = dedupeByBand && alertState?.last_band && alertState.last_band === executiveScore.band;
     const alertEligible = Number(effectiveExecutiveAlertPolicy.enabled || 0) === 1 && alertBandRank >= minimumBandRank && alertBandRank > 0;
     const shouldSendExecutiveAlert = alertEligible && !inCooldown && !blockedBySameBand;
+    const routingRecipients = String(effectiveExecutiveAlertRouting.recipients_csv || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    let autoDispatchResult = null;
+    if (shouldSendExecutiveAlert && Number(effectiveExecutiveAlertRouting.enabled || 0) === 1 && Number(effectiveExecutiveAlertRouting.auto_dispatch || 0) === 1) {
+      try {
+        const { data, error } = await supabase.functions.invoke('send-executive-alert', {
+          body: JSON.stringify({
+            alert_key: 'executive_score',
+            payload: executiveAlertPayload,
+            dry_run: Number(effectiveExecutiveAlertRouting.dry_run_default || 0) === 1,
+            recipients: routingRecipients,
+          }),
+          headers: { 'Content-Type': 'application/json' },
+        });
+        autoDispatchResult = error ? { ok: false, message: error.message } : { ok: true, ...data };
+      } catch (error) {
+        autoDispatchResult = { ok: false, message: error.message || 'auto_dispatch_failed' };
+      }
+    }
     const transportReadiness = {
       mode: executiveScore.band === 'critical' || executiveScore.band === 'watch' ? 'dry_run_alert_candidate' : 'dry_run_only',
       recommended_trigger: proactiveSummary.severity === 'critical' || executiveScore.band === 'critical' ? 'immediate' : 'scheduled',
@@ -935,6 +972,11 @@ export const api = {
         in_cooldown: inCooldown,
         should_send: shouldSendExecutiveAlert,
         blocked_reason: !alertEligible ? 'below_policy_threshold' : inCooldown ? 'cooldown_active' : blockedBySameBand ? 'same_band_dedup' : null,
+        routing_enabled: Number(effectiveExecutiveAlertRouting.enabled || 0) === 1,
+        auto_dispatch: Number(effectiveExecutiveAlertRouting.auto_dispatch || 0) === 1,
+        dry_run_default: Number(effectiveExecutiveAlertRouting.dry_run_default || 0) === 1,
+        recipients: routingRecipients,
+        auto_dispatch_result: autoDispatchResult,
       },
     };
     const users = (profiles || []).map(p => ({
@@ -985,6 +1027,7 @@ export const api = {
         wowAlerts: wowAlerts.slice(0, 6),
         wowThresholds: effectiveWowThresholds,
         executiveAlertPolicy: effectiveExecutiveAlertPolicy,
+        executiveAlertRouting: effectiveExecutiveAlertRouting,
         runtimeConfigLoaded: Object.keys(runtimeConfig).length > 0,
         executiveScore,
         proactiveSeverity: proactiveSummary.severity,
@@ -1127,10 +1170,10 @@ export const api = {
     return { entries: data || [] };
   },
 
-  dispatchExecutiveAlert: async ({ payload, dryRun = true }) => {
+  dispatchExecutiveAlert: async ({ payload, dryRun = true, recipients = [] }) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
     const { data, error } = await supabase.functions.invoke('send-executive-alert', {
-      body: JSON.stringify({ alert_key: 'executive_score', payload, dry_run: dryRun }),
+      body: JSON.stringify({ alert_key: 'executive_score', payload, dry_run: dryRun, recipients }),
       headers: { 'Content-Type': 'application/json' },
     });
     if (error) throw new Error(error.message || 'No pude disparar la alerta ejecutiva');

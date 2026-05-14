@@ -55,3 +55,10 @@ export const KPI_EXECUTIVE_ALERT_POLICY = {
   min_band_watch: 1,
   min_band_critical: 1,
 };
+
+export const KPI_EXECUTIVE_ALERT_ROUTING = {
+  enabled: 1,
+  auto_dispatch: 0,
+  dry_run_default: 1,
+  recipients_csv: 'carlos.alvarez.contreras@gmail.com,bot.carlos.2026@gmail.com',
+};
