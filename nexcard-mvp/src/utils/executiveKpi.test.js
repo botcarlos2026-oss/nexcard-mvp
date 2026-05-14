@@ -103,4 +103,63 @@ describe('executiveKpi helpers', () => {
     expect(result.shouldSend).toBe(true);
     expect(result.blockedReason).toBeNull();
   });
+
+  it('soporta un escenario compuesto tipo producción con presión simultánea en revenue, pago, carrier y claims', () => {
+    const wowAlerts = buildWowAlerts({
+      kpiComparisons: {
+        revenue_7d: { delta_pct: -42 },
+        payment_rate_7d: { delta_pts: -14 },
+      },
+      effectiveWowThresholds: {
+        revenue_drop_pct: -20,
+        payment_rate_drop_pts: -8,
+        carrier_delivery_rate_drop_pts: -10,
+        sku_claim_rate_pct: 8,
+      },
+      carrierStats: [
+        { key: 'starken', label: 'Starken', delivery_rate: 61 },
+        { key: 'chilexpress', label: 'Chilexpress', delivery_rate: 88 },
+      ],
+      previousCarrierRateMap: {
+        starken: 79,
+        chilexpress: 90,
+      },
+      productStats: [
+        { key: 'metal-black', label: 'Metal Black', claim_rate: 16, order_count: 18 },
+        { key: 'smart-basic', label: 'Smart Basic', claim_rate: 4, order_count: 25 },
+      ],
+    });
+
+    const score = computeExecutiveScore({
+      kpiComparisons: {
+        revenue_7d: { delta_pct: -42 },
+        payment_rate_7d: { delta_pts: -14 },
+      },
+      slaBreachesCount: 7,
+      wowAlerts,
+      productStats: [
+        { key: 'metal-black', claim_rate: 16 },
+        { key: 'smart-basic', claim_rate: 4 },
+      ],
+    });
+
+    const decision = computeExecutiveAlertDecision({
+      band: score.band,
+      policy: { enabled: 1, cooldown_minutes: 180, dedupe_by_band: 1, min_band_watch: 1, min_band_critical: 1 },
+      bandPolicy: { kill_switch: 0, watch_cooldown_minutes: 180, critical_cooldown_minutes: 60 },
+      alertState: { last_sent_at: '2026-05-14T10:00:00.000Z', last_band: 'watch' },
+      nowMs: new Date('2026-05-14T17:30:00.000Z').getTime(),
+    });
+
+    expect(wowAlerts.map((item) => item.key)).toEqual([
+      'revenue_drop',
+      'payment_rate_drop',
+      'carrier_starken',
+      'sku_claim_metal-black',
+    ]);
+    expect(score.band).toBe('critical');
+    expect(score.score).toBeLessThanOrEqual(50);
+    expect(decision.shouldSend).toBe(true);
+    expect(decision.blockedReason).toBeNull();
+  });
 });
