@@ -205,6 +205,22 @@ export const api = {
 
   getAdminDashboard: async () => {
     if (!hasSupabase) return request('/admin/dashboard');
+    const getStageTimestampMs = (order, key) => {
+      const rawValue = ({
+        paid: order.paid_at || order.updated_at || order.created_at,
+        ready: order.ready_at,
+        shipped: order.shipped_at,
+        delivered: order.delivered_at,
+        activated: order.activated_at || order.activation_last_at,
+      })[key];
+      const timestampMs = new Date(rawValue || '').getTime();
+      return Number.isNaN(timestampMs) ? NaN : timestampMs;
+    };
+    const isOperationallyOpen = (order) => (
+      order.payment_status === 'paid'
+      && !['failed', 'cancelled', 'refunded'].includes(order.payment_status)
+      && !order.activation_completed
+    );
     const { data: profiles } = await supabase.from('profiles').select('*');
     const { orders, error } = await (async () => {
       try {
@@ -342,8 +358,8 @@ export const api = {
     const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const operationalRevenue = operationalPaidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
     const qaRevenue = totalRevenue - operationalRevenue;
-    const pendingOrders = (orders || []).filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
-    const operationalPendingOrders = operationalOrders.filter(o => !['delivered','cancelled'].includes(o.fulfillment_status)).length;
+    const pendingOrders = (orders || []).filter(isOperationallyOpen).length;
+    const operationalPendingOrders = operationalOrders.filter(isOperationallyOpen).length;
     const paidOrdersCount = paidOrders.length;
     const operationalPaidOrdersCount = operationalPaidOrders.length;
     const funnel = {
@@ -419,7 +435,7 @@ export const api = {
         return [key, { avg_hours: avgHours, sample_size: values.length }];
       })
     );
-    const weeklyFunnelTrend = Array.from({ length: 7 }, (_, index) => {
+    const salesTrend7d = Array.from({ length: 7 }, (_, index) => {
       const date = new Date();
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - (6 - index));
@@ -427,17 +443,31 @@ export const api = {
       nextDate.setDate(nextDate.getDate() + 1);
 
       const dayOrders = operationalPaidOrders.filter((order) => {
-        const createdAt = new Date(order.created_at).getTime();
-        return createdAt >= date.getTime() && createdAt < nextDate.getTime();
+        const paidAt = getStageTimestampMs(order, 'paid');
+        return paidAt >= date.getTime() && paidAt < nextDate.getTime();
       });
 
       return {
         label: date.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' }),
-        paid: dayOrders.length,
-        ready: dayOrders.filter((order) => ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status)).length,
-        shipped: dayOrders.filter((order) => ['shipped', 'delivered'].includes(order.fulfillment_status)).length,
-        delivered: dayOrders.filter((order) => order.fulfillment_status === 'delivered').length,
-        activated: dayOrders.filter((order) => order.activation_completed).length,
+        revenue: dayOrders.reduce((sum, order) => sum + (order.amount_cents || 0), 0),
+        count: dayOrders.length,
+      };
+    });
+    const weeklyFunnelTrend = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - (6 - index));
+      const nextDate = new Date(date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const inWindow = (timestampMs) => timestampMs >= date.getTime() && timestampMs < nextDate.getTime();
+
+      return {
+        label: date.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' }),
+        paid: operationalPaidOrders.filter((order) => inWindow(getStageTimestampMs(order, 'paid'))).length,
+        ready: operationalPaidOrders.filter((order) => inWindow(getStageTimestampMs(order, 'ready'))).length,
+        shipped: operationalPaidOrders.filter((order) => inWindow(getStageTimestampMs(order, 'shipped'))).length,
+        delivered: operationalPaidOrders.filter((order) => inWindow(getStageTimestampMs(order, 'delivered'))).length,
+        activated: operationalPaidOrders.filter((order) => inWindow(getStageTimestampMs(order, 'activated'))).length,
       };
     });
     const alertBuckets = {
@@ -639,7 +669,10 @@ export const api = {
         proactiveSeverity: proactiveSummary.severity,
       },
       users,
-      recentOrders: operationalOrders.slice(0, 5),
+      recentOrders: [...operationalOrders]
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        .slice(0, 5),
+      salesTrend7d,
       operationalAlerts: operationalAlerts.slice(0, 8),
       slaBreaches: slaBreaches.slice(0, 8),
       weeklyFunnelTrend,

@@ -726,14 +726,19 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const stats = useMemo(() => {
     const paidOrders = auditScopedOrders.filter((order) => order.payment_status === 'paid');
     const paidRevenue = paidOrders.reduce((sum, order) => sum + order.totalCents, 0);
-    const pendingOrders = auditScopedOrders.filter((order) => !['delivered', 'cancelled'].includes(order.fulfillment_status)).length;
-    const overdueOrders = auditScopedOrders.filter((order) => ['pending', 'new'].includes(order.payment_status) || ['new'].includes(order.fulfillment_status)).length;
+    const pendingOrders = auditScopedOrders.filter((order) => order.payment_status === 'paid' && !order.activation_completed).length;
+    const overdueOrders = auditScopedOrders.filter((order) => {
+      if (order.payment_status !== 'paid' || order.activation_completed) return false;
+      const paidAtMs = new Date(order.paid_at || order.updated_at || order.created_at).getTime();
+      if (Number.isNaN(paidAtMs)) return false;
+      return ((Date.now() - paidAtMs) / (1000 * 60 * 60)) >= 24;
+    }).length;
     const avgTicket = auditScopedOrders.length ? auditScopedOrders.reduce((sum, order) => sum + order.totalCents, 0) / auditScopedOrders.length : 0;
 
     return [
       { label: 'Ventas cobradas', value: currency(paidRevenue), accent: 'emerald' },
-      { label: 'Pedidos pendientes', value: `${pendingOrders}`, accent: 'amber' },
-      { label: 'Pedidos atrasados', value: `${overdueOrders}`, accent: 'red' },
+      { label: 'Pedidos abiertos', value: `${pendingOrders}`, accent: 'amber' },
+      { label: 'SLA en riesgo', value: `${overdueOrders}`, accent: 'red' },
       { label: 'Ticket promedio', value: currency(avgTicket), accent: null },
     ];
   }, [auditScopedOrders]);

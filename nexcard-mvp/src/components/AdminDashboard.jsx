@@ -24,22 +24,7 @@ import { TH, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
 
 const SalesChart = ({ orders }) => {
-  const days = useMemo(() => {
-    const result = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toDateString();
-      const dayOrders = orders.filter(o => new Date(o.created_at).toDateString() === dateStr);
-      const revenue = dayOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0);
-      result.push({
-        label: date.toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric' }),
-        revenue,
-        count: dayOrders.length,
-      });
-    }
-    return result;
-  }, [orders]);
+  const days = useMemo(() => orders || [], [orders]);
 
   const maxRevenue = Math.max(...days.map(d => d.revenue), 1);
   const formatCLP = (n) => n >= 1000 ? `$${Math.round(n/1000)}K` : `$${n}`;
@@ -129,6 +114,7 @@ const AdminDashboard = ({ dashboard }) => {
   const users = dashboardState?.users || [];
   const statsSource = useMemo(() => dashboardState?.stats || {}, [dashboardState]);
   const recentOrders = dashboardState?.recentOrders || [];
+  const salesTrend7d = dashboardState?.salesTrend7d || [];
   const operationalAlerts = dashboardState?.operationalAlerts || [];
   const slaBreaches = dashboardState?.slaBreaches || [];
   const weeklyFunnelTrend = dashboardState?.weeklyFunnelTrend || [];
@@ -586,7 +572,7 @@ const AdminDashboard = ({ dashboard }) => {
           </div>
           <BarChart2 size={20} className="text-emerald-500" />
         </div>
-        <SalesChart orders={recentOrders} />
+        <SalesChart orders={salesTrend7d} />
       </AdminCard>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -604,8 +590,8 @@ const AdminDashboard = ({ dashboard }) => {
       <AdminCard className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="font-bold text-lg text-white">Tendencia semanal del embudo real</h2>
-            <p className="text-sm text-zinc-400 font-medium">Volumen diario por etapa excluyendo órdenes QA/internas</p>
+            <h2 className="font-bold text-lg text-white">Tendencia semanal del throughput real</h2>
+            <p className="text-sm text-zinc-400 font-medium">Hitos diarios por timestamp de etapa (paid, ready, shipped, delivered, activated) excluyendo QA/interno</p>
           </div>
           <TrendingUp size={20} className="text-fuchsia-400" />
         </div>
