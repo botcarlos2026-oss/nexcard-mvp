@@ -5,6 +5,7 @@ import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
 import { createKpisApi } from './api/kpis';
+import { KPI_SLA_TARGET_HOURS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const ERROR_MESSAGES = {
@@ -205,12 +206,6 @@ export const api = {
 
   getAdminDashboard: async () => {
     if (!hasSupabase) return request('/admin/dashboard');
-    const SLA_TARGET_HOURS = {
-      paid_to_ready: 24,
-      ready_to_shipped: 24,
-      shipped_to_delivered: 72,
-      delivered_to_activated: 24,
-    };
     const getStageTimestampMs = (order, key) => {
       const rawValue = ({
         paid: order.paid_at || order.updated_at || order.created_at,
@@ -240,6 +235,7 @@ export const api = {
       && !order.activation_completed
     );
     const { data: profiles } = await supabase.from('profiles').select('*');
+    const { data: products } = await supabase.from('products').select('id, name, sku');
     const { orders, error } = await (async () => {
       try {
         const result = await fetchOrders();
@@ -450,7 +446,7 @@ export const api = {
     const stageSla = Object.fromEntries(
       Object.entries(stageSlaRaw).map(([key, values]) => {
         const avgHours = values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)) : null;
-        const targetHours = SLA_TARGET_HOURS[key] || null;
+        const targetHours = KPI_SLA_TARGET_HOURS[key] || null;
         const breachCount = targetHours != null ? values.filter((value) => value > targetHours).length : 0;
         return [key, {
           avg_hours: avgHours,
@@ -543,6 +539,43 @@ export const api = {
         delta_pts: round1(currentWindowPaymentRate - previousWindowPaymentRate),
       },
     };
+    const productNameMap = Object.fromEntries((products || []).map((product) => [product.id, product.name || product.sku || product.id]));
+    const window30dStartMs = (() => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - 29);
+      return date.getTime();
+    })();
+    const rolling30dPaidOrders = operationalPaidOrders.filter((order) => inRange(getStageTimestampMs(order, 'paid'), window30dStartMs, nowMs + 1));
+    const rolling30dShippedOrders = operationalPaidOrders.filter((order) => inRange(getStageTimestampMs(order, 'shipped'), window30dStartMs, nowMs + 1));
+    const paymentMethodStats = Object.values(rolling30dPaidOrders.reduce((acc, order) => {
+      const key = order.payment_method || 'Sin método';
+      if (!acc[key]) acc[key] = { key, label: key, orders: 0, revenue: 0 };
+      acc[key].orders += 1;
+      acc[key].revenue += order.amount_cents || 0;
+      return acc;
+    }, {})).sort((a, b) => (b.revenue - a.revenue) || (b.orders - a.orders)).slice(0, 5);
+    const carrierStats = Object.values(rolling30dShippedOrders.reduce((acc, order) => {
+      const key = order.carrier || 'Sin carrier';
+      if (!acc[key]) acc[key] = { key, label: key, orders: 0, delivered: 0 };
+      acc[key].orders += 1;
+      if (order.fulfillment_status === 'delivered') acc[key].delivered += 1;
+      return acc;
+    }, {})).map((item) => ({
+      ...item,
+      delivery_rate: percentage(item.delivered, item.orders),
+    })).sort((a, b) => (b.orders - a.orders) || ((b.delivery_rate || 0) - (a.delivery_rate || 0))).slice(0, 5);
+    const productStats = Object.values(rolling30dPaidOrders.reduce((acc, order) => {
+      (order.order_items || []).forEach((item) => {
+        const key = item.product_id || 'Sin producto';
+        if (!acc[key]) acc[key] = { key, label: productNameMap[key] || key, quantity: 0, revenue: 0 };
+        const quantity = Number(item.quantity) || 0;
+        const lineRevenue = item.unit_price_cents != null ? (Number(item.unit_price_cents) || 0) * quantity : ((order.amount_cents || 0) / Math.max((order.order_items || []).length, 1));
+        acc[key].quantity += quantity;
+        acc[key].revenue += lineRevenue;
+      });
+      return acc;
+    }, {})).sort((a, b) => (b.revenue - a.revenue) || (b.quantity - a.quantity)).slice(0, 5);
     const alertBuckets = {
       paid_without_production: operationalAlerts.filter((order) => order.alerts?.includes('Pagada sin entrar a producción')),
       advanced_without_card: operationalAlerts.filter((order) => order.alerts?.includes('Orden avanzada sin card vinculada')),
@@ -741,6 +774,10 @@ export const api = {
         stageSla,
         conversionStats,
         kpiComparisons,
+        paymentMethodStats,
+        carrierStats,
+        productStats,
+        slaTargets: KPI_SLA_TARGET_HOURS,
         proactiveSeverity: proactiveSummary.severity,
       },
       users,

@@ -271,6 +271,10 @@ const AdminDashboard = ({ dashboard }) => {
   }, [statsSource]);
 
   const kpiComparisons = useMemo(() => statsSource.kpiComparisons || {}, [statsSource]);
+  const paymentMethodStats = useMemo(() => statsSource.paymentMethodStats || [], [statsSource]);
+  const carrierStats = useMemo(() => statsSource.carrierStats || [], [statsSource]);
+  const productStats = useMemo(() => statsSource.productStats || [], [statsSource]);
+  const slaTargets = useMemo(() => statsSource.slaTargets || {}, [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const handleCopyDigest = async () => {
@@ -602,6 +606,68 @@ const AdminDashboard = ({ dashboard }) => {
         ))}
       </div>
 
+      <div className="grid lg:grid-cols-3 gap-6 mb-6">
+        <AdminCard>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-bold text-lg text-white">Métodos de pago (30d)</h2>
+              <p className="text-sm text-zinc-400 font-medium">Top por revenue cobrado real</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {paymentMethodStats.length === 0 ? <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm text-zinc-400">Sin data suficiente.</div> : paymentMethodStats.map((item) => (
+              <div key={item.key} className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-bold text-sm text-white">{item.label}</p>
+                  <p className="text-xs text-zinc-400">{item.orders} órdenes</p>
+                </div>
+                <p className="text-sm font-bold text-emerald-400">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.revenue || 0)}</p>
+              </div>
+            ))}
+          </div>
+        </AdminCard>
+
+        <AdminCard>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-bold text-lg text-white">Carriers (30d)</h2>
+              <p className="text-sm text-zinc-400 font-medium">Volumen despachado y tasa entrega</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {carrierStats.length === 0 ? <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm text-zinc-400">Sin data suficiente.</div> : carrierStats.map((item) => (
+              <div key={item.key} className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-bold text-sm text-white">{item.label}</p>
+                  <p className="text-xs text-zinc-400">{item.orders} despachos · {item.delivered} entregadas</p>
+                </div>
+                <p className="text-sm font-bold text-sky-400">{item.delivery_rate != null ? `${item.delivery_rate}%` : '—'}</p>
+              </div>
+            ))}
+          </div>
+        </AdminCard>
+
+        <AdminCard>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-bold text-lg text-white">Productos/SKU (30d)</h2>
+              <p className="text-sm text-zinc-400 font-medium">Top por revenue operativo</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {productStats.length === 0 ? <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm text-zinc-400">Sin data suficiente.</div> : productStats.map((item) => (
+              <div key={item.key} className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-bold text-sm text-white">{item.label}</p>
+                  <p className="text-xs text-zinc-400">{item.quantity} unidades</p>
+                </div>
+                <p className="text-sm font-bold text-amber-400">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.revenue || 0)}</p>
+              </div>
+            ))}
+          </div>
+        </AdminCard>
+      </div>
+
       <AdminCard className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -633,6 +699,21 @@ const AdminDashboard = ({ dashboard }) => {
           hint={kpiComparisons.payment_rate_7d ? `${kpiComparisons.payment_rate_7d.delta_pts > 0 ? '+' : ''}${kpiComparisons.payment_rate_7d.delta_pts || 0} pts vs ${kpiComparisons.payment_rate_7d.previous || 0}%` : null}
         />
       </div>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">Targets SLA activos</h2>
+            <p className="text-sm text-zinc-400 font-medium">Configurable desde `src/config/admin.js`</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <AdminStat label="Paid → Ready" value={slaTargets.paid_to_ready != null ? `${slaTargets.paid_to_ready}h` : '—'} accent="amber" />
+          <AdminStat label="Ready → Shipped" value={slaTargets.ready_to_shipped != null ? `${slaTargets.ready_to_shipped}h` : '—'} accent="blue" />
+          <AdminStat label="Shipped → Delivered" value={slaTargets.shipped_to_delivered != null ? `${slaTargets.shipped_to_delivered}h` : '—'} accent="emerald" />
+          <AdminStat label="Delivered → Activated" value={slaTargets.delivered_to_activated != null ? `${slaTargets.delivered_to_activated}h` : '—'} accent="fuchsia" />
+        </div>
+      </AdminCard>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {conversionCards.map((stat) => (
