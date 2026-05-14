@@ -103,13 +103,15 @@ const AdminDashboard = ({ dashboard }) => {
   const [quickActionBusyId, setQuickActionBusyId] = useState('');
   const [quickActionMessage, setQuickActionMessage] = useState({ type: '', text: '' });
   const [kpiConfigForm, setKpiConfigForm] = useState({
-    sla_targets: '{\n  "paid_to_ready": 24,\n  "ready_to_shipped": 24,\n  "shipped_to_delivered": 72,\n  "delivered_to_activated": 24\n}',
-    payment_method_fees: '{\n  "webpay": 0.0295,\n  "transbank": 0.0295,\n  "mercado_pago": 0.0349,\n  "mercado-pago": 0.0349,\n  "default": 0\n}',
-    wow_alert_thresholds: '{\n  "revenue_drop_pct": -20,\n  "payment_rate_drop_pts": -8,\n  "carrier_delivery_rate_drop_pts": -10,\n  "sku_claim_rate_pct": 8\n}',
+    sla_targets: { paid_to_ready: 24, ready_to_shipped: 24, shipped_to_delivered: 72, delivered_to_activated: 24 },
+    payment_method_fees: { webpay: 0.0295, transbank: 0.0295, mercado_pago: 0.0349, 'mercado-pago': 0.0349, default: 0 },
+    wow_alert_thresholds: { revenue_drop_pct: -20, payment_rate_drop_pts: -8, carrier_delivery_rate_drop_pts: -10, sku_claim_rate_pct: 8 },
+    executive_alert_policy: { enabled: 1, cooldown_minutes: 180, dedupe_by_band: 1, min_band_watch: 1, min_band_critical: 1 },
   });
   const [kpiConfigBusy, setKpiConfigBusy] = useState('');
   const [kpiConfigMessage, setKpiConfigMessage] = useState({ type: '', text: '' });
   const [kpiAuditEntries, setKpiAuditEntries] = useState([]);
+  const [alertStateBusy, setAlertStateBusy] = useState(false);
 
   useEffect(() => {
     setDashboardState(dashboard);
@@ -125,7 +127,7 @@ const AdminDashboard = ({ dashboard }) => {
       setKpiConfigForm((prev) => {
         const next = { ...prev };
         configs.forEach((row) => {
-          if (row?.key) next[row.key] = JSON.stringify(row.config || {}, null, 2);
+          if (row?.key) next[row.key] = row.config || {};
         });
         return next;
       });
@@ -154,6 +156,7 @@ const AdminDashboard = ({ dashboard }) => {
   const manualOverrideQaSla = useMemo(() => dashboardState?.stats?.manualOverrideQaSla || { open_avg_hours: null, open_sample_size: 0, review_avg_hours: null, review_sample_size: 0, resolution_avg_hours: null, resolution_sample_size: 0 }, [dashboardState]);
   const deliveryFormats = dashboardState?.deliveryFormats || {};
   const transportReadiness = dashboardState?.transportReadiness || null;
+  const executiveAlertState = transportReadiness?.executive_alert_state || null;
 
   const reloadDashboard = async () => {
     const refreshed = await api.getAdminDashboard();
@@ -327,15 +330,42 @@ const AdminDashboard = ({ dashboard }) => {
     setKpiConfigBusy(key);
     setKpiConfigMessage({ type: '', text: '' });
     try {
-      const parsed = JSON.parse(kpiConfigForm[key] || '{}');
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Debes guardar un objeto JSON válido.');
-      await api.upsertKpiRuntimeConfig({ key, config: parsed, active: true });
+      await api.upsertKpiRuntimeConfig({ key, config: kpiConfigForm[key] || {}, active: true });
       await reloadDashboard();
       setKpiConfigMessage({ type: 'success', text: `Config KPI ${key} guardada.` });
     } catch (error) {
       setKpiConfigMessage({ type: 'error', text: error.message || `No pude guardar ${key}.` });
     } finally {
       setKpiConfigBusy('');
+    }
+  };
+  const updateKpiConfigField = (groupKey, fieldKey, value) => {
+    setKpiConfigForm((prev) => ({
+      ...prev,
+      [groupKey]: {
+        ...(prev[groupKey] || {}),
+        [fieldKey]: value,
+      },
+    }));
+  };
+  const handleMarkExecutiveAlertSent = async () => {
+    if (!transportReadiness?.executive_alert_payload) return;
+    setAlertStateBusy(true);
+    setKpiConfigMessage({ type: '', text: '' });
+    try {
+      await api.upsertKpiAlertState({
+        alert_key: 'executive_score',
+        last_band: transportReadiness.executive_alert_payload.band,
+        last_score: transportReadiness.executive_alert_payload.score,
+        last_payload: transportReadiness.executive_alert_payload,
+        cooldown_minutes: executiveAlertState?.cooldown_minutes || 0,
+      });
+      await reloadDashboard();
+      setKpiConfigMessage({ type: 'success', text: 'Estado de alerta ejecutiva actualizado (dry-run).' });
+    } catch (error) {
+      setKpiConfigMessage({ type: 'error', text: error.message || 'No pude persistir el estado de alerta.' });
+    } finally {
+      setAlertStateBusy(false);
     }
   };
   const proactiveTone = proactiveSummary?.severity === 'critical'
@@ -844,7 +874,7 @@ const AdminDashboard = ({ dashboard }) => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-bold text-lg text-white">KPI runtime config</h2>
-            <p className="text-sm text-zinc-400 font-medium">Edita parámetros persistentes sin tocar código. JSON válido requerido.</p>
+            <p className="text-sm text-zinc-400 font-medium">Edita parámetros persistentes con inputs tipados. Menos error humano, más control.</p>
           </div>
           <AdminBadge variant={runtimeConfigLoaded ? 'success' : 'warning'}>
             {runtimeConfigLoaded ? 'runtime activo' : 'solo fallback'}
@@ -857,9 +887,48 @@ const AdminDashboard = ({ dashboard }) => {
         ) : null}
         <div className="grid lg:grid-cols-3 gap-4">
           {[
-            { key: 'sla_targets', label: 'SLA targets' },
-            { key: 'payment_method_fees', label: 'Fees por método' },
-            { key: 'wow_alert_thresholds', label: 'Thresholds WoW' },
+            {
+              key: 'sla_targets',
+              label: 'SLA targets',
+              fields: [
+                ['paid_to_ready', 'Paid → Ready', 1],
+                ['ready_to_shipped', 'Ready → Shipped', 1],
+                ['shipped_to_delivered', 'Shipped → Delivered', 1],
+                ['delivered_to_activated', 'Delivered → Activated', 1],
+              ],
+            },
+            {
+              key: 'payment_method_fees',
+              label: 'Fees por método',
+              fields: [
+                ['webpay', 'Webpay', 0.0001],
+                ['transbank', 'Transbank', 0.0001],
+                ['mercado_pago', 'Mercado Pago', 0.0001],
+                ['mercado-pago', 'Mercado Pago slug', 0.0001],
+                ['default', 'Default', 0.0001],
+              ],
+            },
+            {
+              key: 'wow_alert_thresholds',
+              label: 'Thresholds WoW',
+              fields: [
+                ['revenue_drop_pct', 'Revenue drop %', 1],
+                ['payment_rate_drop_pts', 'Payment rate pts', 1],
+                ['carrier_delivery_rate_drop_pts', 'Carrier pts', 1],
+                ['sku_claim_rate_pct', 'Claim rate %', 1],
+              ],
+            },
+            {
+              key: 'executive_alert_policy',
+              label: 'Policy alertas ejecutivas',
+              fields: [
+                ['enabled', 'Enabled (1/0)', 1],
+                ['cooldown_minutes', 'Cooldown min', 1],
+                ['dedupe_by_band', 'Dedupe por banda (1/0)', 1],
+                ['min_band_watch', 'Min watch', 1],
+                ['min_band_critical', 'Min critical', 1],
+              ],
+            },
           ].map((item) => (
             <div key={item.key} className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
@@ -874,12 +943,20 @@ const AdminDashboard = ({ dashboard }) => {
                   Guardar
                 </button>
               </div>
-              <textarea
-                value={kpiConfigForm[item.key] || '{}'}
-                onChange={(e) => setKpiConfigForm((prev) => ({ ...prev, [item.key]: e.target.value }))}
-                className="min-h-[220px] w-full rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-xs font-mono text-zinc-200 outline-none focus:border-emerald-600"
-                spellCheck={false}
-              />
+              <div className="space-y-3">
+                {item.fields.map(([fieldKey, fieldLabel, step]) => (
+                  <label key={fieldKey} className="block">
+                    <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-zinc-500">{fieldLabel}</span>
+                    <input
+                      type="number"
+                      step={step}
+                      value={kpiConfigForm[item.key]?.[fieldKey] ?? 0}
+                      onChange={(e) => updateKpiConfigField(item.key, fieldKey, Number(e.target.value))}
+                      className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-600"
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -1124,6 +1201,25 @@ const AdminDashboard = ({ dashboard }) => {
               </button>
             </div>
             <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(transportReadiness?.executive_alert_payload || {}, null, 2)}</pre>
+            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/70 p-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Estado dedupe/cooldown</p>
+              <div className="space-y-1 text-xs text-zinc-300">
+                <p>Should send: {executiveAlertState?.should_send ? 'sí' : 'no'}</p>
+                <p>Cooldown: {executiveAlertState?.cooldown_minutes ?? 'n/a'} min</p>
+                <p>Last band: {executiveAlertState?.last_band || '—'}</p>
+                <p>Last sent: {executiveAlertState?.last_sent_at ? new Date(executiveAlertState.last_sent_at).toLocaleString('es-CL') : '—'}</p>
+                <p>Blocked: {executiveAlertState?.blocked_reason || '—'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleMarkExecutiveAlertSent}
+                disabled={alertStateBusy}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              >
+                {alertStateBusy ? <Loader2 size={14} className="animate-spin" /> : null}
+                Marcar enviado (dry-run)
+              </button>
+            </div>
           </div>
         </div>
       </AdminCard>

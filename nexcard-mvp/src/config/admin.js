@@ -47,3 +47,11 @@ export const KPI_WOW_ALERT_THRESHOLDS = {
   carrier_delivery_rate_drop_pts: -10,
   sku_claim_rate_pct: 8,
 };
+
+export const KPI_EXECUTIVE_ALERT_POLICY = {
+  enabled: 1,
+  cooldown_minutes: 180,
+  dedupe_by_band: 1,
+  min_band_watch: 1,
+  min_band_critical: 1,
+};

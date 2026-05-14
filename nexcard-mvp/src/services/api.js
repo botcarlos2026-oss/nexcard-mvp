@@ -5,7 +5,7 @@ import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
 import { createKpisApi } from './api/kpis';
-import { KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
+import { KPI_EXECUTIVE_ALERT_POLICY, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const ERROR_MESSAGES = {
@@ -43,6 +43,11 @@ const KPI_RUNTIME_CONFIG_META = {
     allowedKeys: ['revenue_drop_pct', 'payment_rate_drop_pts', 'carrier_delivery_rate_drop_pts', 'sku_claim_rate_pct'],
     min: -100,
     max: 100,
+  },
+  executive_alert_policy: {
+    allowedKeys: ['enabled', 'cooldown_minutes', 'dedupe_by_band', 'min_band_watch', 'min_band_critical'],
+    min: 0,
+    max: 1440,
   },
 };
 
@@ -282,6 +287,7 @@ export const api = {
     const effectiveSlaTargets = { ...KPI_SLA_TARGET_HOURS, ...(runtimeConfig.sla_targets || {}) };
     const effectivePaymentFees = { ...KPI_PAYMENT_METHOD_FEES, ...(runtimeConfig.payment_method_fees || {}) };
     const effectiveWowThresholds = { ...KPI_WOW_ALERT_THRESHOLDS, ...(runtimeConfig.wow_alert_thresholds || {}) };
+    const effectiveExecutiveAlertPolicy = { ...KPI_EXECUTIVE_ALERT_POLICY, ...(runtimeConfig.executive_alert_policy || {}) };
     const getPaymentFeeRate = (paymentMethod) => effectivePaymentFees[paymentMethod] ?? effectivePaymentFees.default ?? 0;
     const isOperationallyOpen = (order) => (
       order.payment_status === 'paid'
@@ -870,6 +876,31 @@ export const api = {
       summary: deliveryFormats.short_text,
       generated_at: operationalDigest.generated_at,
     };
+    const alertBandRank = executiveScore.band === 'critical' ? 2 : executiveScore.band === 'watch' ? 1 : 0;
+    const minimumBandRank = executiveScore.band === 'critical'
+      ? Number(effectiveExecutiveAlertPolicy.min_band_critical || 1)
+      : Number(effectiveExecutiveAlertPolicy.min_band_watch || 1);
+    let alertState = null;
+    if (hasSupabase) {
+      try {
+        const { data } = await supabase
+          .from('kpi_alert_state')
+          .select('*')
+          .eq('alert_key', 'executive_score')
+          .maybeSingle();
+        alertState = data || null;
+      } catch {
+        alertState = null;
+      }
+    }
+    const cooldownMinutes = Number(effectiveExecutiveAlertPolicy.cooldown_minutes || 0);
+    const cooldownMs = cooldownMinutes * 60 * 1000;
+    const lastSentAtMs = new Date(alertState?.last_sent_at || '').getTime();
+    const inCooldown = Number.isFinite(lastSentAtMs) && !Number.isNaN(lastSentAtMs) && cooldownMs > 0 && (nowMs - lastSentAtMs) < cooldownMs;
+    const dedupeByBand = Number(effectiveExecutiveAlertPolicy.dedupe_by_band || 0) === 1;
+    const blockedBySameBand = dedupeByBand && alertState?.last_band && alertState.last_band === executiveScore.band;
+    const alertEligible = Number(effectiveExecutiveAlertPolicy.enabled || 0) === 1 && alertBandRank >= minimumBandRank && alertBandRank > 0;
+    const shouldSendExecutiveAlert = alertEligible && !inCooldown && !blockedBySameBand;
     const transportReadiness = {
       mode: executiveScore.band === 'critical' || executiveScore.band === 'watch' ? 'dry_run_alert_candidate' : 'dry_run_only',
       recommended_trigger: proactiveSummary.severity === 'critical' || executiveScore.band === 'critical' ? 'immediate' : 'scheduled',
@@ -895,6 +926,16 @@ export const api = {
         digest: operationalDigest.text,
       },
       executive_alert_payload: executiveAlertPayload,
+      executive_alert_state: {
+        enabled: Number(effectiveExecutiveAlertPolicy.enabled || 0) === 1,
+        cooldown_minutes: cooldownMinutes,
+        dedupe_by_band: dedupeByBand,
+        last_band: alertState?.last_band || null,
+        last_sent_at: alertState?.last_sent_at || null,
+        in_cooldown: inCooldown,
+        should_send: shouldSendExecutiveAlert,
+        blocked_reason: !alertEligible ? 'below_policy_threshold' : inCooldown ? 'cooldown_active' : blockedBySameBand ? 'same_band_dedup' : null,
+      },
     };
     const users = (profiles || []).map(p => ({
       id: p.id,
@@ -943,6 +984,7 @@ export const api = {
         paymentMethodFees: effectivePaymentFees,
         wowAlerts: wowAlerts.slice(0, 6),
         wowThresholds: effectiveWowThresholds,
+        executiveAlertPolicy: effectiveExecutiveAlertPolicy,
         runtimeConfigLoaded: Object.keys(runtimeConfig).length > 0,
         executiveScore,
         proactiveSeverity: proactiveSummary.severity,
@@ -1062,6 +1104,36 @@ export const api = {
       .limit(12);
     if (error) throw new Error(error.message);
     return { entries: data || [] };
+  },
+
+  getKpiAlertState: async () => {
+    if (!hasSupabase) return { entries: [] };
+    const { data, error } = await supabase
+      .from('kpi_alert_state')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return { entries: data || [] };
+  },
+
+  upsertKpiAlertState: async ({ alert_key, last_band, last_score, last_payload, cooldown_minutes }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    if (!alert_key) throw new Error('alert_key requerido');
+    const payload = {
+      alert_key,
+      last_band: last_band || null,
+      last_score: last_score ?? null,
+      last_payload: last_payload || {},
+      cooldown_minutes: cooldown_minutes ?? null,
+      last_sent_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from('kpi_alert_state')
+      .upsert(payload, { onConflict: 'alert_key' })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   upsertKpiRuntimeConfig: async ({ key, config, active = true }) => {
