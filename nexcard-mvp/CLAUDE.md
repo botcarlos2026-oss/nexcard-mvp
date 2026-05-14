@@ -365,6 +365,10 @@ Cambios concretos:
    - se renombró la colisión local `202604160001_shipping_tracking.sql` -> `202604160006_shipping_tracking.sql` para eliminar doble version id
    - se agregaron placeholders locales `20260511140924` / `1130` / `1216` / `1829` / `1857` para alinear versiones remotas huérfanas registradas en `schema_migrations`
    - tras la reparación, `supabase migration list` quedó completamente alineado y `supabase db push` aplicó remoto `202605132145_order_test_review_audit.sql` y `202605132215_order_test_override_sla_columns.sql`
+18. timeline visual QA en detalle de orden:
+   - `OrdersDashboard` ahora construye una línea temporal de decisión usando `order_status_history` + campos persistidos de QA (`qa_override_at`, `qa_reviewed_at`, `qa_override_resolved_at`)
+   - muestra visualmente: clasificación inicial, override manual a QA, revisión QA y restore a operación real
+   - incluye actor, fecha y detalle por evento para reducir lectura forense del historial crudo
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

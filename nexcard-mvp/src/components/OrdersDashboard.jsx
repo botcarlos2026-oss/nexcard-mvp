@@ -77,6 +77,100 @@ const formatActorLabel = (entry) => {
   return 'sistema';
 };
 
+const buildQaDecisionTimeline = (order, history = []) => {
+  if (!order) return [];
+
+  const events = [];
+  const pushEvent = (event) => {
+    if (!event?.at) return;
+    events.push(event);
+  };
+
+  pushEvent({
+    key: `classified-${order.id}`,
+    type: 'classified',
+    title: order.isNonOperational ? 'Clasificación QA detectada' : 'Clasificación operativa real',
+    at: order.created_at,
+    actor: 'sistema',
+    tone: order.isNonOperational ? 'warning' : 'default',
+    detail: order.testReasonResolved
+      ? `Motivo inicial: ${formatLabel(order.testReasonResolved)}`
+      : 'Sin motivo de exclusión inicial.',
+  });
+
+  const sortedHistory = [...history].sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime());
+
+  sortedHistory.forEach((entry, index) => {
+    if (entry.field === 'is_test') {
+      const turnedQa = entry.new_value === 'true';
+      pushEvent({
+        key: `override-${index}-${entry.changed_at}`,
+        type: turnedQa ? 'override_to_qa' : 'restore_real',
+        title: turnedQa ? 'Override manual a QA/test' : 'Restore manual a operación real',
+        at: entry.changed_at,
+        actor: formatActorLabel(entry),
+        tone: turnedQa ? 'warning' : 'success',
+        detail: turnedQa ? 'La orden fue excluida manualmente de la operación real.' : 'La orden volvió manualmente a operación real.',
+      });
+    }
+
+    if (entry.field === 'qa_reviewed_at') {
+      pushEvent({
+        key: `review-${index}-${entry.changed_at}`,
+        type: 'reviewed',
+        title: 'Revisión QA registrada',
+        at: entry.changed_at,
+        actor: formatActorLabel(entry),
+        tone: 'info',
+        detail: order.qa_review_note ? `Nota: ${order.qa_review_note}` : 'Sin nota de auditoría.',
+      });
+    }
+  });
+
+  if (order.qa_override_at && !sortedHistory.some((entry) => entry.field === 'is_test' && entry.new_value === 'true')) {
+    pushEvent({
+      key: `override-fallback-${order.id}`,
+      type: 'override_to_qa',
+      title: 'Override manual a QA/test',
+      at: order.qa_override_at,
+      actor: order.qa_override_by_label || 'admin',
+      tone: 'warning',
+      detail: 'Reconstruido desde campos persistidos de SLA QA.',
+    });
+  }
+
+  if (order.qa_reviewed_at && !sortedHistory.some((entry) => entry.field === 'qa_reviewed_at')) {
+    pushEvent({
+      key: `review-fallback-${order.id}`,
+      type: 'reviewed',
+      title: 'Revisión QA registrada',
+      at: order.qa_reviewed_at,
+      actor: order.qa_reviewed_by_label || 'admin',
+      tone: 'info',
+      detail: order.qa_review_note ? `Nota: ${order.qa_review_note}` : 'Sin nota de auditoría.',
+    });
+  }
+
+  if (order.qa_override_resolved_at && !sortedHistory.some((entry) => entry.field === 'is_test' && entry.new_value === 'false')) {
+    pushEvent({
+      key: `restore-fallback-${order.id}`,
+      type: 'restore_real',
+      title: 'Restore manual a operación real',
+      at: order.qa_override_resolved_at,
+      actor: 'admin',
+      tone: 'success',
+      detail: 'Reconstruido desde timestamp de resolución del override.',
+    });
+  }
+
+  return events
+    .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+    .map((event, index, list) => ({
+      ...event,
+      isLast: index === list.length - 1,
+    }));
+};
+
 const deriveManualOverrideSeverity = (order) => {
   if (!isManualTestReason(order?.testReasonResolved || order?.test_reason)) {
     return { level: null, score: 0, ageHours: 0 };
@@ -399,6 +493,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     if (!selectedOrder) return null;
     const history = orderHistory[selectedOrder.id] || [];
     return history.find((entry) => entry.field === 'is_test' || entry.field === 'test_reason') || null;
+  }, [selectedOrder, orderHistory]);
+
+  const selectedOrderQaTimeline = useMemo(() => {
+    if (!selectedOrder) return [];
+    return buildQaDecisionTimeline(selectedOrder, orderHistory[selectedOrder.id] || []);
   }, [selectedOrder, orderHistory]);
 
   const loadSlugForOrder = useCallback(async (order) => {
@@ -1211,6 +1310,47 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                         {selectedOrder.is_test ? 'QA/test' : 'Operativa real'}
                       </AdminBadge>
                     </div>
+                  </div>
+                  <div className="rounded-xl border border-zinc-700 bg-zinc-950/60 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Timeline decisión QA</p>
+                      <p className="text-[11px] text-zinc-500">Clasificación → override → revisión → restore</p>
+                    </div>
+                    {selectedOrderQaTimeline.length === 0 ? (
+                      <p className="text-sm text-zinc-500">Sin eventos QA relevantes todavía.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {selectedOrderQaTimeline.map((event) => {
+                          const toneClasses = event.tone === 'success'
+                            ? 'border-emerald-800 bg-emerald-950/20 text-emerald-300'
+                            : event.tone === 'warning'
+                              ? 'border-amber-800 bg-amber-950/20 text-amber-300'
+                              : event.tone === 'info'
+                                ? 'border-sky-800 bg-sky-950/20 text-sky-300'
+                                : 'border-zinc-700 bg-zinc-900 text-zinc-300';
+                          return (
+                            <div key={event.key} className="flex gap-3">
+                              <div className="flex flex-col items-center pt-1">
+                                <div className={`h-3 w-3 rounded-full border ${event.tone === 'success' ? 'border-emerald-500 bg-emerald-500' : event.tone === 'warning' ? 'border-amber-500 bg-amber-500' : event.tone === 'info' ? 'border-sky-500 bg-sky-500' : 'border-zinc-500 bg-zinc-500'}`} />
+                                {!event.isLast && <div className="mt-1 w-px flex-1 bg-zinc-700 min-h-[28px]" />}
+                              </div>
+                              <div className={`flex-1 rounded-xl border p-3 ${toneClasses}`}>
+                                <div className="flex items-start justify-between gap-3 flex-wrap">
+                                  <div>
+                                    <p className="text-sm font-bold">{event.title}</p>
+                                    <p className="mt-1 text-xs opacity-80">{event.detail}</p>
+                                  </div>
+                                  <div className="text-right text-[11px] opacity-80">
+                                    <p className="font-bold">{event.actor}</p>
+                                    <p>{formatDate(event.at)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   {selectedOrder.is_test && isManualTestReason(selectedOrder.test_reason) && (
                     <div className="rounded-xl border border-fuchsia-800 bg-fuchsia-950/20 p-4 space-y-3">
