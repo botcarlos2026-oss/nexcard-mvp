@@ -5,7 +5,7 @@ import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
 import { createKpisApi } from './api/kpis';
-import { KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
+import { KPI_EXECUTIVE_ALERT_BAND_POLICY, KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const ERROR_MESSAGES = {
@@ -52,6 +52,9 @@ const KPI_RUNTIME_CONFIG_META = {
   executive_alert_routing: {
     allowedKeys: ['enabled', 'auto_dispatch', 'dry_run_default', 'recipients_csv'],
   },
+  executive_alert_band_policy: {
+    allowedKeys: ['kill_switch', 'watch_cooldown_minutes', 'critical_cooldown_minutes', 'watch_recipients_csv', 'critical_recipients_csv'],
+  },
 };
 
 const validateKpiRuntimeConfig = (key, config) => {
@@ -62,7 +65,22 @@ const validateKpiRuntimeConfig = (key, config) => {
   const unknownKeys = Object.keys(config).filter((entry) => !meta.allowedKeys.includes(entry));
   if (unknownKeys.length > 0) throw new Error(`Campos no permitidos en ${key}: ${unknownKeys.join(', ')}`);
 
-  if (key === 'executive_alert_routing') {
+  if (key === 'executive_alert_routing' || key === 'executive_alert_band_policy') {
+    if (key === 'executive_alert_band_policy') {
+      const killSwitch = config.kill_switch;
+      if (killSwitch != null && ![0, 1].includes(Number(killSwitch))) throw new Error(`El campo kill_switch en ${key} debe ser 0 o 1.`);
+      ['watch_cooldown_minutes', 'critical_cooldown_minutes'].forEach((entry) => {
+        const value = config[entry];
+        if (value == null) return;
+        if (typeof value !== 'number' || Number.isNaN(value) || value < 0 || value > 1440) throw new Error(`El campo ${entry} en ${key} debe ser numérico entre 0 y 1440.`);
+      });
+      ['watch_recipients_csv', 'critical_recipients_csv'].forEach((entry) => {
+        const value = config[entry];
+        if (value == null) return;
+        if (typeof value !== 'string') throw new Error(`El campo ${entry} en ${key} debe ser texto.`);
+      });
+      return true;
+    }
     ['enabled', 'auto_dispatch', 'dry_run_default'].forEach((entry) => {
       const value = config[entry];
       if (value == null) return;
@@ -304,6 +322,7 @@ export const api = {
     const effectiveWowThresholds = { ...KPI_WOW_ALERT_THRESHOLDS, ...(runtimeConfig.wow_alert_thresholds || {}) };
     const effectiveExecutiveAlertPolicy = { ...KPI_EXECUTIVE_ALERT_POLICY, ...(runtimeConfig.executive_alert_policy || {}) };
     const effectiveExecutiveAlertRouting = { ...KPI_EXECUTIVE_ALERT_ROUTING, ...(runtimeConfig.executive_alert_routing || {}) };
+    const effectiveExecutiveAlertBandPolicy = { ...KPI_EXECUTIVE_ALERT_BAND_POLICY, ...(runtimeConfig.executive_alert_band_policy || {}) };
     const getPaymentFeeRate = (paymentMethod) => effectivePaymentFees[paymentMethod] ?? effectivePaymentFees.default ?? 0;
     const isOperationallyOpen = (order) => (
       order.payment_status === 'paid'
@@ -909,18 +928,26 @@ export const api = {
         alertState = null;
       }
     }
-    const cooldownMinutes = Number(effectiveExecutiveAlertPolicy.cooldown_minutes || 0);
+    const cooldownMinutes = executiveScore.band === 'critical'
+      ? Number(effectiveExecutiveAlertBandPolicy.critical_cooldown_minutes ?? effectiveExecutiveAlertPolicy.cooldown_minutes ?? 0)
+      : Number(effectiveExecutiveAlertBandPolicy.watch_cooldown_minutes ?? effectiveExecutiveAlertPolicy.cooldown_minutes ?? 0);
     const cooldownMs = cooldownMinutes * 60 * 1000;
     const lastSentAtMs = new Date(alertState?.last_sent_at || '').getTime();
     const inCooldown = Number.isFinite(lastSentAtMs) && !Number.isNaN(lastSentAtMs) && cooldownMs > 0 && (nowMs - lastSentAtMs) < cooldownMs;
     const dedupeByBand = Number(effectiveExecutiveAlertPolicy.dedupe_by_band || 0) === 1;
     const blockedBySameBand = dedupeByBand && alertState?.last_band && alertState.last_band === executiveScore.band;
-    const alertEligible = Number(effectiveExecutiveAlertPolicy.enabled || 0) === 1 && alertBandRank >= minimumBandRank && alertBandRank > 0;
+    const killSwitchActive = Number(effectiveExecutiveAlertBandPolicy.kill_switch || 0) === 1;
+    const alertEligible = !killSwitchActive && Number(effectiveExecutiveAlertPolicy.enabled || 0) === 1 && alertBandRank >= minimumBandRank && alertBandRank > 0;
     const shouldSendExecutiveAlert = alertEligible && !inCooldown && !blockedBySameBand;
-    const routingRecipients = String(effectiveExecutiveAlertRouting.recipients_csv || '')
+    const defaultRecipients = String(effectiveExecutiveAlertRouting.recipients_csv || '')
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean);
+    const bandRecipients = String(executiveScore.band === 'critical' ? effectiveExecutiveAlertBandPolicy.critical_recipients_csv : effectiveExecutiveAlertBandPolicy.watch_recipients_csv)
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const routingRecipients = (bandRecipients.length > 0 ? bandRecipients : defaultRecipients);
     let autoDispatchResult = null;
     if (shouldSendExecutiveAlert && Number(effectiveExecutiveAlertRouting.enabled || 0) === 1 && Number(effectiveExecutiveAlertRouting.auto_dispatch || 0) === 1) {
       try {
@@ -971,11 +998,12 @@ export const api = {
         last_sent_at: alertState?.last_sent_at || null,
         in_cooldown: inCooldown,
         should_send: shouldSendExecutiveAlert,
-        blocked_reason: !alertEligible ? 'below_policy_threshold' : inCooldown ? 'cooldown_active' : blockedBySameBand ? 'same_band_dedup' : null,
+        blocked_reason: killSwitchActive ? 'kill_switch_active' : !alertEligible ? 'below_policy_threshold' : inCooldown ? 'cooldown_active' : blockedBySameBand ? 'same_band_dedup' : null,
         routing_enabled: Number(effectiveExecutiveAlertRouting.enabled || 0) === 1,
         auto_dispatch: Number(effectiveExecutiveAlertRouting.auto_dispatch || 0) === 1,
         dry_run_default: Number(effectiveExecutiveAlertRouting.dry_run_default || 0) === 1,
         recipients: routingRecipients,
+        kill_switch: killSwitchActive,
         auto_dispatch_result: autoDispatchResult,
       },
     };
@@ -1028,6 +1056,7 @@ export const api = {
         wowThresholds: effectiveWowThresholds,
         executiveAlertPolicy: effectiveExecutiveAlertPolicy,
         executiveAlertRouting: effectiveExecutiveAlertRouting,
+        executiveAlertBandPolicy: effectiveExecutiveAlertBandPolicy,
         runtimeConfigLoaded: Object.keys(runtimeConfig).length > 0,
         executiveScore,
         proactiveSeverity: proactiveSummary.severity,

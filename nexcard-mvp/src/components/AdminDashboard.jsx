@@ -108,6 +108,7 @@ const AdminDashboard = ({ dashboard }) => {
     wow_alert_thresholds: { revenue_drop_pct: -20, payment_rate_drop_pts: -8, carrier_delivery_rate_drop_pts: -10, sku_claim_rate_pct: 8 },
     executive_alert_policy: { enabled: 1, cooldown_minutes: 180, dedupe_by_band: 1, min_band_watch: 1, min_band_critical: 1 },
     executive_alert_routing: { enabled: 1, auto_dispatch: 0, dry_run_default: 1, recipients_csv: 'carlos.alvarez.contreras@gmail.com,bot.carlos.2026@gmail.com' },
+    executive_alert_band_policy: { kill_switch: 0, watch_cooldown_minutes: 180, critical_cooldown_minutes: 60, watch_recipients_csv: 'bot.carlos.2026@gmail.com', critical_recipients_csv: 'carlos.alvarez.contreras@gmail.com,bot.carlos.2026@gmail.com' },
   });
   const [kpiConfigBusy, setKpiConfigBusy] = useState('');
   const [kpiConfigMessage, setKpiConfigMessage] = useState({ type: '', text: '' });
@@ -999,6 +1000,17 @@ const AdminDashboard = ({ dashboard }) => {
                 ['recipients_csv', 'Recipients CSV', 'text', null],
               ],
             },
+            {
+              key: 'executive_alert_band_policy',
+              label: 'Policy por banda',
+              fields: [
+                ['kill_switch', 'Kill switch (1/0)', 'number', 1],
+                ['watch_cooldown_minutes', 'Watch cooldown min', 'number', 1],
+                ['critical_cooldown_minutes', 'Critical cooldown min', 'number', 1],
+                ['watch_recipients_csv', 'Watch recipients CSV', 'text', null],
+                ['critical_recipients_csv', 'Critical recipients CSV', 'text', null],
+              ],
+            },
           ].map((item) => (
             <div key={item.key} className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
@@ -1285,6 +1297,7 @@ const AdminDashboard = ({ dashboard }) => {
               <div className="space-y-1 text-xs text-zinc-300">
                 <p>Should send: {executiveAlertState?.should_send ? 'sí' : 'no'}</p>
                 <p>Cooldown: {executiveAlertState?.cooldown_minutes ?? 'n/a'} min</p>
+                <p>Kill switch: {executiveAlertState?.kill_switch ? 'activo' : 'off'}</p>
                 <p>Routing enabled: {executiveAlertState?.routing_enabled ? 'sí' : 'no'}</p>
                 <p>Auto dispatch: {executiveAlertState?.auto_dispatch ? 'sí' : 'no'}</p>
                 <p>Dry-run default: {executiveAlertState?.dry_run_default ? 'sí' : 'no'}</p>

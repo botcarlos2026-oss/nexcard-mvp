@@ -62,3 +62,11 @@ export const KPI_EXECUTIVE_ALERT_ROUTING = {
   dry_run_default: 1,
   recipients_csv: 'carlos.alvarez.contreras@gmail.com,bot.carlos.2026@gmail.com',
 };
+
+export const KPI_EXECUTIVE_ALERT_BAND_POLICY = {
+  kill_switch: 0,
+  watch_cooldown_minutes: 180,
+  critical_cooldown_minutes: 60,
+  watch_recipients_csv: 'bot.carlos.2026@gmail.com',
+  critical_recipients_csv: 'carlos.alvarez.contreras@gmail.com,bot.carlos.2026@gmail.com',
+};
