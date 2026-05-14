@@ -28,6 +28,40 @@ export const getErrorMessage = (error) => {
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
 
+const KPI_RUNTIME_CONFIG_META = {
+  sla_targets: {
+    allowedKeys: ['paid_to_ready', 'ready_to_shipped', 'shipped_to_delivered', 'delivered_to_activated'],
+    min: 1,
+    max: 720,
+  },
+  payment_method_fees: {
+    allowedKeys: ['webpay', 'transbank', 'mercado_pago', 'mercado-pago', 'default'],
+    min: 0,
+    max: 0.25,
+  },
+  wow_alert_thresholds: {
+    allowedKeys: ['revenue_drop_pct', 'payment_rate_drop_pts', 'carrier_delivery_rate_drop_pts', 'sku_claim_rate_pct'],
+    min: -100,
+    max: 100,
+  },
+};
+
+const validateKpiRuntimeConfig = (key, config) => {
+  const meta = KPI_RUNTIME_CONFIG_META[key];
+  if (!meta) throw new Error(`Key KPI no soportada: ${key}`);
+  if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error(`La config ${key} debe ser un objeto JSON.`);
+
+  const unknownKeys = Object.keys(config).filter((entry) => !meta.allowedKeys.includes(entry));
+  if (unknownKeys.length > 0) throw new Error(`Campos no permitidos en ${key}: ${unknownKeys.join(', ')}`);
+
+  for (const [entry, value] of Object.entries(config)) {
+    if (typeof value !== 'number' || Number.isNaN(value)) throw new Error(`El campo ${entry} en ${key} debe ser numérico.`);
+    if (value < meta.min || value > meta.max) throw new Error(`El campo ${entry} en ${key} quedó fuera de rango (${meta.min} a ${meta.max}).`);
+  }
+
+  return true;
+};
+
 export const getStoredAuth = () => {
   try {
     return JSON.parse(localStorage.getItem('nexcard_auth') || 'null');
@@ -827,10 +861,19 @@ export const api = {
         `Recomendación principal: ${proactiveSummary.action}`,
       ].join('\n'),
     };
+    const executiveAlertPayload = {
+      event: 'nexcard.executive_score_alert',
+      dry_run: true,
+      score: executiveScore.score,
+      band: executiveScore.band,
+      reasons: executiveScore.reasons,
+      summary: deliveryFormats.short_text,
+      generated_at: operationalDigest.generated_at,
+    };
     const transportReadiness = {
-      mode: 'dry_run_only',
-      recommended_trigger: proactiveSummary.severity === 'critical' ? 'immediate' : 'scheduled',
-      recommended_frequency: proactiveSummary.severity === 'critical' ? 'event-driven or every 15m' : 'daily at 09:00',
+      mode: executiveScore.band === 'critical' || executiveScore.band === 'watch' ? 'dry_run_alert_candidate' : 'dry_run_only',
+      recommended_trigger: proactiveSummary.severity === 'critical' || executiveScore.band === 'critical' ? 'immediate' : 'scheduled',
+      recommended_frequency: proactiveSummary.severity === 'critical' || executiveScore.band === 'critical' ? 'event-driven or every 15m' : 'daily at 09:00',
       checklist: [
         'Definir canal destino (webhook, email o mensajería).',
         'Aprobar destinatarios humanos válidos para alertas operativas.',
@@ -851,6 +894,7 @@ export const api = {
         summary: deliveryFormats.short_text,
         digest: operationalDigest.text,
       },
+      executive_alert_payload: executiveAlertPayload,
     };
     const users = (profiles || []).map(p => ({
       id: p.id,
@@ -917,6 +961,7 @@ export const api = {
       operationalDigest,
       deliveryFormats,
       transportReadiness,
+      kpiRuntimeAudit: [],
     };
   },
 
@@ -1007,15 +1052,49 @@ export const api = {
     return { configs: data || [] };
   },
 
+  getKpiRuntimeConfigAudit: async () => {
+    if (!hasSupabase) return { entries: [] };
+    const { data, error } = await supabase
+      .from('audit_log')
+      .select('id, entity_id, action, before, after, context, created_at')
+      .eq('entity_type', 'kpi_runtime_config')
+      .order('created_at', { ascending: false })
+      .limit(12);
+    if (error) throw new Error(error.message);
+    return { entries: data || [] };
+  },
+
   upsertKpiRuntimeConfig: async ({ key, config, active = true }) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
     if (!key) throw new Error('Key requerida');
+    validateKpiRuntimeConfig(key, config || {});
+    const actorUserId = getClerkUserId();
+    const actorEmail = getCurrentUserEmail();
+    const { data: previousRow } = await supabase
+      .from('kpi_runtime_config')
+      .select('*')
+      .eq('key', key)
+      .maybeSingle();
     const { data, error } = await supabase
       .from('kpi_runtime_config')
       .upsert({ key, config: config || {}, active }, { onConflict: 'key' })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    await supabase.from('audit_log').insert({
+      actor_user_id: actorUserId,
+      actor_role: 'admin',
+      entity_type: 'kpi_runtime_config',
+      entity_id: data.id,
+      action: previousRow ? 'update' : 'create',
+      before: previousRow ? { key: previousRow.key, config: previousRow.config, active: previousRow.active } : null,
+      after: { key: data.key, config: data.config, active: data.active },
+      context: {
+        key,
+        actor_email: actorEmail,
+        source: 'admin_dashboard',
+      },
+    });
     return data;
   },
 

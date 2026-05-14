@@ -109,6 +109,7 @@ const AdminDashboard = ({ dashboard }) => {
   });
   const [kpiConfigBusy, setKpiConfigBusy] = useState('');
   const [kpiConfigMessage, setKpiConfigMessage] = useState({ type: '', text: '' });
+  const [kpiAuditEntries, setKpiAuditEntries] = useState([]);
 
   useEffect(() => {
     setDashboardState(dashboard);
@@ -129,6 +130,7 @@ const AdminDashboard = ({ dashboard }) => {
         return next;
       });
     }).catch(() => {});
+    api.getKpiRuntimeConfigAudit().then(({ entries }) => setKpiAuditEntries(entries || [])).catch(() => {});
   }, []);
 
   const users = dashboardState?.users || [];
@@ -156,6 +158,7 @@ const AdminDashboard = ({ dashboard }) => {
   const reloadDashboard = async () => {
     const refreshed = await api.getAdminDashboard();
     setDashboardState(refreshed);
+    api.getKpiRuntimeConfigAudit().then(({ entries }) => setKpiAuditEntries(entries || [])).catch(() => {});
   };
 
   const runQuickAction = async (orderId, action) => {
@@ -325,6 +328,7 @@ const AdminDashboard = ({ dashboard }) => {
     setKpiConfigMessage({ type: '', text: '' });
     try {
       const parsed = JSON.parse(kpiConfigForm[key] || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Debes guardar un objeto JSON válido.');
       await api.upsertKpiRuntimeConfig({ key, config: parsed, active: true });
       await reloadDashboard();
       setKpiConfigMessage({ type: 'success', text: `Config KPI ${key} guardada.` });
@@ -752,6 +756,44 @@ const AdminDashboard = ({ dashboard }) => {
       </AdminCard>
 
       <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">Auditoría KPI config</h2>
+            <p className="text-sm text-zinc-400 font-medium">Quién cambió qué y cuándo. Sin memoria tribal.</p>
+          </div>
+          <AdminBadge variant={kpiAuditEntries.length ? 'success' : 'warning'}>
+            {kpiAuditEntries.length ? `${kpiAuditEntries.length} evento(s)` : 'sin eventos'}
+          </AdminBadge>
+        </div>
+        <div className="space-y-3">
+          {kpiAuditEntries.length === 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-400">Todavía no hay cambios persistidos en runtime config.</div>
+          ) : kpiAuditEntries.map((entry) => (
+            <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <AdminBadge variant={entry.action === 'create' ? 'success' : 'warning'}>{entry.action}</AdminBadge>
+                  <span className="text-sm font-bold text-white">{entry.context?.key || 'kpi_runtime_config'}</span>
+                </div>
+                <span className="text-xs text-zinc-500">{new Date(entry.created_at).toLocaleString('es-CL')}</span>
+              </div>
+              <p className="text-xs text-zinc-400 mb-2">Actor: {entry.context?.actor_email || 'desconocido'}</p>
+              <div className="grid lg:grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">Before</p>
+                  <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(entry.before || {}, null, 2)}</pre>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">After</p>
+                  <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(entry.after || {}, null, 2)}</pre>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </AdminCard>
+
+      <AdminCard className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="font-bold text-lg text-white">Tendencia semanal del throughput real</h2>
@@ -1040,7 +1082,7 @@ const AdminDashboard = ({ dashboard }) => {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-4">
+        <div className="grid lg:grid-cols-3 gap-4">
           <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
             <div className="flex items-center justify-between gap-3 mb-3">
               <p className="text-sm font-bold text-white">Cron payload</p>
@@ -1068,6 +1110,20 @@ const AdminDashboard = ({ dashboard }) => {
               </button>
             </div>
             <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(transportReadiness?.webhook_payload || {}, null, 2)}</pre>
+          </div>
+          <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm font-bold text-white">Executive alert payload</p>
+              <button
+                type="button"
+                onClick={() => handleCopyFormat('executive_alert_payload', JSON.stringify(transportReadiness?.executive_alert_payload || {}, null, 2))}
+                className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors"
+              >
+                <Copy size={14} />
+                {copiedFormat === 'executive_alert_payload' ? 'Copiado' : 'Copiar'}
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(transportReadiness?.executive_alert_payload || {}, null, 2)}</pre>
           </div>
         </div>
       </AdminCard>
