@@ -1116,6 +1116,28 @@ export const api = {
     return { entries: data || [] };
   },
 
+  getKpiAlertHistory: async () => {
+    if (!hasSupabase) return { entries: [] };
+    const { data, error } = await supabase
+      .from('kpi_alert_history')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error) throw new Error(error.message);
+    return { entries: data || [] };
+  },
+
+  dispatchExecutiveAlert: async ({ payload, dryRun = true }) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.functions.invoke('send-executive-alert', {
+      body: JSON.stringify({ alert_key: 'executive_score', payload, dry_run: dryRun }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (error) throw new Error(error.message || 'No pude disparar la alerta ejecutiva');
+    if (data?.error) throw new Error(data.error);
+    return data;
+  },
+
   upsertKpiAlertState: async ({ alert_key, last_band, last_score, last_payload, cooldown_minutes }) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
     if (!alert_key) throw new Error('alert_key requerido');

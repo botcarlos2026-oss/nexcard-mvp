@@ -112,6 +112,8 @@ const AdminDashboard = ({ dashboard }) => {
   const [kpiConfigMessage, setKpiConfigMessage] = useState({ type: '', text: '' });
   const [kpiAuditEntries, setKpiAuditEntries] = useState([]);
   const [alertStateBusy, setAlertStateBusy] = useState(false);
+  const [alertDispatchBusy, setAlertDispatchBusy] = useState(false);
+  const [kpiAlertHistory, setKpiAlertHistory] = useState([]);
 
   useEffect(() => {
     setDashboardState(dashboard);
@@ -133,6 +135,7 @@ const AdminDashboard = ({ dashboard }) => {
       });
     }).catch(() => {});
     api.getKpiRuntimeConfigAudit().then(({ entries }) => setKpiAuditEntries(entries || [])).catch(() => {});
+    api.getKpiAlertHistory().then(({ entries }) => setKpiAlertHistory(entries || [])).catch(() => {});
   }, []);
 
   const users = dashboardState?.users || [];
@@ -162,6 +165,7 @@ const AdminDashboard = ({ dashboard }) => {
     const refreshed = await api.getAdminDashboard();
     setDashboardState(refreshed);
     api.getKpiRuntimeConfigAudit().then(({ entries }) => setKpiAuditEntries(entries || [])).catch(() => {});
+    api.getKpiAlertHistory().then(({ entries }) => setKpiAlertHistory(entries || [])).catch(() => {});
   };
 
   const runQuickAction = async (orderId, action) => {
@@ -366,6 +370,20 @@ const AdminDashboard = ({ dashboard }) => {
       setKpiConfigMessage({ type: 'error', text: error.message || 'No pude persistir el estado de alerta.' });
     } finally {
       setAlertStateBusy(false);
+    }
+  };
+  const handleDispatchExecutiveAlert = async (dryRun = true) => {
+    if (!transportReadiness?.executive_alert_payload) return;
+    setAlertDispatchBusy(true);
+    setKpiConfigMessage({ type: '', text: '' });
+    try {
+      const result = await api.dispatchExecutiveAlert({ payload: transportReadiness.executive_alert_payload, dryRun });
+      await reloadDashboard();
+      setKpiConfigMessage({ type: 'success', text: result?.skipped ? `Alerta omitida: ${result.reason}.` : `Alerta ejecutiva ${dryRun ? 'dry-run' : 'real'} procesada.` });
+    } catch (error) {
+      setKpiConfigMessage({ type: 'error', text: error.message || 'No pude disparar la alerta ejecutiva.' });
+    } finally {
+      setAlertDispatchBusy(false);
     }
   };
   const proactiveTone = proactiveSummary?.severity === 'critical'
@@ -824,6 +842,37 @@ const AdminDashboard = ({ dashboard }) => {
       </AdminCard>
 
       <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">Historial de alertas ejecutivas</h2>
+            <p className="text-sm text-zinc-400 font-medium">Trazabilidad real de dispatch, hash y deduplicación.</p>
+          </div>
+          <AdminBadge variant={kpiAlertHistory.length ? 'success' : 'warning'}>
+            {kpiAlertHistory.length ? `${kpiAlertHistory.length} evento(s)` : 'sin historial'}
+          </AdminBadge>
+        </div>
+        <div className="space-y-3">
+          {kpiAlertHistory.length === 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-400">Todavía no hay alertas ejecutivas emitidas o simuladas.</div>
+          ) : kpiAlertHistory.map((entry) => (
+            <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <AdminBadge variant={entry.status === 'sent' ? 'success' : entry.status === 'dry_run' ? 'warning' : 'danger'}>{entry.status}</AdminBadge>
+                  <span className="text-sm font-bold text-white">{entry.alert_key}</span>
+                  <span className="text-xs text-zinc-500">band {entry.alert_band || '—'}</span>
+                </div>
+                <span className="text-xs text-zinc-500">{new Date(entry.created_at).toLocaleString('es-CL')}</span>
+              </div>
+              <p className="text-xs text-zinc-400 mb-2 break-all">hash: {entry.payload_hash}</p>
+              <p className="text-xs text-zinc-400 mb-2">provider msg id: {entry.provider_message_id || '—'}</p>
+              <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(entry.payload || {}, null, 2)}</pre>
+            </div>
+          ))}
+        </div>
+      </AdminCard>
+
+      <AdminCard className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="font-bold text-lg text-white">Tendencia semanal del throughput real</h2>
@@ -1219,6 +1268,26 @@ const AdminDashboard = ({ dashboard }) => {
                 {alertStateBusy ? <Loader2 size={14} className="animate-spin" /> : null}
                 Marcar enviado (dry-run)
               </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDispatchExecutiveAlert(true)}
+                  disabled={alertDispatchBusy}
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-700 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-950/30 transition-colors disabled:opacity-50"
+                >
+                  {alertDispatchBusy ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Disparar dry-run
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDispatchExecutiveAlert(false)}
+                  disabled={alertDispatchBusy || !executiveAlertState?.should_send}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-950/30 transition-colors disabled:opacity-50"
+                >
+                  {alertDispatchBusy ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Enviar real
+                </button>
+              </div>
             </div>
           </div>
         </div>
