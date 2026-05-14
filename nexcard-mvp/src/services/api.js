@@ -205,6 +205,12 @@ export const api = {
 
   getAdminDashboard: async () => {
     if (!hasSupabase) return request('/admin/dashboard');
+    const SLA_TARGET_HOURS = {
+      paid_to_ready: 24,
+      ready_to_shipped: 24,
+      shipped_to_delivered: 72,
+      delivered_to_activated: 24,
+    };
     const getStageTimestampMs = (order, key) => {
       const rawValue = ({
         paid: order.paid_at || order.updated_at || order.created_at,
@@ -215,6 +221,18 @@ export const api = {
       })[key];
       const timestampMs = new Date(rawValue || '').getTime();
       return Number.isNaN(timestampMs) ? NaN : timestampMs;
+    };
+    const round1 = (value) => Math.round(value * 10) / 10;
+    const percentage = (num, den) => (den > 0 ? round1((num / den) * 100) : null);
+    const percentile = (values, p) => {
+      if (!values.length) return null;
+      const sorted = [...values].sort((a, b) => a - b);
+      const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+      return round1(sorted[index]);
+    };
+    const deltaPercent = (current, previous) => {
+      if (!previous) return current ? 100 : 0;
+      return round1(((current - previous) / previous) * 100);
     };
     const isOperationallyOpen = (order) => (
       order.payment_status === 'paid'
@@ -432,7 +450,18 @@ export const api = {
     const stageSla = Object.fromEntries(
       Object.entries(stageSlaRaw).map(([key, values]) => {
         const avgHours = values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1)) : null;
-        return [key, { avg_hours: avgHours, sample_size: values.length }];
+        const targetHours = SLA_TARGET_HOURS[key] || null;
+        const breachCount = targetHours != null ? values.filter((value) => value > targetHours).length : 0;
+        return [key, {
+          avg_hours: avgHours,
+          p50_hours: percentile(values, 50),
+          p90_hours: percentile(values, 90),
+          max_hours: values.length ? round1(Math.max(...values)) : null,
+          sample_size: values.length,
+          breach_count: breachCount,
+          breach_rate: values.length && targetHours != null ? round1((breachCount / values.length) * 100) : null,
+          target_hours: targetHours,
+        }];
       })
     );
     const salesTrend7d = Array.from({ length: 7 }, (_, index) => {
@@ -470,6 +499,50 @@ export const api = {
         activated: operationalPaidOrders.filter((order) => inWindow(getStageTimestampMs(order, 'activated'))).length,
       };
     });
+    const conversionStats = {
+      paid_to_ready: percentage(operationalFunnel.ready, operationalFunnel.paid),
+      ready_to_shipped: percentage(operationalFunnel.shipped, operationalFunnel.ready),
+      shipped_to_delivered: percentage(operationalFunnel.delivered, operationalFunnel.shipped),
+      delivered_to_activated: percentage(operationalFunnel.activated, operationalFunnel.delivered),
+    };
+    const currentStartMs = (() => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - 6);
+      return date.getTime();
+    })();
+    const previousStartMs = currentStartMs - (7 * 24 * 60 * 60 * 1000);
+    const previousEndMs = currentStartMs;
+    const inRange = (timestampMs, fromMs, toMs) => timestampMs >= fromMs && timestampMs < toMs;
+    const currentWindowOperationalOrders = operationalOrders.filter((order) => inRange(new Date(order.created_at || 0).getTime(), currentStartMs, nowMs + 1));
+    const previousWindowOperationalOrders = operationalOrders.filter((order) => inRange(new Date(order.created_at || 0).getTime(), previousStartMs, previousEndMs));
+    const currentWindowPaidOrders = operationalPaidOrders.filter((order) => inRange(getStageTimestampMs(order, 'paid'), currentStartMs, nowMs + 1));
+    const previousWindowPaidOrders = operationalPaidOrders.filter((order) => inRange(getStageTimestampMs(order, 'paid'), previousStartMs, previousEndMs));
+    const currentWindowRevenue = currentWindowPaidOrders.reduce((sum, order) => sum + (order.amount_cents || 0), 0);
+    const previousWindowRevenue = previousWindowPaidOrders.reduce((sum, order) => sum + (order.amount_cents || 0), 0);
+    const currentWindowPaymentRate = currentWindowOperationalOrders.length
+      ? (currentWindowPaidOrders.length / currentWindowOperationalOrders.length) * 100
+      : 0;
+    const previousWindowPaymentRate = previousWindowOperationalOrders.length
+      ? (previousWindowPaidOrders.length / previousWindowOperationalOrders.length) * 100
+      : 0;
+    const kpiComparisons = {
+      revenue_7d: {
+        current: currentWindowRevenue,
+        previous: previousWindowRevenue,
+        delta_pct: deltaPercent(currentWindowRevenue, previousWindowRevenue),
+      },
+      paid_orders_7d: {
+        current: currentWindowPaidOrders.length,
+        previous: previousWindowPaidOrders.length,
+        delta_pct: deltaPercent(currentWindowPaidOrders.length, previousWindowPaidOrders.length),
+      },
+      payment_rate_7d: {
+        current: round1(currentWindowPaymentRate),
+        previous: round1(previousWindowPaymentRate),
+        delta_pts: round1(currentWindowPaymentRate - previousWindowPaymentRate),
+      },
+    };
     const alertBuckets = {
       paid_without_production: operationalAlerts.filter((order) => order.alerts?.includes('Pagada sin entrar a producción')),
       advanced_without_card: operationalAlerts.filter((order) => order.alerts?.includes('Orden avanzada sin card vinculada')),
@@ -666,6 +739,8 @@ export const api = {
         manualOverrideQaSeverity,
         manualOverrideQaSla,
         stageSla,
+        conversionStats,
+        kpiComparisons,
         proactiveSeverity: proactiveSummary.severity,
       },
       users,

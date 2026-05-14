@@ -252,10 +252,25 @@ const AdminDashboard = ({ dashboard }) => {
       return {
         ...item,
         value: value?.avg_hours != null ? `${value.avg_hours}h` : '—',
-        hint: value?.sample_size ? `${value.sample_size} casos` : 'Sin muestra cerrada',
+        hint: value?.sample_size ? `p50 ${value.p50_hours ?? '—'}h · p90 ${value.p90_hours ?? '—'}h · breach ${value.breach_rate ?? 0}%` : 'Sin muestra cerrada',
       };
     });
   }, [statsSource]);
+
+  const conversionCards = useMemo(() => {
+    const conversions = statsSource.conversionStats || {};
+    return [
+      { key: 'paid_to_ready', label: 'Paid → Ready', accent: 'amber' },
+      { key: 'ready_to_shipped', label: 'Ready → Shipped', accent: 'blue' },
+      { key: 'shipped_to_delivered', label: 'Shipped → Delivered', accent: 'emerald' },
+      { key: 'delivered_to_activated', label: 'Delivered → Activated', accent: 'fuchsia' },
+    ].map((item) => ({
+      ...item,
+      value: conversions[item.key] != null ? `${conversions[item.key]}%` : '—',
+    }));
+  }, [statsSource]);
+
+  const kpiComparisons = useMemo(() => statsSource.kpiComparisons || {}, [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const handleCopyDigest = async () => {
@@ -597,6 +612,33 @@ const AdminDashboard = ({ dashboard }) => {
         </div>
         <FunnelTrendChart data={weeklyFunnelTrend.length ? weeklyFunnelTrend : [{ label: 'Sin data', paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 }]} />
       </AdminCard>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <AdminStat
+          label="Revenue 7d vs previo"
+          value={kpiComparisons.revenue_7d?.delta_pct != null ? `${kpiComparisons.revenue_7d.delta_pct > 0 ? '+' : ''}${kpiComparisons.revenue_7d.delta_pct}%` : '—'}
+          accent={kpiComparisons.revenue_7d?.delta_pct >= 0 ? 'emerald' : 'red'}
+          hint={kpiComparisons.revenue_7d ? `Actual ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(kpiComparisons.revenue_7d.current || 0)} vs prev ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(kpiComparisons.revenue_7d.previous || 0)}` : null}
+        />
+        <AdminStat
+          label="Paid orders 7d vs previo"
+          value={kpiComparisons.paid_orders_7d?.delta_pct != null ? `${kpiComparisons.paid_orders_7d.delta_pct > 0 ? '+' : ''}${kpiComparisons.paid_orders_7d.delta_pct}%` : '—'}
+          accent={kpiComparisons.paid_orders_7d?.delta_pct >= 0 ? 'emerald' : 'red'}
+          hint={kpiComparisons.paid_orders_7d ? `Actual ${kpiComparisons.paid_orders_7d.current || 0} vs prev ${kpiComparisons.paid_orders_7d.previous || 0}` : null}
+        />
+        <AdminStat
+          label="Tasa pago 7d vs previo"
+          value={kpiComparisons.payment_rate_7d?.current != null ? `${kpiComparisons.payment_rate_7d.current}%` : '—'}
+          accent={kpiComparisons.payment_rate_7d?.delta_pts >= 0 ? 'emerald' : 'red'}
+          hint={kpiComparisons.payment_rate_7d ? `${kpiComparisons.payment_rate_7d.delta_pts > 0 ? '+' : ''}${kpiComparisons.payment_rate_7d.delta_pts || 0} pts vs ${kpiComparisons.payment_rate_7d.previous || 0}%` : null}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {conversionCards.map((stat) => (
+          <AdminStat key={stat.key} label={stat.label} value={stat.value} accent={stat.accent} />
+        ))}
+      </div>
 
       {/* Métricas conversión */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
