@@ -116,6 +116,8 @@ const AdminDashboard = ({ dashboard }) => {
   const [alertStateBusy, setAlertStateBusy] = useState(false);
   const [alertDispatchBusy, setAlertDispatchBusy] = useState(false);
   const [kpiAlertHistory, setKpiAlertHistory] = useState([]);
+  const [kpiAlertEvaluations, setKpiAlertEvaluations] = useState([]);
+  const [evaluationBusy, setEvaluationBusy] = useState(false);
 
   useEffect(() => {
     setDashboardState(dashboard);
@@ -138,6 +140,7 @@ const AdminDashboard = ({ dashboard }) => {
     }).catch(() => {});
     api.getKpiRuntimeConfigAudit().then(({ entries }) => setKpiAuditEntries(entries || [])).catch(() => {});
     api.getKpiAlertHistory().then(({ entries }) => setKpiAlertHistory(entries || [])).catch(() => {});
+    api.getKpiAlertEvaluations().then(({ entries }) => setKpiAlertEvaluations(entries || [])).catch(() => {});
   }, []);
 
   const users = dashboardState?.users || [];
@@ -172,6 +175,7 @@ const AdminDashboard = ({ dashboard }) => {
     setDashboardState(refreshed);
     api.getKpiRuntimeConfigAudit().then(({ entries }) => setKpiAuditEntries(entries || [])).catch(() => {});
     api.getKpiAlertHistory().then(({ entries }) => setKpiAlertHistory(entries || [])).catch(() => {});
+    api.getKpiAlertEvaluations().then(({ entries }) => setKpiAlertEvaluations(entries || [])).catch(() => {});
   };
 
   const runQuickAction = async (orderId, action) => {
@@ -390,6 +394,19 @@ const AdminDashboard = ({ dashboard }) => {
       setKpiConfigMessage({ type: 'error', text: error.message || 'No pude disparar la alerta ejecutiva.' });
     } finally {
       setAlertDispatchBusy(false);
+    }
+  };
+  const handleEvaluateExecutiveAlert = async () => {
+    setEvaluationBusy(true);
+    setKpiConfigMessage({ type: '', text: '' });
+    try {
+      const result = await api.evaluateExecutiveAlert('manual');
+      await reloadDashboard();
+      setKpiConfigMessage({ type: 'success', text: `Evaluación backend ejecutada. Score ${result.score} · banda ${result.band}.` });
+    } catch (error) {
+      setKpiConfigMessage({ type: 'error', text: error.message || 'No pude ejecutar el evaluador backend.' });
+    } finally {
+      setEvaluationBusy(false);
     }
   };
   const proactiveTone = proactiveSummary?.severity === 'critical'
@@ -879,6 +896,41 @@ const AdminDashboard = ({ dashboard }) => {
               <p className="text-xs text-zinc-400 mb-2 break-all">hash: {entry.payload_hash}</p>
               <p className="text-xs text-zinc-400 mb-2">provider msg id: {entry.provider_message_id || '—'}</p>
               <pre className="whitespace-pre-wrap text-xs leading-6 text-zinc-300 font-mono">{JSON.stringify(entry.payload || {}, null, 2)}</pre>
+            </div>
+          ))}
+        </div>
+      </AdminCard>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">Evaluador backend autónomo</h2>
+            <p className="text-sm text-zinc-400 font-medium">Corre fuera del dashboard y deja registro de cada evaluación.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleEvaluateExecutiveAlert}
+            disabled={evaluationBusy}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-50"
+          >
+            {evaluationBusy ? <Loader2 size={14} className="animate-spin" /> : null}
+            Ejecutar evaluación
+          </button>
+        </div>
+        <div className="space-y-3">
+          {kpiAlertEvaluations.length === 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-400">Sin evaluaciones backend registradas todavía.</div>
+          ) : kpiAlertEvaluations.map((entry) => (
+            <div key={entry.id} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <AdminBadge variant={entry.dispatched ? 'success' : 'warning'}>{entry.band}</AdminBadge>
+                  <span className="text-sm font-bold text-white">score {entry.score}</span>
+                  <span className="text-xs text-zinc-500">trigger {entry.trigger_source}</span>
+                </div>
+                <span className="text-xs text-zinc-500">{new Date(entry.created_at).toLocaleString('es-CL')}</span>
+              </div>
+              <p className="text-xs text-zinc-400">should_send: {entry.should_send ? 'sí' : 'no'} · dispatched: {entry.dispatched ? 'sí' : 'no'} · blocked: {entry.blocked_reason || '—'}</p>
             </div>
           ))}
         </div>

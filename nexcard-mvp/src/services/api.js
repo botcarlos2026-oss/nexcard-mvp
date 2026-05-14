@@ -1199,6 +1199,28 @@ export const api = {
     return { entries: data || [] };
   },
 
+  getKpiAlertEvaluations: async () => {
+    if (!hasSupabase) return { entries: [] };
+    const { data, error } = await supabase
+      .from('kpi_alert_evaluations')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error) throw new Error(error.message);
+    return { entries: data || [] };
+  },
+
+  evaluateExecutiveAlert: async (trigger = 'manual') => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.functions.invoke('evaluate-executive-alert', {
+      body: JSON.stringify({ trigger }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (error) throw new Error(error.message || 'No pude evaluar alerta ejecutiva');
+    if (data?.error) throw new Error(data.error);
+    return data;
+  },
+
   dispatchExecutiveAlert: async ({ payload, dryRun = true, recipients = [] }) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
     const { data, error } = await supabase.functions.invoke('send-executive-alert', {
