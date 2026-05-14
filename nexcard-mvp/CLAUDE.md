@@ -354,6 +354,12 @@ Cambios concretos:
    - `OrdersDashboard` acepta `review_status=all|pending|reviewed`
    - la cola manual puede separarse entre pendientes y revisadas
    - los deep-links desde `/admin` apuntan por defecto a pendientes para foco operativo
+16. acciones rápidas + filtro de bloqueo + SLA QA manual:
+   - `AdminDashboard` Top 5 ahora permite acciones inline: `Mantener QA`, `Marcar revisada`, `Restaurar real`
+   - la cola QA manual admite filtro `risk=paid_blocked` para aislar órdenes pagadas, no despachadas y no activadas
+   - se incorporan timestamps dedicados `qa_override_at`, `qa_override_by`, `qa_override_by_label`, `qa_override_resolved_at`
+   - el aging/severidad deja de depender de `updated_at`, evitando falsos rejuvenecimientos tras auditoría o cambios operativos
+   - `/admin` ahora muestra SLA promedio de overrides manuales: abierto, revisión y restore real
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

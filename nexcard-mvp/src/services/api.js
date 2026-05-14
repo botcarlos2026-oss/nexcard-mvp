@@ -214,6 +214,22 @@ export const api = {
     })();
     if (error) throw new Error(error.message || error);
     const nowMs = Date.now();
+    const { data: qaHistoryRows } = await supabase
+      .from('order_status_history')
+      .select('order_id, field, old_value, new_value, changed_at')
+      .in('field', ['is_test', 'qa_reviewed_at']);
+
+    const latestQaOverrideAtByOrder = new Map();
+    (qaHistoryRows || []).forEach((row) => {
+      if (row.field === 'is_test' && row.new_value === 'true') {
+        const current = latestQaOverrideAtByOrder.get(row.order_id);
+        const changedAtMs = new Date(row.changed_at).getTime();
+        const currentMs = current ? new Date(current).getTime() : NaN;
+        if (!current || (!Number.isNaN(changedAtMs) && (Number.isNaN(currentMs) || changedAtMs > currentMs))) {
+          latestQaOverrideAtByOrder.set(row.order_id, row.changed_at);
+        }
+      }
+    });
     const paidOrders = (orders || []).filter(o => o.payment_status === 'paid');
     const operationalOrders = (orders || []).filter((order) => !isNonOperationalOrder(order));
     const excludedOperationalOrders = (orders || []).filter((order) => isNonOperationalOrder(order));
@@ -224,18 +240,24 @@ export const api = {
     const manualOverrideQaReviewedCount = manualOverrideQaOrdersAll.length - manualOverrideQaOrders.length;
     const manualOverrideQaOrdersCount = manualOverrideQaOrders.length;
     const manualOverrideRealOrdersCount = (orders || []).filter((order) => !order.is_test && isManualTestReason(order.test_reason)).length;
+    const manualOverrideQaBlockedCount = manualOverrideQaOrders.filter((order) => {
+      const isPaid = order.payment_status === 'paid';
+      const notShipped = !['shipped', 'delivered'].includes(order.fulfillment_status);
+      const notActivated = !order.activation_completed;
+      return isPaid && notShipped && notActivated;
+    }).length;
     const manualOverrideQaAging = manualOverrideQaOrders.reduce((acc, order) => {
-      const updatedAtMs = new Date(order.updated_at || order.created_at).getTime();
-      if (Number.isNaN(updatedAtMs)) return acc;
-      const ageHours = (nowMs - updatedAtMs) / (1000 * 60 * 60);
+      const overrideAtMs = new Date(order.qa_override_at || latestQaOverrideAtByOrder.get(order.id) || order.updated_at || order.created_at).getTime();
+      if (Number.isNaN(overrideAtMs)) return acc;
+      const ageHours = (nowMs - overrideAtMs) / (1000 * 60 * 60);
       if (ageHours >= 72) acc.over72h += 1;
       else if (ageHours >= 24) acc.over24h += 1;
       else acc.fresh += 1;
       return acc;
     }, { fresh: 0, over24h: 0, over72h: 0 });
     const manualOverrideQaScored = manualOverrideQaOrders.map((order) => {
-      const updatedAtMs = new Date(order.updated_at || order.created_at).getTime();
-      const ageHours = Number.isNaN(updatedAtMs) ? 0 : Math.round((nowMs - updatedAtMs) / (1000 * 60 * 60));
+      const overrideAtMs = new Date(order.qa_override_at || latestQaOverrideAtByOrder.get(order.id) || order.updated_at || order.created_at).getTime();
+      const ageHours = Number.isNaN(overrideAtMs) ? 0 : Math.round((nowMs - overrideAtMs) / (1000 * 60 * 60));
       const isPaid = order.payment_status === 'paid';
       const notShipped = !['shipped', 'delivered'].includes(order.fulfillment_status);
       const notActivated = !order.activation_completed;
@@ -263,12 +285,47 @@ export const api = {
         payment_status: order.payment_status,
         fulfillment_status: order.fulfillment_status,
         activation_completed: !!order.activation_completed,
+        qa_override_at: order.qa_override_at || latestQaOverrideAtByOrder.get(order.id) || null,
+        qa_reviewed_at: order.qa_reviewed_at || null,
         age_hours: ageHours,
         severity,
         score,
         reasons,
       };
     });
+
+    const manualOverrideQaOpenHours = manualOverrideQaOrders
+      .map((order) => {
+        const overrideAtMs = new Date(order.qa_override_at || latestQaOverrideAtByOrder.get(order.id) || order.updated_at || order.created_at).getTime();
+        return Number.isNaN(overrideAtMs) ? null : (nowMs - overrideAtMs) / (1000 * 60 * 60);
+      })
+      .filter((value) => value != null);
+    const manualOverrideQaReviewHours = manualOverrideQaOrdersAll
+      .map((order) => {
+        const overrideAtMs = new Date(order.qa_override_at || latestQaOverrideAtByOrder.get(order.id) || order.updated_at || order.created_at).getTime();
+        const reviewedAtMs = new Date(order.qa_reviewed_at || '').getTime();
+        if (Number.isNaN(overrideAtMs) || Number.isNaN(reviewedAtMs) || reviewedAtMs < overrideAtMs) return null;
+        return (reviewedAtMs - overrideAtMs) / (1000 * 60 * 60);
+      })
+      .filter((value) => value != null);
+    const manualOverrideQaResolutionHours = (orders || [])
+      .filter((order) => !order.is_test && isManualTestReason(order.test_reason))
+      .map((order) => {
+        const overrideAtMs = new Date(order.qa_override_at || latestQaOverrideAtByOrder.get(order.id) || order.created_at).getTime();
+        const resolvedAtMs = new Date(order.qa_override_resolved_at || order.updated_at || '').getTime();
+        if (Number.isNaN(overrideAtMs) || Number.isNaN(resolvedAtMs) || resolvedAtMs < overrideAtMs) return null;
+        return (resolvedAtMs - overrideAtMs) / (1000 * 60 * 60);
+      })
+      .filter((value) => value != null);
+    const averageHours = (values) => values.length > 0 ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10 : null;
+    const manualOverrideQaSla = {
+      open_avg_hours: averageHours(manualOverrideQaOpenHours),
+      open_sample_size: manualOverrideQaOpenHours.length,
+      review_avg_hours: averageHours(manualOverrideQaReviewHours),
+      review_sample_size: manualOverrideQaReviewHours.length,
+      resolution_avg_hours: averageHours(manualOverrideQaResolutionHours),
+      resolution_sample_size: manualOverrideQaResolutionHours.length,
+    };
 
     const manualOverrideQaSeverity = manualOverrideQaScored.reduce((acc, order) => {
       acc.total += 1;
@@ -571,9 +628,11 @@ export const api = {
         excludedOperationalOrdersCount,
         manualOverrideQaOrdersCount,
         manualOverrideQaReviewedCount,
+        manualOverrideQaBlockedCount,
         manualOverrideRealOrdersCount,
         manualOverrideQaAging,
         manualOverrideQaSeverity,
+        manualOverrideQaSla,
         stageSla,
         proactiveSeverity: proactiveSummary.severity,
       },

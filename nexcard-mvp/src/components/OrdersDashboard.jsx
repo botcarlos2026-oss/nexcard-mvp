@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Wifi,
   QrCode,
+  ShieldAlert,
 } from 'lucide-react';
 import { api } from '../services/api';
 import QRCode from 'qrcode';
@@ -80,8 +81,8 @@ const deriveManualOverrideSeverity = (order) => {
   if (!isManualTestReason(order?.testReasonResolved || order?.test_reason)) {
     return { level: null, score: 0, ageHours: 0 };
   }
-  const updatedAtMs = new Date(order?.updated_at || order?.created_at).getTime();
-  const ageHours = Number.isNaN(updatedAtMs) ? 0 : Math.round((Date.now() - updatedAtMs) / (1000 * 60 * 60));
+  const overrideAtMs = new Date(order?.qa_override_at || order?.updated_at || order?.created_at).getTime();
+  const ageHours = Number.isNaN(overrideAtMs) ? 0 : Math.round((Date.now() - overrideAtMs) / (1000 * 60 * 60));
   const isPaid = order?.payment_status === 'paid';
   const notShipped = !['shipped', 'delivered'].includes(order?.fulfillment_status);
   const notActivated = !order?.activation_completed;
@@ -191,6 +192,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [testReasonFilter, setTestReasonFilter] = useState('all');
   const [overrideAgeFilter, setOverrideAgeFilter] = useState('all');
   const [reviewStatusFilter, setReviewStatusFilter] = useState('all');
+  const [riskFilter, setRiskFilter] = useState('all');
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [lastChecked, setLastChecked] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
@@ -211,11 +213,13 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     const requestedReason = params.get('test_reason') || 'all';
     const requestedOverrideAge = params.get('override_age') || 'all';
     const requestedReviewStatus = params.get('review_status') || 'all';
+    const requestedRisk = params.get('risk') || 'all';
     const requestedOrderId = params.get('order_id') || null;
     setAuditFilter(forceAuditFilter || requestedAudit);
     setTestReasonFilter(requestedReason);
     setOverrideAgeFilter(requestedOverrideAge);
     setReviewStatusFilter(requestedReviewStatus === 'pending' || requestedReviewStatus === 'reviewed' ? requestedReviewStatus : 'all');
+    setRiskFilter(requestedRisk === 'paid_blocked' ? 'paid_blocked' : 'all');
     if (requestedOrderId) setSelectedOrderId(requestedOrderId);
   }, [forceAuditFilter]);
 
@@ -296,6 +300,13 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const manualOverrideCount = useMemo(() => excludedOrders.filter((order) => isManualTestReason(order.testReasonResolved)).length, [excludedOrders]);
   const manualOverridePendingCount = useMemo(() => excludedOrders.filter((order) => isManualTestReason(order.testReasonResolved) && !order.qa_reviewed_at).length, [excludedOrders]);
   const manualOverrideReviewedCount = useMemo(() => excludedOrders.filter((order) => isManualTestReason(order.testReasonResolved) && order.qa_reviewed_at).length, [excludedOrders]);
+  const manualOverrideBlockedCount = useMemo(() => excludedOrders.filter((order) => {
+    if (!isManualTestReason(order.testReasonResolved)) return false;
+    const isPaid = order.payment_status === 'paid';
+    const notShipped = !['shipped', 'delivered'].includes(order.fulfillment_status);
+    const notActivated = !order.activation_completed;
+    return isPaid && notShipped && notActivated;
+  }).length, [excludedOrders]);
 
   const testReasonOptions = useMemo(() => {
     const base = ['all'];
@@ -320,9 +331,15 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
         || reviewStatusFilter === 'all'
         || (reviewStatusFilter === 'pending' && !order.qa_reviewed_at)
         || (reviewStatusFilter === 'reviewed' && !!order.qa_reviewed_at);
-      return matchesAudit && matchesReason && matchesOverrideAge && matchesReviewStatus;
+      const matchesRisk = testReasonFilter !== 'manual_override_only'
+        || riskFilter === 'all'
+        || (riskFilter === 'paid_blocked'
+          && order.payment_status === 'paid'
+          && !['shipped', 'delivered'].includes(order.fulfillment_status)
+          && !order.activation_completed);
+      return matchesAudit && matchesReason && matchesOverrideAge && matchesReviewStatus && matchesRisk;
     });
-  }, [normalizedOrders, auditFilter, testReasonFilter, overrideAgeFilter, reviewStatusFilter]);
+  }, [normalizedOrders, auditFilter, testReasonFilter, overrideAgeFilter, reviewStatusFilter, riskFilter]);
 
   const paymentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.payment_status).filter(Boolean)))], [normalizedOrders]);
   const fulfillmentStatuses = useMemo(() => ['all', ...Array.from(new Set(normalizedOrders.map((order) => order.fulfillment_status).filter(Boolean)))], [normalizedOrders]);
@@ -686,6 +703,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   setTestReasonFilter('manual_override_only');
                   setOverrideAgeFilter('all');
                   setReviewStatusFilter('pending');
+                  setRiskFilter('all');
                   if (!forceAuditFilter && typeof window !== 'undefined') {
                     window.history.replaceState({}, '', '/admin/orders?audit=excluded&test_reason=manual_override_only&review_status=pending');
                   }
@@ -704,6 +722,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   setTestReasonFilter(reason);
                   setOverrideAgeFilter('all');
                   setReviewStatusFilter('all');
+                  setRiskFilter('all');
                   if (!forceAuditFilter && typeof window !== 'undefined') {
                     window.history.replaceState({}, '', `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(reason)}`);
                   }
@@ -721,6 +740,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   setTestReasonFilter('all');
                   setOverrideAgeFilter('all');
                   setReviewStatusFilter('all');
+                  setRiskFilter('all');
                   if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
                 }}
                 className="text-xs font-bold text-zinc-400 underline underline-offset-2 hover:text-white"
@@ -730,11 +750,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
             ) : null}
           </div>
           <p className="text-xs text-zinc-500">
-            Breakdown QA/test: {manualOverrideCount > 0 ? `Solo overrides manuales (${manualOverrideCount}) · Pendientes (${manualOverridePendingCount}) · Revisadas (${manualOverrideReviewedCount}) · ` : ''}{Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
+            Breakdown QA/test: {manualOverrideCount > 0 ? `Solo overrides manuales (${manualOverrideCount}) · Pendientes (${manualOverridePendingCount}) · Revisadas (${manualOverrideReviewedCount}) · Pagadas bloqueadas (${manualOverrideBlockedCount}) · ` : ''}{Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
           </p>
           {testReasonFilter === 'manual_override_only' && (
             <p className="text-xs text-zinc-500">
-              Priorización activa: severidad desc por aging + pagada + no enviada + no activada. Estado revisión: {reviewStatusFilter === 'pending' ? 'solo pendientes' : reviewStatusFilter === 'reviewed' ? 'solo revisadas' : 'todas'}.
+              Priorización activa: severidad desc por aging + pagada + no enviada + no activada. Estado revisión: {reviewStatusFilter === 'pending' ? 'solo pendientes' : reviewStatusFilter === 'reviewed' ? 'solo revisadas' : 'todas'}. Riesgo: {riskFilter === 'paid_blocked' ? 'solo pagadas bloqueadas' : 'todos'}.
             </p>
           )}
         </div>
@@ -864,10 +884,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                       setTestReasonFilter('all');
                       setOverrideAgeFilter('all');
                       setReviewStatusFilter('all');
+                      setRiskFilter('all');
                     }
                     if (!forceAuditFilter && typeof window !== 'undefined') {
                       const nextUrl = value === 'excluded'
-                        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${testReasonFilter === 'manual_override_only' && reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}`
+                        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${testReasonFilter === 'manual_override_only' && reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}${testReasonFilter === 'manual_override_only' && riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`
                         : '/admin/orders';
                       window.history.replaceState({}, '', nextUrl);
                     }
@@ -890,6 +911,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                         if (value !== 'manual_override_only') {
                           setOverrideAgeFilter('all');
                           setReviewStatusFilter('all');
+                          setRiskFilter('all');
                         } else if (reviewStatusFilter === 'all') {
                           setReviewStatusFilter('pending');
                         }
@@ -897,9 +919,10 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                           const effectiveReviewStatus = value === 'manual_override_only'
                             ? (reviewStatusFilter === 'all' ? 'pending' : reviewStatusFilter)
                             : 'all';
+                          const effectiveRisk = value === 'manual_override_only' ? riskFilter : 'all';
                           const nextUrl = value === 'all'
                             ? '/admin/orders?audit=excluded'
-                            : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}${value === 'manual_override_only' && overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value === 'manual_override_only' && effectiveReviewStatus !== 'all' ? `&review_status=${encodeURIComponent(effectiveReviewStatus)}` : ''}`;
+                            : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}${value === 'manual_override_only' && overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value === 'manual_override_only' && effectiveReviewStatus !== 'all' ? `&review_status=${encodeURIComponent(effectiveReviewStatus)}` : ''}${value === 'manual_override_only' && effectiveRisk !== 'all' ? `&risk=${encodeURIComponent(effectiveRisk)}` : ''}`;
                           window.history.replaceState({}, '', nextUrl);
                         }
                       }}
@@ -926,7 +949,8 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                             setOverrideAgeFilter(value);
                             if (!forceAuditFilter && typeof window !== 'undefined') {
                               const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${value !== 'all' ? `&override_age=${encodeURIComponent(value)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}`;
-                              window.history.replaceState({}, '', nextUrl);
+                              const nextUrlWithRisk = `${nextUrl}${riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`;
+                              window.history.replaceState({}, '', nextUrlWithRisk);
                             }
                           }}
                           className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
@@ -944,7 +968,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                             const value = event.target.value;
                             setReviewStatusFilter(value);
                             if (!forceAuditFilter && typeof window !== 'undefined') {
-                              const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value !== 'all' ? `&review_status=${encodeURIComponent(value)}` : ''}`;
+                              const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value !== 'all' ? `&review_status=${encodeURIComponent(value)}` : ''}${riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`;
                               window.history.replaceState({}, '', nextUrl);
                             }
                           }}
@@ -955,6 +979,24 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                           <option value="reviewed">Revisión: revisadas</option>
                         </select>
                       </label>
+                      <label className="relative block">
+                        <ShieldAlert className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                        <select
+                          value={riskFilter}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setRiskFilter(value);
+                            if (!forceAuditFilter && typeof window !== 'undefined') {
+                              const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}${value !== 'all' ? `&risk=${encodeURIComponent(value)}` : ''}`;
+                              window.history.replaceState({}, '', nextUrl);
+                            }
+                          }}
+                          className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"
+                        >
+                          <option value="all">Riesgo: todos</option>
+                          <option value="paid_blocked">Riesgo: pagadas y bloqueadas</option>
+                        </select>
+                      </label>
                     </>
                   )}
                 </>
@@ -962,7 +1004,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
             </div>
           </div>
 
-          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}`} className="overflow-x-auto">
+          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}-${riskFilter}`} className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-zinc-800/50 border-b border-zinc-800">
                 <tr className="text-xs uppercase tracking-wide text-zinc-500">

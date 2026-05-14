@@ -12,6 +12,8 @@ import {
   ShieldAlert,
   BellRing,
   Copy,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
 import { generateQRCode } from '../utils/qrEngine';
 import { api } from '../services/api';
@@ -104,6 +106,7 @@ const FunnelTrendChart = ({ data }) => {
 };
 
 const AdminDashboard = ({ dashboard }) => {
+  const [dashboardState, setDashboardState] = useState(dashboard);
   const [searchTerm, setSearchTerm] = useState('');
   const [globalSearch, setGlobalSearch] = useState('');
   const [globalResults, setGlobalResults] = useState(null);
@@ -112,29 +115,70 @@ const AdminDashboard = ({ dashboard }) => {
   const [lowStockDismissed, setLowStockDismissed] = useState(false);
   const [digestCopied, setDigestCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState('');
+  const [quickActionBusyId, setQuickActionBusyId] = useState('');
+  const [quickActionMessage, setQuickActionMessage] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    setDashboardState(dashboard);
+  }, [dashboard]);
 
   useEffect(() => {
     api.checkLowStock().then(({ lowStockItems: items }) => setLowStockItems(items)).catch(() => {});
   }, []);
 
-  const users = dashboard?.users || [];
-  const statsSource = useMemo(() => dashboard?.stats || {}, [dashboard]);
-  const recentOrders = dashboard?.recentOrders || [];
-  const operationalAlerts = dashboard?.operationalAlerts || [];
-  const slaBreaches = dashboard?.slaBreaches || [];
-  const weeklyFunnelTrend = dashboard?.weeklyFunnelTrend || [];
-  const proactiveSummary = dashboard?.proactiveSummary || null;
-  const proactiveQueue = dashboard?.proactiveQueue || [];
-  const topManualOverrideQueue = dashboard?.topManualOverrideQueue || [];
-  const operationalDigest = dashboard?.operationalDigest || null;
-  const excludedOperationalOrdersCount = dashboard?.stats?.excludedOperationalOrdersCount || 0;
-  const manualOverrideQaOrdersCount = dashboard?.stats?.manualOverrideQaOrdersCount || 0;
-  const manualOverrideQaReviewedCount = dashboard?.stats?.manualOverrideQaReviewedCount || 0;
-  const manualOverrideRealOrdersCount = dashboard?.stats?.manualOverrideRealOrdersCount || 0;
-  const manualOverrideQaAging = useMemo(() => dashboard?.stats?.manualOverrideQaAging || { fresh: 0, over24h: 0, over72h: 0 }, [dashboard]);
-  const manualOverrideQaSeverity = useMemo(() => dashboard?.stats?.manualOverrideQaSeverity || { low: 0, medium: 0, high: 0, critical: 0, total: 0, maxScore: 0 }, [dashboard]);
-  const deliveryFormats = dashboard?.deliveryFormats || {};
-  const transportReadiness = dashboard?.transportReadiness || null;
+  const users = dashboardState?.users || [];
+  const statsSource = useMemo(() => dashboardState?.stats || {}, [dashboardState]);
+  const recentOrders = dashboardState?.recentOrders || [];
+  const operationalAlerts = dashboardState?.operationalAlerts || [];
+  const slaBreaches = dashboardState?.slaBreaches || [];
+  const weeklyFunnelTrend = dashboardState?.weeklyFunnelTrend || [];
+  const proactiveSummary = dashboardState?.proactiveSummary || null;
+  const proactiveQueue = dashboardState?.proactiveQueue || [];
+  const topManualOverrideQueue = dashboardState?.topManualOverrideQueue || [];
+  const operationalDigest = dashboardState?.operationalDigest || null;
+  const excludedOperationalOrdersCount = dashboardState?.stats?.excludedOperationalOrdersCount || 0;
+  const manualOverrideQaOrdersCount = dashboardState?.stats?.manualOverrideQaOrdersCount || 0;
+  const manualOverrideQaReviewedCount = dashboardState?.stats?.manualOverrideQaReviewedCount || 0;
+  const manualOverrideQaBlockedCount = dashboardState?.stats?.manualOverrideQaBlockedCount || 0;
+  const manualOverrideRealOrdersCount = dashboardState?.stats?.manualOverrideRealOrdersCount || 0;
+  const manualOverrideQaAging = useMemo(() => dashboardState?.stats?.manualOverrideQaAging || { fresh: 0, over24h: 0, over72h: 0 }, [dashboardState]);
+  const manualOverrideQaSeverity = useMemo(() => dashboardState?.stats?.manualOverrideQaSeverity || { low: 0, medium: 0, high: 0, critical: 0, total: 0, maxScore: 0 }, [dashboardState]);
+  const manualOverrideQaSla = useMemo(() => dashboardState?.stats?.manualOverrideQaSla || { open_avg_hours: null, open_sample_size: 0, review_avg_hours: null, review_sample_size: 0, resolution_avg_hours: null, resolution_sample_size: 0 }, [dashboardState]);
+  const deliveryFormats = dashboardState?.deliveryFormats || {};
+  const transportReadiness = dashboardState?.transportReadiness || null;
+
+  const reloadDashboard = async () => {
+    const refreshed = await api.getAdminDashboard();
+    setDashboardState(refreshed);
+  };
+
+  const runQuickAction = async (orderId, action) => {
+    setQuickActionBusyId(orderId);
+    setQuickActionMessage({ type: '', text: '' });
+    try {
+      await action();
+      await reloadDashboard();
+    } catch (error) {
+      setQuickActionMessage({ type: 'error', text: error.message || 'No fue posible ejecutar la acción rápida.' });
+    } finally {
+      setQuickActionBusyId('');
+    }
+  };
+
+  const handleKeepQa = async (order) => runQuickAction(order.id, async () => {
+    await api.reviewOrderTestClassification(order.id, { review_note: 'Se mantiene QA tras revisión rápida desde dashboard.' });
+    setQuickActionMessage({ type: 'success', text: `Orden ${order.id} mantenida en QA y marcada como revisada.` });
+  });
+
+  const handleMarkReviewed = async (order) => runQuickAction(order.id, async () => {
+    await api.reviewOrderTestClassification(order.id, { review_note: 'Revisión rápida registrada desde dashboard.' });
+    setQuickActionMessage({ type: 'success', text: `Orden ${order.id} marcada como revisada.` });
+  });
+
+  const handleRestoreReal = async (order) => runQuickAction(order.id, async () => {
+    await api.overrideOrderTestClassification(order.id, { is_test: false, test_reason: '' });
+    setQuickActionMessage({ type: 'success', text: `Orden ${order.id} restaurada como operativa real.` });
+  });
 
   const handleGlobalSearch = async (term) => {
     if (!term.trim()) { setGlobalResults(null); return; }
@@ -187,6 +231,8 @@ const AdminDashboard = ({ dashboard }) => {
         ? `${manualOverrideQaAging.over72h} con aging >72h`
         : manualOverrideQaAging.over24h > 0
           ? `${manualOverrideQaAging.over24h} con aging >24h`
+          : manualOverrideQaBlockedCount > 0
+            ? `${manualOverrideQaBlockedCount} pagada(s) y bloqueada(s)`
           : manualOverrideQaReviewedCount > 0
             ? `${manualOverrideQaReviewedCount} ya revisada(s)`
             : manualOverrideRealOrdersCount > 0
@@ -194,7 +240,7 @@ const AdminDashboard = ({ dashboard }) => {
               : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola manual en QA' : 'Sin correcciones manuales abiertas'),
       href: '/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending',
     },
-  ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideQaReviewedCount, manualOverrideRealOrdersCount, manualOverrideQaAging]);
+  ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideQaReviewedCount, manualOverrideQaBlockedCount, manualOverrideRealOrdersCount, manualOverrideQaAging]);
 
   const funnelStats = useMemo(() => {
     const funnel = statsSource.operationalFunnel || { paid: 0, ready: 0, shipped: 0, delivered: 0, activated: 0 };
@@ -423,7 +469,7 @@ const AdminDashboard = ({ dashboard }) => {
                 <h2 className="font-bold text-lg text-white">Severidad cola overrides manuales QA</h2>
                 <p className="text-sm text-zinc-400 font-medium">Prioriza lo más riesgoso: aging + pagada + no despachada + no activada.</p>
               </div>
-              <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2">Abrir cola QA</a>
+              <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending" className="text-xs font-bold underline underline-offset-2">Abrir cola QA</a>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <AdminStat label="Críticas" value={manualOverrideQaSeverity.critical || 0} accent="red" hint={manualOverrideQaSeverity.critical > 0 ? 'Pagadas, sin envío/activación y con aging alto' : null} />
@@ -431,6 +477,17 @@ const AdminDashboard = ({ dashboard }) => {
               <AdminStat label=">24h" value={manualOverrideQaAging.over24h || 0} accent="amber" hint="Overrides manuales envejeciendo" />
               <AdminStat label=">72h" value={manualOverrideQaAging.over72h || 0} accent="red" hint="Deuda operativa real" />
             </div>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <AdminStat label="SLA aging abierto" value={manualOverrideQaSla.open_avg_hours != null ? `${manualOverrideQaSla.open_avg_hours}h` : '—'} accent="amber" hint={manualOverrideQaSla.open_sample_size > 0 ? `${manualOverrideQaSla.open_sample_size} override(s) pendientes` : 'Sin muestra pendiente'} />
+              <AdminStat label="SLA a revisión" value={manualOverrideQaSla.review_avg_hours != null ? `${manualOverrideQaSla.review_avg_hours}h` : '—'} accent="blue" hint={manualOverrideQaSla.review_sample_size > 0 ? `${manualOverrideQaSla.review_sample_size} override(s) revisados` : 'Sin muestra revisada'} />
+              <AdminStat label="SLA a restore real" value={manualOverrideQaSla.resolution_avg_hours != null ? `${manualOverrideQaSla.resolution_avg_hours}h` : '—'} accent="emerald" hint={manualOverrideQaSla.resolution_sample_size > 0 ? `${manualOverrideQaSla.resolution_sample_size} restore(s) manual(es)` : 'Sin restores manuales'} />
+            </div>
+            {manualOverrideQaBlockedCount > 0 && (
+              <div className="mt-4 flex items-center gap-3 flex-wrap">
+                <AdminBadge variant="danger">{manualOverrideQaBlockedCount} pagada(s) y bloqueada(s)</AdminBadge>
+                <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending&risk=paid_blocked" className="text-xs font-bold underline underline-offset-2">Abrir solo pagadas bloqueadas</a>
+              </div>
+            )}
           </AdminCard>
 
           <AdminCard>
@@ -439,16 +496,20 @@ const AdminDashboard = ({ dashboard }) => {
                 <h2 className="font-bold text-lg text-white">Top 5 overrides críticos</h2>
                 <p className="text-sm text-zinc-400 font-medium">Acción inmediata sobre la cola manual más riesgosa.</p>
               </div>
-              <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only" className="text-xs font-bold underline underline-offset-2">Ver todo</a>
+              <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending" className="text-xs font-bold underline underline-offset-2">Ver todo</a>
             </div>
+            {quickActionMessage.text && (
+              <div className={`mb-3 rounded-xl border px-3 py-2 text-xs font-semibold ${quickActionMessage.type === 'error' ? 'border-red-800 bg-red-950/40 text-red-300' : 'border-emerald-800 bg-emerald-950/40 text-emerald-300'}`}>
+                {quickActionMessage.text}
+              </div>
+            )}
             <div className="space-y-3">
               {topManualOverrideQueue.length === 0 ? (
                 <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm font-medium text-zinc-400">Sin overrides manuales priorizados en este momento.</div>
               ) : topManualOverrideQueue.map((order) => (
-                <a
+                <div
                   key={order.id}
-                  href={`/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending${order.age_hours >= 72 ? '&override_age=72h' : order.age_hours >= 24 ? '&override_age=24h' : ''}&order_id=${encodeURIComponent(order.id)}`}
-                  className="block rounded-xl bg-zinc-800 border border-zinc-700 p-4 hover:bg-zinc-700/60 transition-colors"
+                  className="rounded-xl bg-zinc-800 border border-zinc-700 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -474,7 +535,42 @@ const AdminDashboard = ({ dashboard }) => {
                       {order.activation_completed ? 'activada' : 'sin activar'}
                     </AdminBadge>
                   </div>
-                </a>
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleKeepQa(order)}
+                      disabled={quickActionBusyId === order.id}
+                      className="inline-flex items-center gap-1 rounded-lg bg-fuchsia-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-fuchsia-600 disabled:opacity-50"
+                    >
+                      {quickActionBusyId === order.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                      Mantener QA
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMarkReviewed(order)}
+                      disabled={quickActionBusyId === order.id}
+                      className="inline-flex items-center gap-1 rounded-lg bg-sky-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-sky-600 disabled:opacity-50"
+                    >
+                      {quickActionBusyId === order.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                      Marcar revisada
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreReal(order)}
+                      disabled={quickActionBusyId === order.id}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-emerald-600 disabled:opacity-50"
+                    >
+                      {quickActionBusyId === order.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                      Restaurar real
+                    </button>
+                    <a
+                      href={`/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending${order.age_hours >= 72 ? '&override_age=72h' : order.age_hours >= 24 ? '&override_age=24h' : ''}&order_id=${encodeURIComponent(order.id)}`}
+                      className="text-[11px] font-bold text-zinc-300 underline underline-offset-2 hover:text-white"
+                    >
+                      Abrir detalle
+                    </a>
+                  </div>
+                </div>
               ))}
             </div>
           </AdminCard>
