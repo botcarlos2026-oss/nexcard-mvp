@@ -19,6 +19,7 @@ import ProductsDashboard from './ProductsDashboard';
 import TeamDashboard from './TeamDashboard';
 import WheelDashboard from './WheelDashboard';
 import PrintTestGenerator from './PrintTestGenerator';
+import KpiDashboard from './KpiDashboard';
 import UnsubscribePage from './UnsubscribePage';
 import TrackingPage from './TrackingPage';
 import DeliveryConfirmation from './DeliveryConfirmation';
@@ -94,6 +95,7 @@ export default function AppRouteRenderer({
   if (path === '/admin/team') return <TeamDashboard />;
   if (path === '/admin/wheel') return <WheelDashboard />;
   if (path === '/admin/print-test') return <PrintTestGenerator />;
+  if (path === '/admin/kpis') return <KpiDashboard />;
 
   if (path.startsWith('/r/')) {
     return <ReviewCardRedirect slug={path.replace('/r/', '').replace(/\/$/, '')} />;

@@ -14,6 +14,7 @@ const items = [
   { id: 'team',      label: 'Equipo',     path: '/admin/team' },
   { id: 'wheel',       label: 'Ruleta',      path: '/admin/wheel' },
   { id: 'print-test', label: 'Calibración', path: '/admin/print-test' },
+  { id: 'kpis',      label: 'KPIs',       path: '/admin/kpis' },
 ];
 
 export default function AdminNav({ active }) {

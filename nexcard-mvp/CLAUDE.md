@@ -642,20 +642,42 @@ No hay React Router. El routing es manual con `window.location.pathname` + `wind
 ### Dos modos de datos: Supabase o servidor local mock
 `src/services/supabaseClient.js` exporta `supabase` (puede ser `null`) y `hasSupabase` (booleano). Todos los métodos en `src/services/api.js` hacen `if (hasSupabase)` para decidir si van a Supabase o al servidor Express local (`server/index.js`). En producción siempre va a Supabase.
 
-### Capa de servicio: `src/services/api.js`
-Archivo central. Dos helpers privados importantes:
-- `fetchAdminCards()` — cards enriquecidas con profile_name, profile_slug, last_event, events[]
-- `fetchOrders()` — órdenes con `order_items(*)` y `payments(*)` incluidos
+### Capa de servicio: `src/services/api/` (modularizada)
+La API está dividida por dominio en `src/services/api/*.js` (auth, profiles, products, orders, inventory, cards, crm, refunds, team, wheel, stats, calibrations, kpis, landing). El barrel `src/services/api/index.js` arma el objeto `api` que consumen los componentes. `src/services/api.js` queda como shim de retrocompatibilidad (`export * from './api/index'`).
 
-Todos los métodos del admin panel usan estos helpers para retornar datos completos tras cada mutación.
+- `_client.js` exporta `supabase`, `hasSupabase` y un `apiFetch` para el server local. Cada módulo hace `if (hasSupabase)` para decidir destino.
+- `_errors.js` exporta `getErrorMessage()` para normalizar errores de Supabase/red.
+- Las queries enriquecidas (cards con `profile_*` y `events[]`, orders con `order_items(*)` y `payments(*)`) viven dentro de los módulos respectivos. Todas las mutaciones del admin retornan el objeto completo refrescado.
+
+### Hooks de bootstrap: `src/hooks/`
+- `useAuth.js` — sesión Supabase, login/logout, whitelist admin.
+- `useBootstrap.js` — carga inicial de productos, contenido de landing, perfil del usuario.
+`App.jsx` orquesta routing manual + estos hooks; no agregar lógica de fetching en `App.jsx`.
+
+### Observability: `src/services/logger.js`
+Wrapper sobre la tabla `event_log`. Exporta `logEvent`, `logCritical`, `logError`, `logWarn`, `logInfo`. **Logging nunca debe romper el flujo principal** — el wrapper traga errores. El dashboard `/admin/logs` (`EventLogDashboard.jsx`) consume esta tabla con filtros por severity/source/order_id.
+
+### Order state machine: `src/services/orderStateMachine.js`
+Centraliza transiciones válidas de `payment_status` y `fulfillment_status`. Usar antes de cualquier update de estado en órdenes.
+
+### Componentes UI compartidos: `src/components/ui/`
+`AdminBadge`, `AdminCard`, `AdminStat`, `AdminTable` — primitivas para los dashboards admin. Reutilizar antes de crear estilos nuevos.
 
 ### Estado global del carrito: `src/store/cartStore.js` (Zustand)
 
-### Edge Functions (no están en el repo local)
-Deployadas directamente en Supabase. Para inspeccionarlas: Supabase Dashboard → Edge Functions.
+### Edge Functions (`supabase/functions/`)
+Versionadas en repo (excepto las MP, que viven solo en Supabase). Deploy con `supabase functions deploy <nombre> --project-ref ghiremuuyprohdqfrxsy`.
 - `create-mp-preference` — crea preferencia MP y retorna `init_point`
-- `mp-webhook` — recibe notificaciones de MP, actualiza `payment_status` de la orden
-- `send-order-confirmation` — email al cliente + notificación interna
+- `mp-webhook` — recibe notificaciones MP → actualiza `payment_status`
+- `send-order-confirmation` — email cliente + notificación interna (Resend)
+- `send-shipping-notification` — email con código de tracking
+- `send-abandoned-cart` — recovery de carritos abandonados
+- `send-campaign-email` — email marketing batch
+- `send-low-stock-alert` — alerta interna de inventario
+- `send-weekly-kpi-report` — reporte semanal automatizado (cron)
+- `get-tracking` — proxy a courier para estado de envío
+- `process-refund` — flujo de reembolso (paired con tabla `refunds`)
+- `emit-bsale-document` — boleta/factura SII (NO-OP hasta `BSALE_ACCESS_TOKEN`, ver sección Bsale)
 
 **Crítico:** `mp-webhook` debe quedar publicado con `verify_jwt = false`, porque Mercado Pago no enviará bearer token de Supabase. El repo ahora deja esto explícito en:
 - `supabase/config.toml`
@@ -707,17 +729,35 @@ La función DB `mark_order_fulfillment_status` usa valores distintos (`printing`
 
 | Tabla | Notas clave |
 |-------|-------------|
-| `products` | `price_cents` en CLP directo (79990 = $79.990, no centavos) |
-| `orders` | `payment_status`, `fulfillment_status`, `deleted_at` (soft delete) |
+| `products` | `price_cents` en CLP directo (79990 = $79.990); `cost_cents`, `margin_pct`, `pack_type` (metadata comercial) |
+| `orders` | `payment_status`, `fulfillment_status`, `deleted_at`, `folio`, `bsale_*`, `requires_invoice` |
 | `order_items` | `product_id`, `quantity`, `unit_price_cents` |
 | `order_status_history` | log de cambios de campo en órdenes |
-| `cards` | lifecycle NFC: status + activation_status (ver constraints arriba) |
+| `cards` | lifecycle NFC: status + activation_status (ver constraints arriba); `nfc_*` para programación |
 | `card_events` | log de eventos por tarjeta |
+| `card_scans_unified` | scans de NFC + Review Cards consolidados (alimenta CRM y KPIs) |
 | `profiles` | perfiles públicos; `deleted_at` para soft delete |
+| `review_cards` | NexReview (Google Reviews Cards), independiente de `cards` NFC |
 | `memberships` | roles de usuario — requerido para RLS admin |
 | `audit_log` | log de operaciones security definer |
-| `inventory_items` / `inventory_movements` | stock físico |
+| `event_log` | observability: type/severity/source/payload, alimenta `/admin/logs` |
+| `inventory_items` / `inventory_movements` | stock físico, con `min_stock` para alertas |
 | `waitlist` | emails lista de espera |
+| `refunds` | reembolsos asociados a `orders` |
+| `abandoned_carts` | recovery de checkout incompleto (cron diario) |
+| `crm_contacts` / `crm_deals` / `crm_activities` | pipeline Kanban |
+| `team_members` | equipo interno |
+| `wheels` / `wheel_prizes` / `wheel_spins` / `wheel_coupons` | ruleta de descuentos |
+| `fargo_calibrations` | offsets de impresión por modelo de tarjeta |
+| `dispatch_config` | configuración de despacho (couriers, zonas) |
+| `email_*` | tablas de email marketing + unsubscribe |
+| KPI views | `kpi_monthly_revenue`, `kpi_funnel`, `kpi_top_products`, `kpi_cohorts` (alimentan `KpiDashboard` y reporte semanal) |
+
+### RPCs relevantes
+- `revoke_card`, `soft_delete_card` — lifecycle de cards (security definer + audit_log)
+- `decrement_stock` — descuento atómico de inventario al confirmar pago
+- `create_order_with_items` — orden + items en una transacción
+- `mark_order_fulfillment_status` — existe pero el frontend hace updates directos (ver sección fulfillment)
 
 ---
 
@@ -1314,8 +1354,8 @@ La auditoría de emails quedó mucho más confiable:
 - [ ] Endurecer Edge Functions con `SUPABASE_SERVICE_ROLE_KEY` (JWT + rol admin explícito) donde aplique a funciones no públicas
 - [ ] Seguir partiendo `src/services/api.js` por dominio
 - [ ] Panel configuración Google Reviews Card (NexReview)
+- [ ] Activar Bsale (ver sección abajo)
 - [ ] Transbank WebPay (segunda integración de pago)
-- [ ] CRM con pipeline Kanban
 
 <!--
 PLAN PRE-LANZAMIENTO — revisión ejecutiva

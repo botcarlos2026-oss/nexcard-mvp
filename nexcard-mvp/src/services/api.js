@@ -4,6 +4,7 @@ import { createOrdersApi } from './api/orders';
 import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
+import { createKpisApi } from './api/kpis';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const ERROR_MESSAGES = {
@@ -97,6 +98,7 @@ const fetchOrders = ordersApi.getOrders;
 const paymentsApi = createPaymentsApi({ supabase, hasSupabase, fetchOrders });
 const profilesApi = createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCurrentUserEmail, request });
 const inventoryApi = createInventoryApi({ supabase, hasSupabase });
+const kpisApi = createKpisApi({ supabase, hasSupabase });
 
 // ---------------------------------------------------------------------------
 // Helpers privados
@@ -1276,4 +1278,9 @@ export const api = {
       .update({ status }).eq('id', id);
     if (error) throw new Error(error.message);
   },
+
+  getKpiMonthlyRevenue: async (opts) => kpisApi.getKpiMonthlyRevenue(opts),
+  getKpiFunnel: async () => kpisApi.getKpiFunnel(),
+  getKpiTopProducts: async (opts) => kpisApi.getKpiTopProducts(opts),
+  getKpiCohorts: async (opts) => kpisApi.getKpiCohorts(opts),
 };
