@@ -5,7 +5,7 @@ import { createPaymentsApi } from './api/payments';
 import { createProfilesApi } from './api/profiles';
 import { createInventoryApi } from './api/inventory';
 import { createKpisApi } from './api/kpis';
-import { KPI_SLA_TARGET_HOURS } from '../config/admin';
+import { KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 
 const ERROR_MESSAGES = {
@@ -229,6 +229,7 @@ export const api = {
       if (!previous) return current ? 100 : 0;
       return round1(((current - previous) / previous) * 100);
     };
+    const getPaymentFeeRate = (paymentMethod) => KPI_PAYMENT_METHOD_FEES[paymentMethod] ?? KPI_PAYMENT_METHOD_FEES.default ?? 0;
     const isOperationallyOpen = (order) => (
       order.payment_status === 'paid'
       && !['failed', 'cancelled', 'refunded'].includes(order.payment_status)
@@ -550,32 +551,101 @@ export const api = {
     const rolling30dShippedOrders = operationalPaidOrders.filter((order) => inRange(getStageTimestampMs(order, 'shipped'), window30dStartMs, nowMs + 1));
     const paymentMethodStats = Object.values(rolling30dPaidOrders.reduce((acc, order) => {
       const key = order.payment_method || 'Sin método';
-      if (!acc[key]) acc[key] = { key, label: key, orders: 0, revenue: 0 };
+      if (!acc[key]) acc[key] = { key, label: key, orders: 0, revenue: 0, fee_rate: getPaymentFeeRate(key), fee_cost: 0, net_revenue: 0 };
       acc[key].orders += 1;
       acc[key].revenue += order.amount_cents || 0;
+      acc[key].fee_cost += (order.amount_cents || 0) * acc[key].fee_rate;
+      acc[key].net_revenue += (order.amount_cents || 0) * (1 - acc[key].fee_rate);
       return acc;
-    }, {})).sort((a, b) => (b.revenue - a.revenue) || (b.orders - a.orders)).slice(0, 5);
+    }, {})).map((item) => ({
+      ...item,
+      fee_cost: Math.round(item.fee_cost || 0),
+      net_revenue: Math.round(item.net_revenue || 0),
+    })).sort((a, b) => (b.net_revenue - a.net_revenue) || (b.orders - a.orders)).slice(0, 5);
     const carrierStats = Object.values(rolling30dShippedOrders.reduce((acc, order) => {
       const key = order.carrier || 'Sin carrier';
-      if (!acc[key]) acc[key] = { key, label: key, orders: 0, delivered: 0 };
+      if (!acc[key]) acc[key] = { key, label: key, orders: 0, delivered: 0, delivered_to_activation_hours: [] };
       acc[key].orders += 1;
       if (order.fulfillment_status === 'delivered') acc[key].delivered += 1;
+      const deliveredAtMs = getStageTimestampMs(order, 'delivered');
+      const activatedAtMs = getStageTimestampMs(order, 'activated');
+      if (!Number.isNaN(deliveredAtMs) && !Number.isNaN(activatedAtMs) && activatedAtMs >= deliveredAtMs) {
+        acc[key].delivered_to_activation_hours.push((activatedAtMs - deliveredAtMs) / (1000 * 60 * 60));
+      }
       return acc;
     }, {})).map((item) => ({
       ...item,
       delivery_rate: percentage(item.delivered, item.orders),
+      p90_delivery_to_activation_hours: percentile(item.delivered_to_activation_hours, 90),
     })).sort((a, b) => (b.orders - a.orders) || ((b.delivery_rate || 0) - (a.delivery_rate || 0))).slice(0, 5);
     const productStats = Object.values(rolling30dPaidOrders.reduce((acc, order) => {
       (order.order_items || []).forEach((item) => {
         const key = item.product_id || 'Sin producto';
-        if (!acc[key]) acc[key] = { key, label: productNameMap[key] || key, quantity: 0, revenue: 0 };
+        if (!acc[key]) acc[key] = { key, label: productNameMap[key] || key, quantity: 0, revenue: 0, claims: 0, orders: new Set() };
         const quantity = Number(item.quantity) || 0;
         const lineRevenue = item.unit_price_cents != null ? (Number(item.unit_price_cents) || 0) * quantity : ((order.amount_cents || 0) / Math.max((order.order_items || []).length, 1));
         acc[key].quantity += quantity;
         acc[key].revenue += lineRevenue;
+        acc[key].orders.add(order.id);
+        if (order.activation_claim?.status === 'pending') acc[key].claims += 1;
       });
       return acc;
-    }, {})).sort((a, b) => (b.revenue - a.revenue) || (b.quantity - a.quantity)).slice(0, 5);
+    }, {})).map((item) => ({
+      ...item,
+      order_count: item.orders.size,
+      claim_rate: percentage(item.claims, item.orders.size),
+    })).sort((a, b) => (b.revenue - a.revenue) || (b.quantity - a.quantity)).slice(0, 5);
+    const previous30dStartMs = window30dStartMs - (30 * 24 * 60 * 60 * 1000);
+    const previous30dEndMs = window30dStartMs;
+    const previous30dShippedOrders = operationalPaidOrders.filter((order) => inRange(getStageTimestampMs(order, 'shipped'), previous30dStartMs, previous30dEndMs));
+    const previousCarrierRateMap = Object.values(previous30dShippedOrders.reduce((acc, order) => {
+      const key = order.carrier || 'Sin carrier';
+      if (!acc[key]) acc[key] = { key, orders: 0, delivered: 0 };
+      acc[key].orders += 1;
+      if (order.fulfillment_status === 'delivered') acc[key].delivered += 1;
+      return acc;
+    }, {})).reduce((acc, item) => {
+      acc[item.key] = percentage(item.delivered, item.orders);
+      return acc;
+    }, {});
+    const wowAlerts = [];
+    if ((kpiComparisons.revenue_7d?.delta_pct ?? 0) <= KPI_WOW_ALERT_THRESHOLDS.revenue_drop_pct) {
+      wowAlerts.push({
+        key: 'revenue_drop',
+        severity: 'danger',
+        title: 'Revenue 7d cayó fuerte vs período previo',
+        detail: `${kpiComparisons.revenue_7d.delta_pct}% vs ventana previa`,
+      });
+    }
+    if ((kpiComparisons.payment_rate_7d?.delta_pts ?? 0) <= KPI_WOW_ALERT_THRESHOLDS.payment_rate_drop_pts) {
+      wowAlerts.push({
+        key: 'payment_rate_drop',
+        severity: 'warning',
+        title: 'Tasa de pago cayó WoW',
+        detail: `${kpiComparisons.payment_rate_7d.delta_pts} pts vs ventana previa`,
+      });
+    }
+    carrierStats.forEach((carrier) => {
+      const previousRate = previousCarrierRateMap[carrier.key];
+      if (previousRate != null && carrier.delivery_rate != null && (carrier.delivery_rate - previousRate) <= KPI_WOW_ALERT_THRESHOLDS.carrier_delivery_rate_drop_pts) {
+        wowAlerts.push({
+          key: `carrier_${carrier.key}`,
+          severity: 'warning',
+          title: `Carrier ${carrier.label} empeoró tasa de entrega`,
+          detail: `${round1(carrier.delivery_rate - previousRate)} pts vs ventana previa`,
+        });
+      }
+    });
+    productStats.forEach((product) => {
+      if ((product.claim_rate ?? 0) >= KPI_WOW_ALERT_THRESHOLDS.sku_claim_rate_pct) {
+        wowAlerts.push({
+          key: `sku_claim_${product.key}`,
+          severity: 'danger',
+          title: `SKU con claim rate alto: ${product.label}`,
+          detail: `${product.claim_rate}% claim rate sobre ${product.order_count} órdenes`,
+        });
+      }
+    });
     const alertBuckets = {
       paid_without_production: operationalAlerts.filter((order) => order.alerts?.includes('Pagada sin entrar a producción')),
       advanced_without_card: operationalAlerts.filter((order) => order.alerts?.includes('Orden avanzada sin card vinculada')),
@@ -778,6 +848,8 @@ export const api = {
         carrierStats,
         productStats,
         slaTargets: KPI_SLA_TARGET_HOURS,
+        paymentMethodFees: KPI_PAYMENT_METHOD_FEES,
+        wowAlerts: wowAlerts.slice(0, 6),
         proactiveSeverity: proactiveSummary.severity,
       },
       users,

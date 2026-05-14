@@ -32,3 +32,18 @@ export const KPI_SLA_TARGET_HOURS = {
   shipped_to_delivered: 72,
   delivered_to_activated: 24,
 };
+
+export const KPI_PAYMENT_METHOD_FEES = {
+  webpay: 0.0295,
+  transbank: 0.0295,
+  mercado_pago: 0.0349,
+  'mercado-pago': 0.0349,
+  default: 0,
+};
+
+export const KPI_WOW_ALERT_THRESHOLDS = {
+  revenue_drop_pct: -20,
+  payment_rate_drop_pts: -8,
+  carrier_delivery_rate_drop_pts: -10,
+  sku_claim_rate_pct: 8,
+};

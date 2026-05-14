@@ -275,6 +275,7 @@ const AdminDashboard = ({ dashboard }) => {
   const carrierStats = useMemo(() => statsSource.carrierStats || [], [statsSource]);
   const productStats = useMemo(() => statsSource.productStats || [], [statsSource]);
   const slaTargets = useMemo(() => statsSource.slaTargets || {}, [statsSource]);
+  const wowAlerts = useMemo(() => statsSource.wowAlerts || [], [statsSource]);
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const handleCopyDigest = async () => {
@@ -611,7 +612,7 @@ const AdminDashboard = ({ dashboard }) => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-bold text-lg text-white">Métodos de pago (30d)</h2>
-              <p className="text-sm text-zinc-400 font-medium">Top por revenue cobrado real</p>
+              <p className="text-sm text-zinc-400 font-medium">Top por revenue neto estimado post-fee</p>
             </div>
           </div>
           <div className="space-y-3">
@@ -619,9 +620,12 @@ const AdminDashboard = ({ dashboard }) => {
               <div key={item.key} className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="font-bold text-sm text-white">{item.label}</p>
-                  <p className="text-xs text-zinc-400">{item.orders} órdenes</p>
+                  <p className="text-xs text-zinc-400">{item.orders} órdenes · fee {(item.fee_rate * 100).toFixed(2)}%</p>
                 </div>
-                <p className="text-sm font-bold text-emerald-400">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.revenue || 0)}</p>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-emerald-400">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.net_revenue || 0)}</p>
+                  <p className="text-[11px] text-zinc-500">fee {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.fee_cost || 0)}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -641,7 +645,10 @@ const AdminDashboard = ({ dashboard }) => {
                   <p className="font-bold text-sm text-white">{item.label}</p>
                   <p className="text-xs text-zinc-400">{item.orders} despachos · {item.delivered} entregadas</p>
                 </div>
-                <p className="text-sm font-bold text-sky-400">{item.delivery_rate != null ? `${item.delivery_rate}%` : '—'}</p>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-sky-400">{item.delivery_rate != null ? `${item.delivery_rate}%` : '—'}</p>
+                  <p className="text-[11px] text-zinc-500">p90 act. {item.p90_delivery_to_activation_hours != null ? `${item.p90_delivery_to_activation_hours}h` : '—'}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -659,14 +666,36 @@ const AdminDashboard = ({ dashboard }) => {
               <div key={item.key} className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="font-bold text-sm text-white">{item.label}</p>
-                  <p className="text-xs text-zinc-400">{item.quantity} unidades</p>
+                  <p className="text-xs text-zinc-400">{item.quantity} unidades · {item.order_count} órdenes</p>
                 </div>
-                <p className="text-sm font-bold text-amber-400">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.revenue || 0)}</p>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-amber-400">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.revenue || 0)}</p>
+                  <p className="text-[11px] text-zinc-500">claim {item.claim_rate != null ? `${item.claim_rate}%` : '—'}</p>
+                </div>
               </div>
             ))}
           </div>
         </AdminCard>
       </div>
+
+      <AdminCard className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-bold text-lg text-white">Alertas automáticas WoW</h2>
+            <p className="text-sm text-zinc-400 font-medium">Caídas de revenue, pago, carriers o claim rate anómalo</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          {wowAlerts.length === 0 ? (
+            <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 text-sm text-zinc-400">Sin deterioros relevantes detectados en esta ventana.</div>
+          ) : wowAlerts.map((alert) => (
+            <div key={alert.key} className={`rounded-xl border p-4 ${alert.severity === 'danger' ? 'border-red-800 bg-red-950/30' : 'border-amber-800 bg-amber-950/30'}`}>
+              <p className={`font-bold text-sm ${alert.severity === 'danger' ? 'text-red-300' : 'text-amber-300'}`}>{alert.title}</p>
+              <p className="text-xs text-zinc-300 mt-1">{alert.detail}</p>
+            </div>
+          ))}
+        </div>
+      </AdminCard>
 
       <AdminCard className="mb-6">
         <div className="flex items-center justify-between mb-6">
