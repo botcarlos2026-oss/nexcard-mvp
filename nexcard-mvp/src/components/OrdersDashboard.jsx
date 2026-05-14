@@ -1098,10 +1098,47 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                         Último override: {selectedOrderOverrideAudit ? `${formatActorLabel(selectedOrderOverrideAudit)} · ${formatDate(selectedOrderOverrideAudit.changed_at)}` : 'sin trazabilidad manual registrada'}
                       </p>
                     </div>
-                    <AdminBadge variant={selectedOrder.is_test ? 'warning' : 'success'}>
-                      {selectedOrder.is_test ? 'QA/test' : 'Operativa real'}
-                    </AdminBadge>
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {selectedOrder.manualOverrideSeverity?.level && (
+                        <AdminBadge variant={selectedOrder.manualOverrideSeverity.level === 'critical' ? 'danger' : selectedOrder.manualOverrideSeverity.level === 'high' ? 'warning' : 'default'}>
+                          {selectedOrder.manualOverrideSeverity.level} · {selectedOrder.manualOverrideSeverity.ageHours}h
+                        </AdminBadge>
+                      )}
+                      <AdminBadge variant={selectedOrder.is_test ? 'warning' : 'success'}>
+                        {selectedOrder.is_test ? 'QA/test' : 'Operativa real'}
+                      </AdminBadge>
+                    </div>
                   </div>
+                  {selectedOrder.is_test && isManualTestReason(selectedOrder.test_reason) && (
+                    <div className="rounded-xl border border-fuchsia-800 bg-fuchsia-950/20 p-4">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-widest text-fuchsia-300">Decisión rápida</p>
+                          <p className="text-sm text-zinc-300 mt-1">
+                            Esta orden llegó aquí por override manual. Puedes cerrarla en 1 clic: mantener QA o restaurarla a operación real.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => applyTestOverride(selectedOrder, true)}
+                            disabled={busyOrderId === selectedOrder.id}
+                            className="px-3 py-2 bg-fuchsia-700 hover:bg-fuchsia-600 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                          >
+                            Mantener QA
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyTestOverride(selectedOrder, false)}
+                            disabled={busyOrderId === selectedOrder.id}
+                            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                          >
+                            Restaurar real
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <textarea
                     value={testOverrideReason}
                     onChange={(event) => setTestOverrideReason(event.target.value)}

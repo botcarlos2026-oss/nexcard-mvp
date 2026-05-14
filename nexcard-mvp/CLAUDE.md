@@ -340,6 +340,11 @@ Cambios concretos:
 12. deep-link al detalle de orden QA:
    - `OrdersDashboard` acepta `order_id` por querystring
    - el panel Top 5 en `/admin` abre la cola QA con la orden exacta ya seleccionada
+13. quick actions en detalle QA manual:
+   - si la orden seleccionada viene por override manual y sigue en `is_test=true`, el panel muestra CTA explícitas:
+     - `Mantener QA`
+     - `Restaurar real`
+   - esto reduce clics para revisión humana de la cola crítica
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional
