@@ -7,6 +7,7 @@ import { createInventoryApi } from './api/inventory';
 import { createKpisApi } from './api/kpis';
 import { KPI_EXECUTIVE_ALERT_BAND_POLICY, KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
+import { buildWowAlerts, computeExecutiveScore, deltaPercent, percentage, percentile, round1 } from '../utils/executiveKpi';
 
 const ERROR_MESSAGES = {
   'Failed to fetch': 'Sin conexión. Verifica tu internet e intenta nuevamente.',
@@ -303,18 +304,6 @@ export const api = {
       })[key];
       const timestampMs = new Date(rawValue || '').getTime();
       return Number.isNaN(timestampMs) ? NaN : timestampMs;
-    };
-    const round1 = (value) => Math.round(value * 10) / 10;
-    const percentage = (num, den) => (den > 0 ? round1((num / den) * 100) : null);
-    const percentile = (values, p) => {
-      if (!values.length) return null;
-      const sorted = [...values].sort((a, b) => a - b);
-      const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
-      return round1(sorted[index]);
-    };
-    const deltaPercent = (current, previous) => {
-      if (!previous) return current ? 100 : 0;
-      return round1(((current - previous) / previous) * 100);
     };
     const runtimeConfig = await loadKpiRuntimeConfig();
     const effectiveSlaTargets = { ...KPI_SLA_TARGET_HOURS, ...(runtimeConfig.sla_targets || {}) };
@@ -702,73 +691,8 @@ export const api = {
       acc[item.key] = percentage(item.delivered, item.orders);
       return acc;
     }, {});
-    const wowAlerts = [];
-    if ((kpiComparisons.revenue_7d?.delta_pct ?? 0) <= effectiveWowThresholds.revenue_drop_pct) {
-      wowAlerts.push({
-        key: 'revenue_drop',
-        severity: 'danger',
-        title: 'Revenue 7d cayó fuerte vs período previo',
-        detail: `${kpiComparisons.revenue_7d.delta_pct}% vs ventana previa`,
-      });
-    }
-    if ((kpiComparisons.payment_rate_7d?.delta_pts ?? 0) <= effectiveWowThresholds.payment_rate_drop_pts) {
-      wowAlerts.push({
-        key: 'payment_rate_drop',
-        severity: 'warning',
-        title: 'Tasa de pago cayó WoW',
-        detail: `${kpiComparisons.payment_rate_7d.delta_pts} pts vs ventana previa`,
-      });
-    }
-    carrierStats.forEach((carrier) => {
-      const previousRate = previousCarrierRateMap[carrier.key];
-      if (previousRate != null && carrier.delivery_rate != null && (carrier.delivery_rate - previousRate) <= effectiveWowThresholds.carrier_delivery_rate_drop_pts) {
-        wowAlerts.push({
-          key: `carrier_${carrier.key}`,
-          severity: 'warning',
-          title: `Carrier ${carrier.label} empeoró tasa de entrega`,
-          detail: `${round1(carrier.delivery_rate - previousRate)} pts vs ventana previa`,
-        });
-      }
-    });
-    productStats.forEach((product) => {
-      if ((product.claim_rate ?? 0) >= effectiveWowThresholds.sku_claim_rate_pct) {
-        wowAlerts.push({
-          key: `sku_claim_${product.key}`,
-          severity: 'danger',
-          title: `SKU con claim rate alto: ${product.label}`,
-          detail: `${product.claim_rate}% claim rate sobre ${product.order_count} órdenes`,
-        });
-      }
-    });
-    const executiveScore = (() => {
-      let score = 100;
-      const reasons = [];
-      const revenueDelta = kpiComparisons.revenue_7d?.delta_pct ?? 0;
-      const paymentRateDelta = kpiComparisons.payment_rate_7d?.delta_pts ?? 0;
-      if (revenueDelta < 0) {
-        const penalty = Math.min(25, Math.abs(revenueDelta) * 0.6);
-        score -= penalty;
-        reasons.push(`Revenue 7d ${revenueDelta}%`);
-      }
-      if (paymentRateDelta < 0) {
-        const penalty = Math.min(20, Math.abs(paymentRateDelta) * 1.5);
-        score -= penalty;
-        reasons.push(`Pago ${paymentRateDelta} pts`);
-      }
-      score -= Math.min(20, (slaBreaches.length || 0) * 2);
-      score -= Math.min(15, wowAlerts.length * 3);
-      const avgClaimRate = productStats.length ? productStats.reduce((sum, item) => sum + (item.claim_rate || 0), 0) / productStats.length : 0;
-      if (avgClaimRate > 0) {
-        score -= Math.min(20, avgClaimRate * 1.2);
-        reasons.push(`Claim avg ${round1(avgClaimRate)}%`);
-      }
-      const band = score >= 85 ? 'strong' : score >= 70 ? 'healthy' : score >= 50 ? 'watch' : 'critical';
-      return {
-        score: Math.max(0, round1(score)),
-        band,
-        reasons: reasons.slice(0, 4),
-      };
-    })();
+    const wowAlerts = buildWowAlerts({ kpiComparisons, effectiveWowThresholds, carrierStats, previousCarrierRateMap, productStats });
+    const executiveScore = computeExecutiveScore({ kpiComparisons, slaBreachesCount: slaBreaches.length, wowAlerts, productStats });
     const alertBuckets = {
       paid_without_production: operationalAlerts.filter((order) => order.alerts?.includes('Pagada sin entrar a producción')),
       advanced_without_card: operationalAlerts.filter((order) => order.alerts?.includes('Orden avanzada sin card vinculada')),
