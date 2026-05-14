@@ -189,6 +189,20 @@ const AdminDashboard = ({ dashboard }) => {
       blockedTop,
     };
   }, [kpiAlertEvaluations]);
+  const cronEvaluationHealth = useMemo(() => {
+    const cronEvaluations = kpiAlertEvaluations.filter((entry) => entry.trigger_source === 'cron');
+    const lastCronEvaluation = cronEvaluations[0] || null;
+    const staleMinutes = lastCronEvaluation?.created_at ? Math.round((Date.now() - new Date(lastCronEvaluation.created_at).getTime()) / 60000) : null;
+    const lastBlocked = lastCronEvaluation?.blocked_reason || '—';
+    const failedCronDispatches = cronEvaluations.filter((entry) => entry.should_send && !entry.dispatched && entry.blocked_reason == null).length;
+    return {
+      cronEvaluations,
+      lastCronEvaluation,
+      staleMinutes,
+      lastBlocked,
+      failedCronDispatches,
+    };
+  }, [kpiAlertEvaluations]);
 
   const reloadDashboard = async () => {
     const refreshed = await api.getAdminDashboard();
@@ -961,6 +975,32 @@ const AdminDashboard = ({ dashboard }) => {
             value={alertHistorySummary.failed || 0}
             accent={alertHistorySummary.failed > 0 ? 'red' : 'emerald'}
             hint={`sent ${alertHistorySummary.sent || 0} · dry_run ${alertHistorySummary.dry_run || 0} · omitted ${alertHistorySummary.omitted || 0}`}
+          />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <AdminStat
+            label="Último cron"
+            value={cronEvaluationHealth.staleMinutes != null ? `${cronEvaluationHealth.staleMinutes} min` : '—'}
+            accent={cronEvaluationHealth.staleMinutes != null && cronEvaluationHealth.staleMinutes <= 45 ? 'emerald' : 'red'}
+            hint={cronEvaluationHealth.lastCronEvaluation ? `${cronEvaluationHealth.lastCronEvaluation.band} · score ${cronEvaluationHealth.lastCronEvaluation.score}` : 'Sin corridas cron registradas'}
+          />
+          <AdminStat
+            label="Bloqueo último cron"
+            value={cronEvaluationHealth.lastBlocked}
+            accent={cronEvaluationHealth.lastBlocked === '—' || cronEvaluationHealth.lastBlocked === 'below_band' ? 'blue' : 'amber'}
+            hint={cronEvaluationHealth.lastCronEvaluation ? `trigger ${cronEvaluationHealth.lastCronEvaluation.trigger_source}` : 'Sin evaluación cron'}
+          />
+          <AdminStat
+            label="Corridas cron"
+            value={cronEvaluationHealth.cronEvaluations.length}
+            accent={cronEvaluationHealth.cronEvaluations.length > 0 ? 'emerald' : 'amber'}
+            hint="Ventana reciente de evaluaciones registradas con trigger cron"
+          />
+          <AdminStat
+            label="Dispatch cron perdidos"
+            value={cronEvaluationHealth.failedCronDispatches}
+            accent={cronEvaluationHealth.failedCronDispatches > 0 ? 'red' : 'emerald'}
+            hint="Evaluaciones cron elegibles que no terminaron despachadas"
           />
         </div>
         <div className="space-y-3">

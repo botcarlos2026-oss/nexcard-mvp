@@ -87,3 +87,52 @@ export const computeExecutiveScore = ({ kpiComparisons, slaBreachesCount, wowAle
     avgClaimRate: round1(avgClaimRate || 0),
   };
 };
+
+export const computeExecutiveAlertDecision = ({
+  band,
+  policy,
+  bandPolicy,
+  alertState,
+  nowMs = Date.now(),
+}) => {
+  const alertBandRank = band === 'critical' ? 2 : band === 'watch' ? 1 : 0;
+  const minimumBandRank = band === 'critical'
+    ? Number(policy?.min_band_critical || 1)
+    : Number(policy?.min_band_watch || 1);
+  const cooldownMinutes = band === 'critical'
+    ? Number(bandPolicy?.critical_cooldown_minutes ?? policy?.cooldown_minutes ?? 0)
+    : Number(bandPolicy?.watch_cooldown_minutes ?? policy?.cooldown_minutes ?? 0);
+  const lastSentAtMs = new Date(alertState?.last_sent_at || '').getTime();
+  const inCooldown = Number.isFinite(lastSentAtMs)
+    && !Number.isNaN(lastSentAtMs)
+    && cooldownMinutes > 0
+    && (nowMs - lastSentAtMs) < (cooldownMinutes * 60 * 1000);
+  const blockedBySameBand = Number(policy?.dedupe_by_band || 0) === 1 && alertState?.last_band === band;
+  const killSwitchActive = Number(bandPolicy?.kill_switch || 0) === 1;
+  const shouldSend = !killSwitchActive
+    && Number(policy?.enabled || 0) === 1
+    && alertBandRank >= minimumBandRank
+    && alertBandRank > 0
+    && !inCooldown
+    && !blockedBySameBand;
+  const blockedReason = killSwitchActive
+    ? 'kill_switch_active'
+    : (alertBandRank === 0
+      ? 'below_band'
+      : inCooldown
+        ? 'cooldown_active'
+        : blockedBySameBand
+          ? 'same_band_dedup'
+          : null);
+
+  return {
+    shouldSend,
+    blockedReason,
+    alertBandRank,
+    minimumBandRank,
+    cooldownMinutes,
+    inCooldown,
+    blockedBySameBand,
+    killSwitchActive,
+  };
+};

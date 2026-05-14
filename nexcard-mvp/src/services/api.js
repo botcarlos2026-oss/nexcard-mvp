@@ -7,7 +7,7 @@ import { createInventoryApi } from './api/inventory';
 import { createKpisApi } from './api/kpis';
 import { KPI_EXECUTIVE_ALERT_BAND_POLICY, KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
-import { buildWowAlerts, computeExecutiveScore, deltaPercent, percentage, percentile, round1 } from '../utils/executiveKpi';
+import { buildWowAlerts, computeExecutiveAlertDecision, computeExecutiveScore, deltaPercent, percentage, percentile, round1 } from '../utils/executiveKpi';
 
 const ERROR_MESSAGES = {
   'Failed to fetch': 'Sin conexión. Verifica tu internet e intenta nuevamente.',
@@ -835,10 +835,6 @@ export const api = {
       summary: deliveryFormats.short_text,
       generated_at: operationalDigest.generated_at,
     };
-    const alertBandRank = executiveScore.band === 'critical' ? 2 : executiveScore.band === 'watch' ? 1 : 0;
-    const minimumBandRank = executiveScore.band === 'critical'
-      ? Number(effectiveExecutiveAlertPolicy.min_band_critical || 1)
-      : Number(effectiveExecutiveAlertPolicy.min_band_watch || 1);
     let alertState = null;
     if (hasSupabase) {
       try {
@@ -852,17 +848,21 @@ export const api = {
         alertState = null;
       }
     }
-    const cooldownMinutes = executiveScore.band === 'critical'
-      ? Number(effectiveExecutiveAlertBandPolicy.critical_cooldown_minutes ?? effectiveExecutiveAlertPolicy.cooldown_minutes ?? 0)
-      : Number(effectiveExecutiveAlertBandPolicy.watch_cooldown_minutes ?? effectiveExecutiveAlertPolicy.cooldown_minutes ?? 0);
-    const cooldownMs = cooldownMinutes * 60 * 1000;
-    const lastSentAtMs = new Date(alertState?.last_sent_at || '').getTime();
-    const inCooldown = Number.isFinite(lastSentAtMs) && !Number.isNaN(lastSentAtMs) && cooldownMs > 0 && (nowMs - lastSentAtMs) < cooldownMs;
+    const alertDecision = computeExecutiveAlertDecision({
+      band: executiveScore.band,
+      policy: effectiveExecutiveAlertPolicy,
+      bandPolicy: effectiveExecutiveAlertBandPolicy,
+      alertState,
+      nowMs,
+    });
+    const {
+      shouldSend: shouldSendExecutiveAlert,
+      blockedReason,
+      cooldownMinutes,
+      inCooldown,
+      killSwitchActive,
+    } = alertDecision;
     const dedupeByBand = Number(effectiveExecutiveAlertPolicy.dedupe_by_band || 0) === 1;
-    const blockedBySameBand = dedupeByBand && alertState?.last_band && alertState.last_band === executiveScore.band;
-    const killSwitchActive = Number(effectiveExecutiveAlertBandPolicy.kill_switch || 0) === 1;
-    const alertEligible = !killSwitchActive && Number(effectiveExecutiveAlertPolicy.enabled || 0) === 1 && alertBandRank >= minimumBandRank && alertBandRank > 0;
-    const shouldSendExecutiveAlert = alertEligible && !inCooldown && !blockedBySameBand;
     const defaultRecipients = String(effectiveExecutiveAlertRouting.recipients_csv || '')
       .split(',')
       .map((item) => item.trim())
@@ -922,7 +922,7 @@ export const api = {
         last_sent_at: alertState?.last_sent_at || null,
         in_cooldown: inCooldown,
         should_send: shouldSendExecutiveAlert,
-        blocked_reason: killSwitchActive ? 'kill_switch_active' : !alertEligible ? 'below_policy_threshold' : inCooldown ? 'cooldown_active' : blockedBySameBand ? 'same_band_dedup' : null,
+        blocked_reason: blockedReason,
         routing_enabled: Number(effectiveExecutiveAlertRouting.enabled || 0) === 1,
         auto_dispatch: Number(effectiveExecutiveAlertRouting.auto_dispatch || 0) === 1,
         dry_run_default: Number(effectiveExecutiveAlertRouting.dry_run_default || 0) === 1,

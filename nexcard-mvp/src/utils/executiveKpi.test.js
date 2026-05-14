@@ -1,4 +1,4 @@
-import { buildWowAlerts, computeExecutiveScore, deltaPercent, percentage } from './executiveKpi';
+import { buildWowAlerts, computeExecutiveAlertDecision, computeExecutiveScore, deltaPercent, percentage } from './executiveKpi';
 
 describe('executiveKpi helpers', () => {
   it('calcula porcentajes y deltas con redondeo seguro', () => {
@@ -53,5 +53,54 @@ describe('executiveKpi helpers', () => {
     expect(result.reasons).toContain('Pago -6 pts');
     expect(result.reasons.some((reason) => reason.startsWith('Claim avg'))).toBe(true);
     expect(result.avgClaimRate).toBe(8);
+  });
+
+  it('bloquea envío por cooldown, dedupe y banda saludable', () => {
+    const nowMs = new Date('2026-05-14T17:30:00.000Z').getTime();
+    const basePolicy = { enabled: 1, cooldown_minutes: 180, dedupe_by_band: 1, min_band_watch: 1, min_band_critical: 1 };
+    const baseBandPolicy = { kill_switch: 0, watch_cooldown_minutes: 180, critical_cooldown_minutes: 60 };
+
+    const healthy = computeExecutiveAlertDecision({
+      band: 'strong',
+      policy: basePolicy,
+      bandPolicy: baseBandPolicy,
+      alertState: null,
+      nowMs,
+    });
+    expect(healthy.shouldSend).toBe(false);
+    expect(healthy.blockedReason).toBe('below_band');
+
+    const cooldown = computeExecutiveAlertDecision({
+      band: 'critical',
+      policy: basePolicy,
+      bandPolicy: baseBandPolicy,
+      alertState: { last_sent_at: '2026-05-14T17:00:00.000Z', last_band: 'watch' },
+      nowMs,
+    });
+    expect(cooldown.shouldSend).toBe(false);
+    expect(cooldown.blockedReason).toBe('cooldown_active');
+
+    const deduped = computeExecutiveAlertDecision({
+      band: 'watch',
+      policy: { ...basePolicy, cooldown_minutes: 0 },
+      bandPolicy: { ...baseBandPolicy, watch_cooldown_minutes: 0 },
+      alertState: { last_sent_at: '2026-05-14T10:00:00.000Z', last_band: 'watch' },
+      nowMs,
+    });
+    expect(deduped.shouldSend).toBe(false);
+    expect(deduped.blockedReason).toBe('same_band_dedup');
+  });
+
+  it('permite envío cuando la banda cae en watch/critical sin bloqueos', () => {
+    const result = computeExecutiveAlertDecision({
+      band: 'critical',
+      policy: { enabled: 1, cooldown_minutes: 180, dedupe_by_band: 1, min_band_watch: 1, min_band_critical: 1 },
+      bandPolicy: { kill_switch: 0, watch_cooldown_minutes: 180, critical_cooldown_minutes: 60 },
+      alertState: { last_sent_at: '2026-05-14T10:00:00.000Z', last_band: 'watch' },
+      nowMs: new Date('2026-05-14T17:30:00.000Z').getTime(),
+    });
+
+    expect(result.shouldSend).toBe(true);
+    expect(result.blockedReason).toBeNull();
   });
 });
