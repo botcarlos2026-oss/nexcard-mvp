@@ -360,6 +360,11 @@ Cambios concretos:
    - se incorporan timestamps dedicados `qa_override_at`, `qa_override_by`, `qa_override_by_label`, `qa_override_resolved_at`
    - el aging/severidad deja de depender de `updated_at`, evitando falsos rejuvenecimientos tras auditoría o cambios operativos
    - `/admin` ahora muestra SLA promedio de overrides manuales: abierto, revisión y restore real
+17. reparación del historial de migraciones Supabase:
+   - se saneó el ledger remoto/local con `supabase migration repair --status applied ...` para migraciones históricas que existían localmente pero no estaban registradas en remoto
+   - se renombró la colisión local `202604160001_shipping_tracking.sql` -> `202604160006_shipping_tracking.sql` para eliminar doble version id
+   - se agregaron placeholders locales `20260511140924` / `1130` / `1216` / `1829` / `1857` para alinear versiones remotas huérfanas registradas en `schema_migrations`
+   - tras la reparación, `supabase migration list` quedó completamente alineado y `supabase db push` aplicó remoto `202605132145_order_test_review_audit.sql` y `202605132215_order_test_override_sla_columns.sql`
 
 Objetivo:
 - hacer observables los pedidos internos/QA de forma intencional

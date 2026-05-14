@@ -1,0 +1,2 @@
+-- Placeholder to align local migration history with already-recorded remote version 20260511140924.
+-- No-op by design.
