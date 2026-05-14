@@ -169,6 +169,26 @@ const AdminDashboard = ({ dashboard }) => {
     acc[entry.status] = (acc[entry.status] || 0) + 1;
     return acc;
   }, { sent: 0, dry_run: 0, omitted: 0, failed: 0 }), [kpiAlertHistory]);
+  const evaluationHealth = useMemo(() => {
+    const blockedSummary = kpiAlertEvaluations.reduce((acc, entry) => {
+      const key = entry.blocked_reason || 'none';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const blockedTop = Object.entries(blockedSummary).sort((a, b) => b[1] - a[1])[0] || null;
+    const lastEvaluation = kpiAlertEvaluations[0] || null;
+    const shouldSendCount = kpiAlertEvaluations.filter((entry) => entry.should_send).length;
+    const dispatchedCount = kpiAlertEvaluations.filter((entry) => entry.dispatched).length;
+    const staleMinutes = lastEvaluation?.created_at ? Math.round((Date.now() - new Date(lastEvaluation.created_at).getTime()) / 60000) : null;
+    return {
+      lastEvaluation,
+      staleMinutes,
+      shouldSendCount,
+      dispatchedCount,
+      dispatchRate: shouldSendCount > 0 ? Math.round((dispatchedCount / shouldSendCount) * 100) : null,
+      blockedTop,
+    };
+  }, [kpiAlertEvaluations]);
 
   const reloadDashboard = async () => {
     const refreshed = await api.getAdminDashboard();
@@ -916,6 +936,32 @@ const AdminDashboard = ({ dashboard }) => {
             {evaluationBusy ? <Loader2 size={14} className="animate-spin" /> : null}
             Ejecutar evaluación
           </button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <AdminStat
+            label="Última corrida"
+            value={evaluationHealth.staleMinutes != null ? `${evaluationHealth.staleMinutes} min` : '—'}
+            accent={evaluationHealth.staleMinutes != null && evaluationHealth.staleMinutes <= 45 ? 'emerald' : 'amber'}
+            hint={evaluationHealth.lastEvaluation ? `${evaluationHealth.lastEvaluation.band} · score ${evaluationHealth.lastEvaluation.score} · ${evaluationHealth.lastEvaluation.trigger_source}` : 'Sin corridas registradas'}
+          />
+          <AdminStat
+            label="Dispatch efectivo"
+            value={evaluationHealth.dispatchRate != null ? `${evaluationHealth.dispatchRate}%` : '—'}
+            accent={(evaluationHealth.dispatchRate ?? 0) >= 60 ? 'emerald' : 'amber'}
+            hint={`${evaluationHealth.dispatchedCount}/${evaluationHealth.shouldSendCount || 0} evaluaciones elegibles terminaron despachadas`}
+          />
+          <AdminStat
+            label="Bloqueo dominante"
+            value={evaluationHealth.blockedTop ? evaluationHealth.blockedTop[0] : '—'}
+            accent={evaluationHealth.blockedTop?.[0] === 'none' ? 'emerald' : 'amber'}
+            hint={evaluationHealth.blockedTop ? `${evaluationHealth.blockedTop[1]} ocurrencias recientes` : 'Sin bloqueos recientes'}
+          />
+          <AdminStat
+            label="Fallos dispatch"
+            value={alertHistorySummary.failed || 0}
+            accent={alertHistorySummary.failed > 0 ? 'red' : 'emerald'}
+            hint={`sent ${alertHistorySummary.sent || 0} · dry_run ${alertHistorySummary.dry_run || 0} · omitted ${alertHistorySummary.omitted || 0}`}
+          />
         </div>
         <div className="space-y-3">
           {kpiAlertEvaluations.length === 0 ? (
