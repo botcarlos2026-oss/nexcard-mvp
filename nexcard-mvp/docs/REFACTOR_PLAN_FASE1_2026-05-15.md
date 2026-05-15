@@ -6,6 +6,12 @@ Fecha: 2026-05-15
 Bajar riesgo de regresión y costo de cambio sin alterar contratos visibles ni flujos críticos ya operativos.
 
 ## Cambios aplicados hoy
+### 0. Segunda ola sobre OrdersDashboard
+- `src/components/orders/OrdersDashboardHeader.jsx`
+- `src/components/orders/OrdersFiltersBar.jsx`
+- `src/components/orders/OrdersTable.jsx`
+- `src/components/OrdersDashboard.jsx` ahora delega superficie visual, pero mantiene estado/side effects centralizados
+
 ### 1. Extracción dominio cards
 - `src/services/api/cards.js`
 - `src/services/api/cards.test.js`

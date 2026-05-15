@@ -1,21 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Clock3,
-  Search,
-  Filter,
   AlertCircle,
   CheckCircle2,
   Loader2,
   Link2,
-  Calendar,
-  Bell,
-  RefreshCw,
-  Download,
   Truck,
   ExternalLink,
   Wifi,
   QrCode,
-  ShieldAlert,
 } from 'lucide-react';
 import { api } from '../services/api';
 import QRCode from 'qrcode';
@@ -23,9 +15,10 @@ import CardPreview from './CardPreview';
 import { generateCardSVG } from '../utils/cardTemplates';
 import AdminShell from './AdminShell';
 import AdminCard from './ui/AdminCard';
-import AdminStat from './ui/AdminStat';
-import { TH, TR, TD } from './ui/AdminTable';
 import AdminBadge from './ui/AdminBadge';
+import OrdersDashboardHeader from './orders/OrdersDashboardHeader';
+import OrdersFiltersBar from './orders/OrdersFiltersBar';
+import OrdersTable from './orders/OrdersTable';
 import { deriveOrderTestClassification, isManualTestReason } from '../utils/orderOperationalSegmentation';
 import {
   buildQaDecisionTimeline,
@@ -37,8 +30,6 @@ import {
   formatDate,
   formatLabel,
   FUNNEL_STEPS,
-  fulfillmentBadgeVariant,
-  paymentBadgeVariant,
 } from './orders/utils';
 
 const FULFILLMENT_NEXT = {
@@ -613,115 +604,141 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     URL.revokeObjectURL(url);
   };
 
+  const clearQaFilters = useCallback(() => {
+    setAuditFilter('all');
+    setTestReasonFilter('all');
+    setOverrideAgeFilter('all');
+    setReviewStatusFilter('all');
+    setRiskFilter('all');
+    if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
+  }, []);
+
+  const selectManualOverrideFilter = useCallback(() => {
+    setAuditFilter('excluded');
+    setTestReasonFilter('manual_override_only');
+    setOverrideAgeFilter('all');
+    setReviewStatusFilter('pending');
+    setRiskFilter('all');
+    if (!forceAuditFilter && typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/admin/orders?audit=excluded&test_reason=manual_override_only&review_status=pending');
+    }
+  }, [forceAuditFilter]);
+
+  const selectQaReasonFilter = useCallback((reason) => {
+    setAuditFilter('excluded');
+    setTestReasonFilter(reason);
+    setOverrideAgeFilter('all');
+    setReviewStatusFilter('all');
+    setRiskFilter('all');
+    if (!forceAuditFilter && typeof window !== 'undefined') {
+      window.history.replaceState({}, '', `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(reason)}`);
+    }
+  }, [forceAuditFilter]);
+
+  const handleAuditFilterChange = useCallback((value) => {
+    setAuditFilter(value);
+    if (value === 'all') {
+      setTestReasonFilter('all');
+      setOverrideAgeFilter('all');
+      setReviewStatusFilter('all');
+      setRiskFilter('all');
+    }
+    if (!forceAuditFilter && typeof window !== 'undefined') {
+      const nextUrl = value === 'excluded'
+        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${testReasonFilter === 'manual_override_only' && reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}${testReasonFilter === 'manual_override_only' && riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`
+        : '/admin/orders';
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, [forceAuditFilter, overrideAgeFilter, reviewStatusFilter, riskFilter, testReasonFilter]);
+
+  const handleTestReasonFilterChange = useCallback((value) => {
+    setTestReasonFilter(value);
+    if (value !== 'manual_override_only') {
+      setOverrideAgeFilter('all');
+      setReviewStatusFilter('all');
+      setRiskFilter('all');
+    } else if (reviewStatusFilter === 'all') {
+      setReviewStatusFilter('pending');
+    }
+    if (!forceAuditFilter && typeof window !== 'undefined') {
+      const effectiveReviewStatus = value === 'manual_override_only'
+        ? (reviewStatusFilter === 'all' ? 'pending' : reviewStatusFilter)
+        : 'all';
+      const effectiveRisk = value === 'manual_override_only' ? riskFilter : 'all';
+      const nextUrl = value === 'all'
+        ? '/admin/orders?audit=excluded'
+        : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}${value === 'manual_override_only' && overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value === 'manual_override_only' && effectiveReviewStatus !== 'all' ? `&review_status=${encodeURIComponent(effectiveReviewStatus)}` : ''}${value === 'manual_override_only' && effectiveRisk !== 'all' ? `&risk=${encodeURIComponent(effectiveRisk)}` : ''}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, [forceAuditFilter, overrideAgeFilter, reviewStatusFilter, riskFilter]);
+
+  const handleOverrideAgeFilterChange = useCallback((value) => {
+    setOverrideAgeFilter(value);
+    if (!forceAuditFilter && typeof window !== 'undefined') {
+      const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${value !== 'all' ? `&override_age=${encodeURIComponent(value)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}`;
+      const nextUrlWithRisk = `${nextUrl}${riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`;
+      window.history.replaceState({}, '', nextUrlWithRisk);
+    }
+  }, [forceAuditFilter, reviewStatusFilter, riskFilter]);
+
+  const handleReviewStatusFilterChange = useCallback((value) => {
+    setReviewStatusFilter(value);
+    if (!forceAuditFilter && typeof window !== 'undefined') {
+      const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value !== 'all' ? `&review_status=${encodeURIComponent(value)}` : ''}${riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, [forceAuditFilter, overrideAgeFilter, riskFilter]);
+
+  const handleRiskFilterChange = useCallback((value) => {
+    setRiskFilter(value);
+    if (!forceAuditFilter && typeof window !== 'undefined') {
+      const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}${value !== 'all' ? `&risk=${encodeURIComponent(value)}` : ''}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, [forceAuditFilter, overrideAgeFilter, reviewStatusFilter]);
+
+  const handleSelectOrder = useCallback((orderId) => {
+    setSelectedOrderId(orderId);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('order_id', orderId);
+      const nextPath = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', nextPath);
+    }
+  }, []);
+
+  const handleMarkOrderPaid = useCallback((order) => {
+    transitionOrderState(order.id, { payment_status: 'paid', reason: 'Marcada manualmente como pagada desde admin' }, `Orden ${order.id} marcada como pagada.`);
+  }, []);
+
+  const handleAdvanceFulfillment = useCallback((order) => {
+    transitionOrderState(
+      order.id,
+      { fulfillment_status: FULFILLMENT_NEXT[order.fulfillment_status], reason: 'Avance operacional desde admin' },
+      `Orden ${order.id} avanzada a ${formatLabel(FULFILLMENT_NEXT[order.fulfillment_status])}.`
+    );
+  }, []);
+
   const content = (
     <>
-      {/* Stats */}
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat) => (
-          <AdminStat key={stat.label} label={stat.label} value={stat.value} accent={stat.accent} />
-        ))}
-      </div>
-
-      {excludedOrdersCount > 0 && (
-        <div className="mb-6 space-y-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <AdminBadge variant={auditFilter === 'excluded' ? 'info' : 'default'}>
-              {excludedOrdersCount} orden(es) QA/interna(s)
-            </AdminBadge>
-            {manualOverrideCount > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAuditFilter('excluded');
-                  setTestReasonFilter('manual_override_only');
-                  setOverrideAgeFilter('all');
-                  setReviewStatusFilter('pending');
-                  setRiskFilter('all');
-                  if (!forceAuditFilter && typeof window !== 'undefined') {
-                    window.history.replaceState({}, '', '/admin/orders?audit=excluded&test_reason=manual_override_only&review_status=pending');
-                  }
-                }}
-                className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${testReasonFilter === 'manual_override_only' ? 'border-fuchsia-700 bg-fuchsia-950/40 text-fuchsia-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white'}`}
-              >
-                Solo overrides manuales · {manualOverrideCount}
-              </button>
-            )}
-            {Object.entries(testReasonCounts).map(([reason, count]) => (
-              <button
-                key={reason}
-                type="button"
-                onClick={() => {
-                  setAuditFilter('excluded');
-                  setTestReasonFilter(reason);
-                  setOverrideAgeFilter('all');
-                  setReviewStatusFilter('all');
-                  setRiskFilter('all');
-                  if (!forceAuditFilter && typeof window !== 'undefined') {
-                    window.history.replaceState({}, '', `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(reason)}`);
-                  }
-                }}
-                className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${testReasonFilter === reason ? 'border-sky-700 bg-sky-950/40 text-sky-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white'}`}
-              >
-                {formatLabel(reason)} · {count}
-              </button>
-            ))}
-            {(auditFilter === 'excluded' || testReasonFilter !== 'all') && !forceAuditFilter ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setAuditFilter('all');
-                  setTestReasonFilter('all');
-                  setOverrideAgeFilter('all');
-                  setReviewStatusFilter('all');
-                  setRiskFilter('all');
-                  if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
-                }}
-                className="text-xs font-bold text-zinc-400 underline underline-offset-2 hover:text-white"
-              >
-                Limpiar filtro QA
-              </button>
-            ) : null}
-          </div>
-          <p className="text-xs text-zinc-500">
-            Breakdown QA/test: {manualOverrideCount > 0 ? `Solo overrides manuales (${manualOverrideCount}) · Pendientes (${manualOverridePendingCount}) · Revisadas (${manualOverrideReviewedCount}) · Pagadas bloqueadas (${manualOverrideBlockedCount}) · ` : ''}{Object.entries(testReasonCounts).map(([reason, count]) => `${formatLabel(reason)} (${count})`).join(' · ')}
-          </p>
-          {testReasonFilter === 'manual_override_only' && (
-            <p className="text-xs text-zinc-500">
-              Priorización activa: severidad desc por aging + pagada + no enviada + no activada. Estado revisión: {reviewStatusFilter === 'pending' ? 'solo pendientes' : reviewStatusFilter === 'reviewed' ? 'solo revisadas' : 'todas'}. Riesgo: {riskFilter === 'paid_blocked' ? 'solo pagadas bloqueadas' : 'todos'}.
-            </p>
-          )}
-        </div>
-      )}
-
-      <AdminCard className="mb-8">
-        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-          <div>
-            <h2 className="font-bold text-white">Embudo operativo real</h2>
-            <p className="text-sm text-zinc-400">Base pagada: {funnelSnapshot.paidBase} órdenes</p>
-          </div>
-          <AdminBadge variant={funnelSnapshot.exceptions.length > 0 ? 'warning' : 'success'}>
-            {funnelSnapshot.exceptions.length} excepción{funnelSnapshot.exceptions.length === 1 ? '' : 'es'}
-          </AdminBadge>
-        </div>
-        <div className="grid gap-3 md:grid-cols-5">
-          {funnelSnapshot.counts.map((step) => (
-            <div key={step.key} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-              <p className="text-xs uppercase tracking-wide text-zinc-500 font-bold">{step.label}</p>
-              <p className="mt-2 text-2xl font-bold text-white">{step.count}</p>
-              <p className="text-xs text-zinc-400 mt-1">{step.ratio}% de paid</p>
-            </div>
-          ))}
-        </div>
-        {funnelSnapshot.exceptions.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {funnelSnapshot.exceptions.slice(0, 6).map((order) => (
-              <span key={order.id} className="rounded-full border border-amber-800 bg-amber-950/40 px-3 py-1 text-[11px] font-bold text-amber-300">
-                {order.customerLabel}: {(order.observability_alerts || [])[0]}
-              </span>
-            ))}
-          </div>
-        )}
-      </AdminCard>
+      <OrdersDashboardHeader
+        stats={stats}
+        excludedOrdersCount={excludedOrdersCount}
+        auditFilter={auditFilter}
+        manualOverrideCount={manualOverrideCount}
+        manualOverridePendingCount={manualOverridePendingCount}
+        manualOverrideReviewedCount={manualOverrideReviewedCount}
+        manualOverrideBlockedCount={manualOverrideBlockedCount}
+        testReasonCounts={testReasonCounts}
+        testReasonFilter={testReasonFilter}
+        reviewStatusFilter={reviewStatusFilter}
+        riskFilter={riskFilter}
+        funnelSnapshot={funnelSnapshot}
+        forceAuditFilter={forceAuditFilter}
+        onSelectManualOverrides={selectManualOverrideFilter}
+        onSelectReason={selectQaReasonFilter}
+        onClearQaFilter={clearQaFilters}
+      />
 
       {feedback.message && (
         <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-400' : 'border-red-800 bg-red-950/40 text-red-400'}`}>
@@ -733,328 +750,48 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       <div className="grid lg:grid-cols-[1.5fr,1fr] gap-6">
         {/* Lista de órdenes */}
         <AdminCard className="!p-0 overflow-hidden">
-          <div className="p-5 border-b border-zinc-800 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Calendar size={16} className="text-zinc-500" />
-                {['all', 'today', 'week', 'month'].map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setDateFilter(f)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${dateFilter === f ? 'bg-zinc-100 text-zinc-900' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
-                  >
-                    {f === 'all' ? 'Todos' : f === 'today' ? 'Hoy' : f === 'week' ? '7 días' : '30 días'}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-3">
-                {newOrdersCount > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/40 border border-emerald-800 rounded-lg">
-                    <Bell size={14} className="text-emerald-400" />
-                    <span className="text-xs font-bold text-emerald-400">{newOrdersCount} nueva{newOrdersCount > 1 ? 's' : ''}</span>
-                  </div>
-                )}
-                <button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs font-bold text-zinc-300 transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-                  Actualizar
-                </button>
-                <button
-                  onClick={exportCSV}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-xs font-bold text-white transition-colors"
-                >
-                  <Download size={13} />
-                  Export CSV
-                </button>
-              </div>
-            </div>
-            <div className="flex gap-3 flex-1 flex-col sm:flex-row sm:flex-wrap">
-              <label className="relative block flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                <input
-                  type="search"
-                  placeholder="Buscar por ID, cliente, email o teléfono"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9"
-                />
-              </label>
-              <label className="relative block">
-                <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                <select
-                  value={paymentFilter}
-                  onChange={(event) => setPaymentFilter(event.target.value)}
-                  className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-52"
-                >
-                  {paymentStatuses.map((status) => (
-                    <option key={status} value={status}>{status === 'all' ? 'Todos los pagos' : formatLabel(status)}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="relative block">
-                <Clock3 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                <select
-                  value={fulfillmentFilter}
-                  onChange={(event) => setFulfillmentFilter(event.target.value)}
-                  className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
-                >
-                  {fulfillmentStatuses.map((status) => (
-                    <option key={status} value={status}>{status === 'all' ? 'Todos los estados' : formatLabel(status)}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="relative block">
-                <QrCode className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                <select
-                  value={auditFilter}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setAuditFilter(value);
-                    if (value === 'all') {
-                      setTestReasonFilter('all');
-                      setOverrideAgeFilter('all');
-                      setReviewStatusFilter('all');
-                      setRiskFilter('all');
-                    }
-                    if (!forceAuditFilter && typeof window !== 'undefined') {
-                      const nextUrl = value === 'excluded'
-                        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${testReasonFilter === 'manual_override_only' && reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}${testReasonFilter === 'manual_override_only' && riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`
-                        : '/admin/orders';
-                      window.history.replaceState({}, '', nextUrl);
-                    }
-                  }}
-                  className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
-                >
-                  {!forceAuditFilter && <option value="all">Auditoría: todas</option>}
-                  <option value="excluded">Solo QA/internas</option>
-                </select>
-              </label>
-              {(auditFilter === 'excluded' || forceAuditFilter) && testReasonOptions.length > 1 && (
-                <>
-                  <label className="relative block">
-                    <AlertCircle className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                    <select
-                      value={testReasonFilter}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setTestReasonFilter(value);
-                        if (value !== 'manual_override_only') {
-                          setOverrideAgeFilter('all');
-                          setReviewStatusFilter('all');
-                          setRiskFilter('all');
-                        } else if (reviewStatusFilter === 'all') {
-                          setReviewStatusFilter('pending');
-                        }
-                        if (!forceAuditFilter && typeof window !== 'undefined') {
-                          const effectiveReviewStatus = value === 'manual_override_only'
-                            ? (reviewStatusFilter === 'all' ? 'pending' : reviewStatusFilter)
-                            : 'all';
-                          const effectiveRisk = value === 'manual_override_only' ? riskFilter : 'all';
-                          const nextUrl = value === 'all'
-                            ? '/admin/orders?audit=excluded'
-                            : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}${value === 'manual_override_only' && overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value === 'manual_override_only' && effectiveReviewStatus !== 'all' ? `&review_status=${encodeURIComponent(effectiveReviewStatus)}` : ''}${value === 'manual_override_only' && effectiveRisk !== 'all' ? `&risk=${encodeURIComponent(effectiveRisk)}` : ''}`;
-                          window.history.replaceState({}, '', nextUrl);
-                        }
-                      }}
-                      className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"
-                    >
-                      <option value="all">Motivo QA: todos</option>
-                      {testReasonOptions.filter((reason) => reason !== 'all').map((reason) => (
-                        <option key={reason} value={reason}>
-                          {reason === 'manual_override_only'
-                            ? `Solo overrides manuales (${manualOverrideCount})`
-                            : `${formatLabel(reason)} (${testReasonCounts[reason] || 0})`}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {testReasonFilter === 'manual_override_only' && (
-                    <>
-                      <label className="relative block">
-                        <Clock3 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                        <select
-                          value={overrideAgeFilter}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setOverrideAgeFilter(value);
-                            if (!forceAuditFilter && typeof window !== 'undefined') {
-                              const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${value !== 'all' ? `&override_age=${encodeURIComponent(value)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}`;
-                              const nextUrlWithRisk = `${nextUrl}${riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`;
-                              window.history.replaceState({}, '', nextUrlWithRisk);
-                            }
-                          }}
-                          className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
-                        >
-                          <option value="all">Override age: todos</option>
-                          <option value="24h">Override age: ≥24h</option>
-                          <option value="72h">Override age: ≥72h</option>
-                        </select>
-                      </label>
-                      <label className="relative block">
-                        <CheckCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                        <select
-                          value={reviewStatusFilter}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setReviewStatusFilter(value);
-                            if (!forceAuditFilter && typeof window !== 'undefined') {
-                              const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value !== 'all' ? `&review_status=${encodeURIComponent(value)}` : ''}${riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`;
-                              window.history.replaceState({}, '', nextUrl);
-                            }
-                          }}
-                          className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
-                        >
-                          <option value="all">Revisión: todas</option>
-                          <option value="pending">Revisión: pendientes</option>
-                          <option value="reviewed">Revisión: revisadas</option>
-                        </select>
-                      </label>
-                      <label className="relative block">
-                        <ShieldAlert className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                        <select
-                          value={riskFilter}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setRiskFilter(value);
-                            if (!forceAuditFilter && typeof window !== 'undefined') {
-                              const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}${value !== 'all' ? `&risk=${encodeURIComponent(value)}` : ''}`;
-                              window.history.replaceState({}, '', nextUrl);
-                            }
-                          }}
-                          className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"
-                        >
-                          <option value="all">Riesgo: todos</option>
-                          <option value="paid_blocked">Riesgo: pagadas y bloqueadas</option>
-                        </select>
-                      </label>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+          <OrdersFiltersBar
+            dateFilter={dateFilter}
+            onDateFilterChange={setDateFilter}
+            newOrdersCount={newOrdersCount}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            onExportCsv={exportCSV}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            paymentFilter={paymentFilter}
+            onPaymentFilterChange={setPaymentFilter}
+            paymentStatuses={paymentStatuses}
+            fulfillmentFilter={fulfillmentFilter}
+            onFulfillmentFilterChange={setFulfillmentFilter}
+            fulfillmentStatuses={fulfillmentStatuses}
+            auditFilter={auditFilter}
+            onAuditFilterChange={handleAuditFilterChange}
+            forceAuditFilter={forceAuditFilter}
+            testReasonOptions={testReasonOptions}
+            testReasonFilter={testReasonFilter}
+            onTestReasonFilterChange={handleTestReasonFilterChange}
+            testReasonCounts={testReasonCounts}
+            manualOverrideCount={manualOverrideCount}
+            overrideAgeFilter={overrideAgeFilter}
+            onOverrideAgeFilterChange={handleOverrideAgeFilterChange}
+            reviewStatusFilter={reviewStatusFilter}
+            onReviewStatusFilterChange={handleReviewStatusFilterChange}
+            riskFilter={riskFilter}
+            onRiskFilterChange={handleRiskFilterChange}
+            formatLabel={formatLabel}
+          />
 
-          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}-${riskFilter}`} className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
-              <thead className="bg-zinc-800/50 border-b border-zinc-800">
-                <tr className="text-xs uppercase tracking-wide text-zinc-500">
-                  <TH>Folio</TH>
-                  <TH>Orden</TH>
-                  <TH>Cliente</TH>
-                  <TH>Monto</TH>
-                  <TH>Pago</TH>
-                  <TH>Fulfillment</TH>
-                  <TH>Activación</TH>
-                  <TH>Ítems</TH>
-                  <TH>Fecha</TH>
-                  <TH className="text-right">Acción</TH>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/60">
-                {filteredOrders.map((order) => (
-                  <TR key={order.id} active={selectedOrderId === order.id}>
-                    <TD>
-                      <AdminBadge variant={order.folio ? 'default' : 'default'}>
-                        {order.folio || '—'}
-                      </AdminBadge>
-                    </TD>
-                    <TD>
-                      <div>
-                        <p className="font-bold text-white text-sm">{order.id}</p>
-                        <p className="text-xs text-zinc-500 font-medium">{order.payment_method || 'Sin método'} · {order.delivery_type || 'Sin entrega'}</p>
-                        <div className="mt-1.5">
-                          <AdminBadge variant={order.inventory_reserved ? 'success' : 'default'}>
-                            {order.inventory_reserved ? 'Stock reservado' : 'Sin reserva'}
-                          </AdminBadge>
-                        </div>
-                      </div>
-                    </TD>
-                    <TD>
-                      <div>
-                        <p className="font-bold text-white text-sm">{order.customerLabel}</p>
-                        <p className="text-xs text-zinc-500 font-medium">{order.customer_email || order.customer_phone || 'Sin contacto'}</p>
-                        {order.isNonOperational && (
-                          <div className="mt-1.5">
-                            <AdminBadge variant="warning">QA/test · {formatLabel(order.testReasonResolved)}</AdminBadge>
-                          </div>
-                        )}
-                      </div>
-                    </TD>
-                    <TD className="font-bold text-white">{currency(order.totalCents)}</TD>
-                    <TD>
-                      <div className="flex flex-col gap-1.5">
-                        <AdminBadge variant={paymentBadgeVariant(order.payment_status)}>
-                          {formatLabel(order.payment_status)}
-                        </AdminBadge>
-                        {order.payment_status !== 'paid' && (
-                          <button
-                            type="button"
-                            onClick={() => transitionOrderState(order.id, { payment_status: 'paid', reason: 'Marcada manualmente como pagada desde admin' }, `Orden ${order.id} marcada como pagada.`)}
-                            disabled={busyOrderId === order.id}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-950/40 border border-emerald-800 text-emerald-400 text-[10px] font-bold hover:bg-emerald-950/70 transition-colors disabled:opacity-50"
-                          >
-                            <CheckCircle2 size={10} />
-                            Marcar pagado
-                          </button>
-                        )}
-                      </div>
-                    </TD>
-                    <TD>
-                      <div className="flex flex-col gap-1.5">
-                        <AdminBadge variant={fulfillmentBadgeVariant(order.fulfillment_status)}>
-                          {formatLabel(order.fulfillment_status)}
-                        </AdminBadge>
-                        {FULFILLMENT_NEXT[order.fulfillment_status] && (
-                          <button
-                            type="button"
-                            onClick={() => transitionOrderState(order.id, { fulfillment_status: FULFILLMENT_NEXT[order.fulfillment_status], reason: 'Avance operacional desde admin' }, `Orden ${order.id} avanzada a ${formatLabel(FULFILLMENT_NEXT[order.fulfillment_status])}.`)}
-                            disabled={busyOrderId === order.id}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-950/40 border border-blue-800 text-blue-400 text-[10px] font-bold hover:bg-blue-950/70 transition-colors disabled:opacity-50"
-                          >
-                            → {formatLabel(FULFILLMENT_NEXT[order.fulfillment_status])}
-                          </button>
-                        )}
-                      </div>
-                    </TD>
-                    <TD>
-                      <AdminBadge variant={order.activation_ready ? 'success' : order.active_cards_count > 0 ? 'info' : 'warning'}>
-                        {order.activation_ready ? `Lista (${order.activation_ready_count})` : order.active_cards_count > 0 ? `Activas (${order.active_cards_count})` : 'Pendiente'}
-                      </AdminBadge>
-                    </TD>
-                    <TD className="font-bold text-zinc-300">{order.itemCount}</TD>
-                    <TD className="text-zinc-400">{formatDate(order.created_at)}</TD>
-                    <TD className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedOrderId(order.id);
-                          if (typeof window !== 'undefined') {
-                            const params = new URLSearchParams(window.location.search);
-                            params.set('order_id', order.id);
-                            const nextPath = `${window.location.pathname}?${params.toString()}`;
-                            window.history.replaceState({}, '', nextPath);
-                          }
-                        }}
-                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Ver detalle
-                      </button>
-                    </TD>
-                  </TR>
-                ))}
-
-                {filteredOrders.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="px-8 py-12 text-center text-sm font-semibold text-zinc-500">
-                      No hay órdenes que coincidan con los filtros activos.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}-${riskFilter}`}>
+            <OrdersTable
+              orders={filteredOrders}
+              selectedOrderId={selectedOrderId}
+              busyOrderId={busyOrderId}
+              fulfillmentNext={FULFILLMENT_NEXT}
+              onMarkPaid={handleMarkOrderPaid}
+              onAdvanceFulfillment={handleAdvanceFulfillment}
+              onSelectOrder={handleSelectOrder}
+            />
           </div>
         </AdminCard>
 
