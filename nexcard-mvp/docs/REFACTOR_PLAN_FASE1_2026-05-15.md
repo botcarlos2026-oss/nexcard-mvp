@@ -70,10 +70,12 @@ Bloques ya extraídos desde `api.js`:
 1. `cards`
 2. `orderOperations`
 3. `kpiAdmin` (`src/services/api/kpiAdmin.js`)
+4. `adminDashboard` (`src/services/api/adminDashboard.js`)
 
 Siguiente bloque rentable en API:
-1. `adminDashboard / getAdminDashboard`
-2. `reviewCards` o CRM si quieres seguir bajando concentración
+1. `reviewCards`
+2. `CRM / abandoned carts`
+3. pulido de tests específicos por dominio extraído
 
 ## Riesgos controlados
 - Se mantuvieron side effects y flujos server-side intactos
