@@ -66,16 +66,19 @@ Extraer por UI primero, no por estado:
 - siguiente corte rentable ya no es UI principal: conviene volver a `api.js` o endurecer QA/roles
 
 ### API
-Bloques ya extraídos desde `api.js`:
+Bloques extraídos desde `api.js` al cierre de fase:
 1. `cards`
 2. `orderOperations`
 3. `kpiAdmin` (`src/services/api/kpiAdmin.js`)
 4. `adminDashboard` (`src/services/api/adminDashboard.js`)
+5. `reviewCards` (`src/services/api/reviewCards.js`)
+6. `crm` (`src/services/api/crm.js`)
+7. `wheel` (`src/services/api/wheel.js`)
 
-Siguiente bloque rentable en API:
-1. evaluar si conviene dejar `api.js` estable como facade final
-2. solo separar `teamMembers` o `productsAdmin` si aparece fricción real de mantenimiento
-3. seguir endureciendo tests donde aún haya solo smoke coverage
+Cierre de fase:
+1. `api.js` queda estable como facade final de **433 líneas**
+2. `teamMembers` y `productsAdmin` quedan adentro por ROI marginal bajo
+3. el siguiente trabajo correcto ya no es fragmentar por simetría, sino mantener y endurecer cobertura donde haga falta
 
 ## Riesgos controlados
 - `reviewCards` ahora tiene cobertura sobre fallback RPC→update directo.
@@ -85,6 +88,7 @@ Siguiente bloque rentable en API:
 - No se modificaron payloads públicos ni nombres de métodos
 - No se tocó el read model de `getOrders`
 
-## Validación esperada
+## Validación final ejecutada
 - `npm run test:unit -- --runInBand --watch=false`
 - `npm run build`
+- estado final observado: **9 suites / 33 tests OK / build OK**

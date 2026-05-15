@@ -3,7 +3,7 @@
 ## Estado general
 Fase: PRE-LAUNCH  
 Objetivo: activar credenciales de producción MP y lanzar  
-Última actualización: Abril 2026
+Última actualización: Mayo 2026
 
 ---
 
@@ -76,7 +76,6 @@ Objetivo: activar credenciales de producción MP y lanzar
 ### Antes de lanzar
 - [ ] MP_ACCESS_TOKEN → credenciales de producción
 - [ ] Eliminar producto TEST-1 ($19.990) de Supabase
-- [ ] Remover console.log de debug en api.js
 - [ ] Agregar tarjeta de pago en Vercel (trial expira)
 
 ### Post-lanzamiento
