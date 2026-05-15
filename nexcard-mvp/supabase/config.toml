@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.reconcile-order-payments]
 verify_jwt = false
+
+[functions.backfill-payment-ledger]
+verify_jwt = false

@@ -28,6 +28,8 @@
     "ops:reconcile-orders": "node ./scripts/run-order-payment-reconciliation.mjs manual",
     "ops:reconcile-orders:dry": "node ./scripts/run-order-payment-reconciliation.mjs manual --dry-run",
     "ops:reconcile-orders:cron": "node ./scripts/run-order-payment-reconciliation.mjs cron",
+    "ops:backfill-payments": "node ./scripts/run-payment-ledger-backfill.mjs manual",
+    "ops:backfill-payments:dry": "node ./scripts/run-payment-ledger-backfill.mjs manual --dry-run",
     "check:fast": "npm run build",
     "check:smoke": "npm run build && npm run test:e2e:smoke",
     "check": "npm run build && npm run test:e2e:env-check && npm run test:e2e:smoke",
