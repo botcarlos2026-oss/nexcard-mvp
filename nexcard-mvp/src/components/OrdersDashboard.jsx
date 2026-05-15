@@ -3,11 +3,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  Link2,
   Truck,
   ExternalLink,
-  Wifi,
-  QrCode,
 } from 'lucide-react';
 import { api } from '../services/api';
 import QRCode from 'qrcode';
@@ -19,13 +16,16 @@ import AdminBadge from './ui/AdminBadge';
 import OrdersDashboardHeader from './orders/OrdersDashboardHeader';
 import OrdersFiltersBar from './orders/OrdersFiltersBar';
 import OrdersTable from './orders/OrdersTable';
+import OrderTraceabilityCard from './orders/OrderTraceabilityCard';
+import OrderQaAuditCard from './orders/OrderQaAuditCard';
+import OrderNfcCard from './orders/OrderNfcCard';
+import OrderRefundCard from './orders/OrderRefundCard';
 import { deriveOrderTestClassification, isManualTestReason } from '../utils/orderOperationalSegmentation';
 import {
   buildQaDecisionTimeline,
   currency,
   deriveFunnelReached,
   deriveManualOverrideSeverity,
-  deriveTraceabilityMoments,
   formatActorLabel,
   formatDate,
   formatLabel,
@@ -800,214 +800,20 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
           <h2 className="font-bold text-lg text-white mb-4">Detalle de orden</h2>
           {selectedOrder ? (
             <div className="space-y-5">
-              <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">Folio de producción</p>
-                <p className="font-bold text-[18px] text-white">{selectedOrder.folio || '—'}</p>
-                <p className="text-[11px] text-zinc-400 font-mono mt-1">{selectedOrder.id}</p>
-              </div>
+              <OrderTraceabilityCard order={selectedOrder} />
 
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Trazabilidad post-pago</p>
-                  <AdminBadge variant={selectedOrder.terminal_state === 'activated' ? 'success' : selectedOrder.observability_alerts?.length ? 'warning' : 'default'}>
-                    {formatLabel(selectedOrder.terminal_state || selectedOrder.funnel_stage)}
-                  </AdminBadge>
-                </div>
-                <div className="grid gap-3 md:grid-cols-5">
-                  {deriveTraceabilityMoments(selectedOrder).map((moment) => (
-                    <div key={moment.key} className="rounded-xl bg-zinc-900 border border-zinc-700 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-zinc-500 font-bold">{moment.label}</p>
-                      <p className={`mt-2 text-sm font-bold ${moment.done ? 'text-white' : 'text-zinc-500'}`}>
-                        {moment.done ? 'OK' : 'Pendiente'}
-                      </p>
-                      <p className="text-[11px] text-zinc-500 mt-1">{formatDate(moment.at)}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <AdminBadge variant={selectedOrder.related_cards?.length > 0 ? 'success' : 'warning'}>
-                    {selectedOrder.related_cards?.length > 0 ? `${selectedOrder.related_cards.length} card(s) trazadas` : 'Sin card trazada'}
-                  </AdminBadge>
-                  <AdminBadge variant={selectedOrder.activation_claim?.status === 'claimed' ? 'success' : selectedOrder.activation_claim ? 'info' : 'default'}>
-                    Claim: {formatLabel(selectedOrder.activation_claim?.status || 'sin claim')}
-                  </AdminBadge>
-                  <AdminBadge variant={selectedOrder.observability_alerts?.length ? 'warning' : 'success'}>
-                    {selectedOrder.observability_alerts?.length ? `${selectedOrder.observability_alerts.length} alerta(s)` : 'Sin alertas'}
-                  </AdminBadge>
-                </div>
-                {selectedOrder.observability_alerts?.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {selectedOrder.observability_alerts.map((alert) => (
-                      <div key={alert} className="rounded-lg border border-amber-800 bg-amber-950/30 px-3 py-2 text-xs font-semibold text-amber-300">
-                        {alert}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4 space-y-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Cliente</p>
-                  <p className="font-bold text-white">{selectedOrder.customerLabel}</p>
-                  <p className="text-sm text-zinc-400 font-medium">{selectedOrder.customer_email || 'Sin email'}</p>
-                  <p className="text-sm text-zinc-400 font-medium">{selectedOrder.customer_phone || 'Sin teléfono'}</p>
-                </div>
-
-                <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Segregación QA/test</p>
-                      <p className="text-sm font-semibold text-white mt-1">
-                        {selectedOrder.is_test ? 'Excluida de operación real' : 'Incluida en operación real'}
-                      </p>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        Motivo actual: {selectedOrder.test_reason ? formatLabel(selectedOrder.test_reason) : 'sin motivo'}
-                      </p>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        Último override: {selectedOrderOverrideAudit ? `${formatActorLabel(selectedOrderOverrideAudit)} · ${formatDate(selectedOrderOverrideAudit.changed_at)}` : 'sin trazabilidad manual registrada'}
-                      </p>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        Última revisión: {selectedOrder.qa_reviewed_at ? `${selectedOrder.qa_reviewed_by_label || 'admin'} · ${formatDate(selectedOrder.qa_reviewed_at)}` : 'pendiente de revisión'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
-                      {selectedOrder.manualOverrideSeverity?.level && (
-                        <AdminBadge variant={selectedOrder.manualOverrideSeverity.level === 'critical' ? 'danger' : selectedOrder.manualOverrideSeverity.level === 'high' ? 'warning' : 'default'}>
-                          {selectedOrder.manualOverrideSeverity.level} · {selectedOrder.manualOverrideSeverity.ageHours}h
-                        </AdminBadge>
-                      )}
-                      <AdminBadge variant={selectedOrder.is_test ? 'warning' : 'success'}>
-                        {selectedOrder.is_test ? 'QA/test' : 'Operativa real'}
-                      </AdminBadge>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-zinc-700 bg-zinc-950/60 p-4">
-                    <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Timeline decisión QA</p>
-                      <p className="text-[11px] text-zinc-500">Clasificación → override → revisión → restore</p>
-                    </div>
-                    {selectedOrderQaTimeline.length === 0 ? (
-                      <p className="text-sm text-zinc-500">Sin eventos QA relevantes todavía.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {selectedOrderQaTimeline.map((event) => {
-                          const toneClasses = event.tone === 'success'
-                            ? 'border-emerald-800 bg-emerald-950/20 text-emerald-300'
-                            : event.tone === 'warning'
-                              ? 'border-amber-800 bg-amber-950/20 text-amber-300'
-                              : event.tone === 'info'
-                                ? 'border-sky-800 bg-sky-950/20 text-sky-300'
-                                : 'border-zinc-700 bg-zinc-900 text-zinc-300';
-                          return (
-                            <div key={event.key} className="flex gap-3">
-                              <div className="flex flex-col items-center pt-1">
-                                <div className={`h-3 w-3 rounded-full border ${event.tone === 'success' ? 'border-emerald-500 bg-emerald-500' : event.tone === 'warning' ? 'border-amber-500 bg-amber-500' : event.tone === 'info' ? 'border-sky-500 bg-sky-500' : 'border-zinc-500 bg-zinc-500'}`} />
-                                {!event.isLast && <div className="mt-1 w-px flex-1 bg-zinc-700 min-h-[28px]" />}
-                              </div>
-                              <div className={`flex-1 rounded-xl border p-3 ${toneClasses}`}>
-                                <div className="flex items-start justify-between gap-3 flex-wrap">
-                                  <div>
-                                    <p className="text-sm font-bold">{event.title}</p>
-                                    <p className="mt-1 text-xs opacity-80">{event.detail}</p>
-                                  </div>
-                                  <div className="text-right text-[11px] opacity-80">
-                                    <p className="font-bold">{event.actor}</p>
-                                    <p>{formatDate(event.at)}</p>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  {selectedOrder.is_test && isManualTestReason(selectedOrder.test_reason) && (
-                    <div className="rounded-xl border border-fuchsia-800 bg-fuchsia-950/20 p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3 flex-wrap">
-                        <div>
-                          <p className="text-xs font-bold uppercase tracking-widest text-fuchsia-300">Decisión rápida</p>
-                          <p className="text-sm text-zinc-300 mt-1">
-                            Esta orden llegó aquí por override manual. Ahora puedes distinguir quién la clasificó y quién la auditó después.
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => applyTestOverride(selectedOrder, true)}
-                            disabled={busyOrderId === selectedOrder.id}
-                            className="px-3 py-2 bg-fuchsia-700 hover:bg-fuchsia-600 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                          >
-                            Mantener QA
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applyTestOverride(selectedOrder, false)}
-                            disabled={busyOrderId === selectedOrder.id}
-                            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                          >
-                            Restaurar real
-                          </button>
-                        </div>
-                      </div>
-                      <textarea
-                        value={reviewNote}
-                        onChange={(event) => setReviewNote(event.target.value)}
-                        disabled={busyOrderId === selectedOrder.id}
-                        rows="2"
-                        placeholder="Nota de auditoría: ej. revisada y se mantiene QA por smoke controlado"
-                        className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors resize-none"
-                      />
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => reviewTestClassification(selectedOrder)}
-                          disabled={busyOrderId === selectedOrder.id}
-                          className="px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                        >
-                          Marcar revisión QA
-                        </button>
-                        <p className="text-[11px] text-zinc-500">
-                          La revisión queda separada del override y se reinicia si alguien reclasifica la orden.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  <textarea
-                    value={testOverrideReason}
-                    onChange={(event) => setTestOverrideReason(event.target.value)}
-                    disabled={busyOrderId === selectedOrder.id}
-                    rows="2"
-                    placeholder={selectedOrder.is_test ? 'Ej: pedido real corregido manualmente' : 'Ej: smoke interno / demo'}
-                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors resize-none"
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    {selectedOrder.is_test ? (
-                      <button
-                        type="button"
-                        onClick={() => applyTestOverride(selectedOrder, false)}
-                        disabled={busyOrderId === selectedOrder.id}
-                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                      >
-                        Restaurar como orden real
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => applyTestOverride(selectedOrder, true)}
-                        disabled={busyOrderId === selectedOrder.id}
-                        className="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                      >
-                        Marcar como QA/test
-                      </button>
-                    )}
-                    <p className="text-[11px] text-zinc-500 self-center">
-                      Override manual persistente para corregir clasificaciones erróneas sin tocar datos del cliente.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <OrderQaAuditCard
+                order={selectedOrder}
+                overrideAudit={selectedOrderOverrideAudit}
+                qaTimeline={selectedOrderQaTimeline}
+                busyOrderId={busyOrderId}
+                reviewNote={reviewNote}
+                onReviewNoteChange={setReviewNote}
+                testOverrideReason={testOverrideReason}
+                onTestOverrideReasonChange={setTestOverrideReason}
+                onApplyTestOverride={applyTestOverride}
+                onReviewTestClassification={reviewTestClassification}
+              />
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">
@@ -1139,112 +945,19 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 )}
               </div>
 
-              {/* FLUJO NFC: Paso A → Vincular card */}
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4 space-y-5">
-                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Programación NFC</p>
-
-                {/* Paso A — Vincular card */}
-                <div className="space-y-2">
-                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Paso A — Vincular card física</p>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <input
-                      type="text"
-                      value={linkingCardId}
-                      onChange={(event) => setLinkingCardId(event.target.value)}
-                      disabled={busyOrderId === selectedOrder.id}
-                      placeholder="UUID de card"
-                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors sm:w-72"
-                    />
-                    <button
-                      type="button"
-                      onClick={linkCardToOrder}
-                      disabled={busyOrderId === selectedOrder.id || !linkingCardId}
-                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                    >
-                      <Link2 size={16} />
-                      Vincular
-                    </button>
-                  </div>
-                  {selectedOrder.related_cards?.length > 0 && (
-                    <p className="text-xs text-emerald-400 font-bold">
-                      Card vinculada: {selectedOrder.related_cards[0].card_code || selectedOrder.related_cards[0].id}
-                    </p>
-                  )}
-                </div>
-
-                {/* Paso B — Configurar NFC (solo si hay card vinculada) */}
-                {selectedOrder.related_cards?.length > 0 && (() => {
-                  const linkedCard = selectedOrder.related_cards.find(c => c.order_id === selectedOrder.id) || selectedOrder.related_cards[0];
-                  const alreadyProgrammed = linkedCard?.nfc_url;
-                  if (alreadyProgrammed) return null;
-                  return (
-                    <div className="space-y-3 border-t border-zinc-700 pt-4">
-                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Paso B — Configurar URL del NFC</p>
-                      <p className="text-xs text-zinc-500">
-                        URL que se programará en el chip:{' '}
-                        <span className="font-bold text-zinc-300">
-                          https://nexcard.cl/{nfcSlug || '<slug>'}
-                        </span>
-                      </p>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <div className="flex items-center gap-2 flex-1">
-                          <span className="text-sm font-bold text-zinc-500 shrink-0">nexcard.cl/</span>
-                          <input
-                            type="text"
-                            value={nfcSlug}
-                            onChange={(e) => setNfcSlug(e.target.value)}
-                            placeholder={nfcSlugLoading ? 'Buscando slug...' : 'slug-del-cliente'}
-                            disabled={nfcBusy || nfcSlugLoading}
-                            className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={confirmNfcProgramming}
-                          disabled={nfcBusy || !nfcSlug}
-                          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                        >
-                          {nfcBusy ? <Loader2 size={16} className="animate-spin" /> : <Wifi size={16} />}
-                          Confirmar NFC
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Paso C — Estado NFC programado */}
-                {selectedOrder.related_cards?.length > 0 && (() => {
-                  const linkedCard = selectedOrder.related_cards.find(c => c.order_id === selectedOrder.id) || selectedOrder.related_cards[0];
-                  if (!linkedCard?.nfc_url && !nfcQrDataUrl) return null;
-                  const programmedUrl = linkedCard?.nfc_url || `https://nexcard.cl/${nfcSlug}`;
-                  return (
-                    <div className="space-y-3 border-t border-zinc-700 pt-4">
-                      <div className="flex items-center gap-2">
-                        <AdminBadge variant="success">
-                          <CheckCircle2 size={12} className="mr-1" />
-                          NFC PROGRAMADO
-                        </AdminBadge>
-                      </div>
-                      <p className="text-xs text-zinc-500">
-                        URL: <a href={programmedUrl} target="_blank" rel="noreferrer" className="font-bold text-emerald-400 underline">{programmedUrl}</a>
-                      </p>
-                      {linkedCard?.programmed_at && (
-                        <p className="text-xs text-zinc-500">Programado: {formatDate(linkedCard.programmed_at)}</p>
-                      )}
-                      {nfcQrDataUrl && (
-                        <div className="flex flex-col items-start gap-2">
-                          <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide flex items-center gap-1.5">
-                            <QrCode size={12} />
-                            QR de verificación
-                          </p>
-                          <img src={nfcQrDataUrl} alt="QR NFC" className="w-32 h-32 rounded-xl border border-zinc-700" />
-                          <p className="text-[11px] text-zinc-500">Escanea con tu teléfono para verificar</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
+              <OrderNfcCard
+                order={selectedOrder}
+                linkingCardId={linkingCardId}
+                onLinkingCardIdChange={setLinkingCardId}
+                onLinkCardToOrder={linkCardToOrder}
+                busyOrderId={busyOrderId}
+                nfcSlug={nfcSlug}
+                onNfcSlugChange={setNfcSlug}
+                nfcSlugLoading={nfcSlugLoading}
+                nfcBusy={nfcBusy}
+                onConfirmNfcProgramming={confirmNfcProgramming}
+                nfcQrDataUrl={nfcQrDataUrl}
+              />
 
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-3">Ítems</p>
@@ -1597,112 +1310,14 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 </div>
               )}
 
-              {/* Gestión de devolución */}
-              {(() => {
-                const existingRefund = refundByOrder[selectedOrder.id];
-                const canRefund = selectedOrder.payment_status === 'paid' && selectedOrder.fulfillment_status !== 'delivered' && !existingRefund;
-                const isRefunded = selectedOrder.payment_status === 'refunded';
-
-                if (existingRefund || isRefunded) {
-                  const refund = existingRefund;
-                  const refundVariant = {
-                    pending: 'warning',
-                    processed: 'success',
-                    rejected: 'danger',
-                    approved: 'info',
-                  };
-                  return (
-                    <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4 space-y-3">
-                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Devolución registrada</p>
-                      {refund ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-zinc-400 font-medium">Estado</span>
-                            <AdminBadge variant={refundVariant[refund.status] || 'default'}>
-                              {refund.status === 'processed' ? 'Procesado' : refund.status === 'pending' ? 'Pendiente' : refund.status === 'rejected' ? 'Rechazado' : refund.status}
-                            </AdminBadge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-zinc-400 font-medium">Monto</span>
-                            <span className="text-sm text-white font-bold">{currency(refund.amount_cents)}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-zinc-400 font-medium">Motivo</span>
-                            <span className="text-sm text-zinc-200 font-medium">{refund.reason}</span>
-                          </div>
-                          {refund.mp_refund_id && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-zinc-400 font-medium">ID MP</span>
-                              <span className="text-xs text-zinc-400 font-mono">{refund.mp_refund_id}</span>
-                            </div>
-                          )}
-                          {refund.notes && (
-                            <p className="text-xs text-zinc-500 italic mt-1">{refund.notes}</p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-zinc-500">Orden marcada como reembolsada.</p>
-                      )}
-                    </div>
-                  );
-                }
-
-                if (!canRefund) return null;
-
-                return (
-                  <div className="rounded-xl border border-red-900 bg-zinc-800 p-4 space-y-4">
-                    <p className="text-xs font-bold uppercase tracking-widest text-red-400">Gestión de devolución</p>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Motivo</label>
-                        <select
-                          value={refundForm.reason}
-                          onChange={e => setRefundForm(f => ({ ...f, reason: e.target.value }))}
-                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
-                        >
-                          <option>Producto defectuoso</option>
-                          <option>No llegó</option>
-                          <option>No cumple expectativas</option>
-                          <option>Error en pedido</option>
-                          <option>Otro</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Monto a reembolsar (CLP)</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max={selectedOrder.amount_cents}
-                          value={refundForm.amount_cents}
-                          onChange={e => setRefundForm(f => ({ ...f, amount_cents: e.target.value }))}
-                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
-                          placeholder={`Máx. ${selectedOrder.amount_cents}`}
-                        />
-                        <p className="text-xs text-zinc-600 mt-1">Reembolso parcial posible — edita el monto si aplica</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Notas internas (opcional)</label>
-                        <textarea
-                          rows={2}
-                          value={refundForm.notes}
-                          onChange={e => setRefundForm(f => ({ ...f, notes: e.target.value }))}
-                          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors resize-none"
-                          placeholder="Observaciones para el equipo..."
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={processRefund}
-                        disabled={refundBusy || !refundForm.amount_cents}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-700 hover:bg-red-600 text-white font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {refundBusy ? <Loader2 size={16} className="animate-spin" /> : null}
-                        {refundBusy ? 'Procesando reembolso...' : 'Procesar devolución'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
+              <OrderRefundCard
+                order={selectedOrder}
+                refundByOrder={refundByOrder}
+                refundForm={refundForm}
+                onRefundFormChange={setRefundForm}
+                refundBusy={refundBusy}
+                onProcessRefund={processRefund}
+              />
 
               <div className="rounded-xl border border-amber-900 bg-amber-950/20 p-4 text-sm font-semibold text-amber-400 flex items-start gap-3">
                 {busyOrderId === selectedOrder.id ? <Loader2 size={18} className="mt-0.5 animate-spin" /> : <AlertCircle size={18} className="mt-0.5" />}

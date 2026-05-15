@@ -12,6 +12,13 @@ Bajar riesgo de regresión y costo de cambio sin alterar contratos visibles ni f
 - `src/components/orders/OrdersTable.jsx`
 - `src/components/OrdersDashboard.jsx` ahora delega superficie visual, pero mantiene estado/side effects centralizados
 
+### 0.1 Tercera ola sobre OrdersDashboard
+- `src/components/orders/OrderTraceabilityCard.jsx`
+- `src/components/orders/OrderQaAuditCard.jsx`
+- `src/components/orders/OrderNfcCard.jsx`
+- `src/components/orders/OrderRefundCard.jsx`
+- `OrdersDashboard.jsx` delega cards críticas del panel derecho, manteniendo orchestration/state en el contenedor
+
 ### 1. Extracción dominio cards
 - `src/services/api/cards.js`
 - `src/services/api/cards.test.js`
