@@ -19,6 +19,16 @@ Bajar riesgo de regresión y costo de cambio sin alterar contratos visibles ni f
 - `src/components/orders/OrderRefundCard.jsx`
 - `OrdersDashboard.jsx` delega cards críticas del panel derecho, manteniendo orchestration/state en el contenedor
 
+### 0.2 Primera ola de Fase 2 sobre OrdersDashboard
+- `src/components/orders/utils.js` absorbe lógica pura de:
+  - normalización de órdenes
+  - conteos QA/test
+  - filtros derivados
+  - stats del dashboard
+  - funnel snapshot
+- `src/components/orders/utils.test.js` amplía cobertura de helpers del dashboard
+- `src/components/OrdersDashboard.jsx` baja de **1350 → 1226 líneas** manteniendo handlers/side effects en el contenedor
+
 ### 1. Extracción dominio cards
 - `src/services/api/cards.js`
 - `src/services/api/cards.test.js`

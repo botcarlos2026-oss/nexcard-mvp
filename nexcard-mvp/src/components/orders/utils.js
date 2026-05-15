@@ -1,4 +1,4 @@
-import { isManualTestReason } from '../../utils/orderOperationalSegmentation';
+import { deriveOrderTestClassification, isManualTestReason } from '../../utils/orderOperationalSegmentation';
 
 export const currency = (cents) => {
   return new Intl.NumberFormat('es-CL', {
@@ -183,4 +183,172 @@ export const deriveTraceabilityMoments = (order) => {
     { key: 'delivered', label: 'Delivered', at: order.delivered_at || null, done: order.fulfillment_status === 'delivered' },
     { key: 'activated', label: 'Activated', at: order.activated_at || order.activation_last_at || null, done: order.activation_completed },
   ];
+};
+
+export const normalizeOrdersForDashboard = (orders = []) => orders.map((order) => {
+  const items = order.order_items || order.items || [];
+  const payments = order.payments || [];
+  const totalCents = order.amount_cents || 0;
+  const totalCostCents = items.reduce((sum, item) => sum + ((item.unit_cost_cents || 0) * (item.quantity || 0)), 0);
+  const customerName = order.customer_name || order.customer_full_name || 'Cliente sin nombre';
+  const paymentRecord = payments[0] || null;
+  const qaClassification = deriveOrderTestClassification(order);
+
+  return {
+    ...order,
+    items,
+    payments,
+    totalCents,
+    totalCostCents,
+    grossMarginCents: totalCents - totalCostCents,
+    itemCount: items.reduce((sum, item) => sum + (item.quantity || 0), 0),
+    customerLabel: customerName,
+    paymentProvider: paymentRecord?.provider || order.payment_method || '—',
+    paymentReference: paymentRecord?.transaction_reference || '—',
+    paidAt: paymentRecord?.paid_at || null,
+    qaClassification,
+    isNonOperational: qaClassification.isTest,
+    testReasonResolved: qaClassification.reason || null,
+    manualOverrideSeverity: deriveManualOverrideSeverity({ ...order, testReasonResolved: qaClassification.reason || null }),
+  };
+});
+
+export const buildTestReasonCounts = (orders = []) => orders.reduce((acc, order) => {
+  const reason = order.testReasonResolved || 'unclassified';
+  acc[reason] = (acc[reason] || 0) + 1;
+  return acc;
+}, {});
+
+export const buildTestReasonOptions = (testReasonCounts, manualOverrideCount) => {
+  const base = ['all'];
+  if (manualOverrideCount > 0) base.push('manual_override_only');
+  return [...base, ...Object.keys(testReasonCounts).sort()];
+};
+
+export const filterAuditScopedOrders = ({
+  normalizedOrders = [],
+  auditFilter = 'all',
+  testReasonFilter = 'all',
+  overrideAgeFilter = 'all',
+  reviewStatusFilter = 'all',
+  riskFilter = 'all',
+}) => {
+  const nowMs = Date.now();
+  return normalizedOrders.filter((order) => {
+    const matchesAudit = auditFilter === 'all' || (auditFilter === 'excluded' && order.isNonOperational);
+    const matchesReason = testReasonFilter === 'all'
+      || (testReasonFilter === 'manual_override_only' && isManualTestReason(order.testReasonResolved))
+      || order.testReasonResolved === testReasonFilter;
+    let matchesOverrideAge = true;
+    if (testReasonFilter === 'manual_override_only' && overrideAgeFilter !== 'all') {
+      const updatedAtMs = new Date(order.updated_at || order.created_at).getTime();
+      const ageHours = Number.isNaN(updatedAtMs) ? 0 : (nowMs - updatedAtMs) / (1000 * 60 * 60);
+      matchesOverrideAge = overrideAgeFilter === '72h' ? ageHours >= 72 : ageHours >= 24;
+    }
+    const matchesReviewStatus = testReasonFilter !== 'manual_override_only'
+      || reviewStatusFilter === 'all'
+      || (reviewStatusFilter === 'pending' && !order.qa_reviewed_at)
+      || (reviewStatusFilter === 'reviewed' && !!order.qa_reviewed_at);
+    const matchesRisk = testReasonFilter !== 'manual_override_only'
+      || riskFilter === 'all'
+      || (riskFilter === 'paid_blocked'
+        && order.payment_status === 'paid'
+        && !['shipped', 'delivered'].includes(order.fulfillment_status)
+        && !order.activation_completed);
+    return matchesAudit && matchesReason && matchesOverrideAge && matchesReviewStatus && matchesRisk;
+  });
+};
+
+export const filterOrdersDashboardRows = ({
+  auditScopedOrders = [],
+  searchTerm = '',
+  paymentFilter = 'all',
+  fulfillmentFilter = 'all',
+  dateFilter = 'all',
+  testReasonFilter = 'all',
+}) => {
+  const term = searchTerm.trim().toLowerCase();
+  const now = new Date();
+
+  const baseOrders = auditScopedOrders.filter((order) => {
+    const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
+    const matchesFulfillment = fulfillmentFilter === 'all' || order.fulfillment_status === fulfillmentFilter;
+
+    if (dateFilter !== 'all') {
+      const orderDate = new Date(order.created_at);
+      if (dateFilter === 'today') {
+        if (orderDate.toDateString() !== now.toDateString()) return false;
+      } else if (dateFilter === 'week') {
+        const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+        if (orderDate < weekAgo) return false;
+      } else if (dateFilter === 'month') {
+        const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+        if (orderDate < monthAgo) return false;
+      }
+    }
+
+    if (!matchesPayment || !matchesFulfillment) return false;
+    if (!term) return true;
+
+    const haystack = [
+      order.id,
+      order.customerLabel,
+      order.customer_email,
+      order.customer_phone,
+      order.payment_method,
+      order.fulfillment_status,
+      order.payment_status,
+      order.testReasonResolved,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    return haystack.includes(term);
+  });
+
+  if (testReasonFilter === 'manual_override_only') {
+    return [...baseOrders].sort((a, b) => {
+      const scoreDelta = (b.manualOverrideSeverity?.score || 0) - (a.manualOverrideSeverity?.score || 0);
+      if (scoreDelta !== 0) return scoreDelta;
+      return (b.manualOverrideSeverity?.ageHours || 0) - (a.manualOverrideSeverity?.ageHours || 0);
+    });
+  }
+
+  return baseOrders;
+};
+
+export const buildOrdersDashboardStats = (auditScopedOrders = []) => {
+  const paidOrders = auditScopedOrders.filter((order) => order.payment_status === 'paid');
+  const paidRevenue = paidOrders.reduce((sum, order) => sum + order.totalCents, 0);
+  const pendingOrders = auditScopedOrders.filter((order) => order.payment_status === 'paid' && !order.activation_completed).length;
+  const overdueOrders = auditScopedOrders.filter((order) => {
+    if (order.payment_status !== 'paid' || order.activation_completed) return false;
+    const paidAtMs = new Date(order.paid_at || order.updated_at || order.created_at).getTime();
+    if (Number.isNaN(paidAtMs)) return false;
+    return ((Date.now() - paidAtMs) / (1000 * 60 * 60)) >= 24;
+  }).length;
+  const avgTicket = auditScopedOrders.length ? auditScopedOrders.reduce((sum, order) => sum + order.totalCents, 0) / auditScopedOrders.length : 0;
+
+  return [
+    { label: 'Ventas cobradas', value: currency(paidRevenue), accent: 'emerald' },
+    { label: 'Pedidos abiertos', value: `${pendingOrders}`, accent: 'amber' },
+    { label: 'SLA en riesgo', value: `${overdueOrders}`, accent: 'red' },
+    { label: 'Ticket promedio', value: currency(avgTicket), accent: null },
+  ];
+};
+
+export const buildOrdersDashboardFunnelSnapshot = (auditScopedOrders = []) => {
+  const paidBase = auditScopedOrders.filter((order) => order.payment_status === 'paid').length;
+  const counts = FUNNEL_STEPS.map((step) => {
+    const reached = auditScopedOrders.filter((order) => deriveFunnelReached(order)[step.key]).length;
+    return {
+      ...step,
+      count: reached,
+      ratio: paidBase > 0 ? Math.round((reached / paidBase) * 100) : 0,
+    };
+  });
+
+  return {
+    paidBase,
+    counts,
+    exceptions: auditScopedOrders.filter((order) => (order.observability_alerts || []).length > 0),
+  };
 };
