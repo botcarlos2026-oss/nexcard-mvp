@@ -5,7 +5,7 @@ with payment_rollup as (
   select
     o.id as order_id,
     o.payment_status as order_payment_status,
-    array_remove(array_agg(distinct p.status), null) filter (where p.deleted_at is null) as payment_statuses,
+    array_remove(array_agg(distinct case when p.deleted_at is null then p.status else null end), null) as payment_statuses,
     count(p.*) filter (where p.deleted_at is null) as active_payments,
     bool_or(p.status = 'refunded') filter (where p.deleted_at is null) as has_refunded,
     bool_or(p.status = 'paid') filter (where p.deleted_at is null) as has_paid,
