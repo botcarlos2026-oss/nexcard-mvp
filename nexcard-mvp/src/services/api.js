@@ -11,6 +11,7 @@ import { createKpiAdminApi } from './api/kpiAdmin';
 import { createAdminDashboardApi } from './api/adminDashboard';
 import { createReviewCardsApi } from './api/reviewCards';
 import { createCrmApi } from './api/crm';
+import { createWheelApi } from './api/wheel';
 import { KPI_EXECUTIVE_ALERT_BAND_POLICY, KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 import { buildWowAlerts, computeExecutiveAlertDecision, computeExecutiveScore, deltaPercent, percentage, percentile, round1 } from '../utils/executiveKpi';
@@ -133,6 +134,7 @@ const adminDashboardApi = createAdminDashboardApi({
 });
 const reviewCardsApi = createReviewCardsApi({ supabase, hasSupabase });
 const crmApi = createCrmApi({ supabase, hasSupabase });
+const wheelApi = createWheelApi({ supabase, hasSupabase });
 
 export const api = {
   health: () => request('/health'),
@@ -359,92 +361,29 @@ export const api = {
   // Wheel promotions
   // ---------------------------------------------------------------------------
 
-  getActiveWheel: async () => {
-    if (!hasSupabase) return { wheel: null };
-    const now = new Date().toISOString();
-    const { data: configs } = await supabase
-      .from('wheel_config')
-      .select('*, wheel_prizes(*)')
-      .eq('active', true);
-    if (!configs?.length) return { wheel: null };
-    const wheel = configs.find(c => {
-      const afterStart = !c.start_date || c.start_date <= now;
-      const beforeEnd = !c.end_date || c.end_date >= now;
-      return afterStart && beforeEnd;
-    });
-    return { wheel: wheel || null };
-  },
+  getActiveWheel: async () => wheelApi.getActiveWheel(),
 
-  getAllWheels: async () => {
-    if (!hasSupabase) return { wheels: [] };
-    const { data } = await supabase.from('wheel_config').select('*, wheel_prizes(*)').order('created_at', { ascending: false });
-    return { wheels: data || [] };
-  },
+  getAllWheels: async () => wheelApi.getAllWheels(),
 
-  createWheel: async (config) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data, error } = await supabase.from('wheel_config').insert(config).select().single();
-    if (error) throw error;
-    return data;
-  },
+  createWheel: async (config) => wheelApi.createWheel(config),
 
-  updateWheel: async (id, payload) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { error } = await supabase.from('wheel_config').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) throw error;
-  },
+  updateWheel: async (id, payload) => wheelApi.updateWheel(id, payload),
 
-  deleteWheel: async (id) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { error } = await supabase.from('wheel_config').delete().eq('id', id);
-    if (error) throw error;
-  },
+  deleteWheel: async (id) => wheelApi.deleteWheel(id),
 
-  createWheelPrize: async (prize) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data, error } = await supabase.from('wheel_prizes').insert(prize).select().single();
-    if (error) throw error;
-    return data;
-  },
+  createWheelPrize: async (prize) => wheelApi.createWheelPrize(prize),
 
-  updateWheelPrize: async (id, payload) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { error } = await supabase.from('wheel_prizes').update(payload).eq('id', id);
-    if (error) throw error;
-  },
+  updateWheelPrize: async (id, payload) => wheelApi.updateWheelPrize(id, payload),
 
-  deleteWheelPrize: async (id) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { error } = await supabase.from('wheel_prizes').delete().eq('id', id);
-    if (error) throw error;
-  },
+  deleteWheelPrize: async (id) => wheelApi.deleteWheelPrize(id),
 
-  recordWheelSpin: async (spin) => {
-    if (!hasSupabase) return null;
-    const { data, error } = await supabase.from('wheel_spins').insert(spin).select().single();
-    if (error) throw error;
-    return data;
-  },
+  recordWheelSpin: async (spin) => wheelApi.recordWheelSpin(spin),
 
-  validateWheelCoupon: async (code) => {
-    if (!hasSupabase || !code) return null;
-    const { data: prize } = await supabase.from('wheel_prizes').select('*').eq('coupon_code', code.toUpperCase()).maybeSingle();
-    if (!prize) return null;
-    const { data: spin } = await supabase.from('wheel_spins').select('*').eq('prize_id', prize.id).eq('redeemed', false).limit(1).maybeSingle();
-    if (!spin) return null;
-    return { prize, spinId: spin.id };
-  },
+  validateWheelCoupon: async (code) => wheelApi.validateWheelCoupon(code),
 
-  redeemWheelCoupon: async (spinId, orderId) => {
-    if (!hasSupabase || !spinId) return;
-    await supabase.from('wheel_spins').update({ redeemed: true, redeemed_at: new Date().toISOString(), order_id: orderId }).eq('id', spinId);
-  },
+  redeemWheelCoupon: async (spinId, orderId) => wheelApi.redeemWheelCoupon(spinId, orderId),
 
-  getWheelStats: async (wheelId) => {
-    if (!hasSupabase) return { spins: [] };
-    const { data } = await supabase.from('wheel_spins').select('*, wheel_prizes(label, type, value)').eq('wheel_id', wheelId).order('spun_at', { ascending: false }).limit(200);
-    return { spins: data || [] };
-  },
+  getWheelStats: async (wheelId) => wheelApi.getWheelStats(wheelId),
 
   // ---------------------------------------------------------------------------
   // Products admin

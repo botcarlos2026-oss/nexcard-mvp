@@ -73,13 +73,14 @@ Bloques ya extraídos desde `api.js`:
 4. `adminDashboard` (`src/services/api/adminDashboard.js`)
 
 Siguiente bloque rentable en API:
-1. revisar si `api.js` ya amerita partición final por bounded contexts
-2. si sigue pesado, separar `teamMembers` o `wheel` como cortes tácticos finales
+1. evaluar si conviene dejar `api.js` estable como facade final
+2. solo separar `teamMembers` o `productsAdmin` si aparece fricción real de mantenimiento
 3. seguir endureciendo tests donde aún haya solo smoke coverage
 
 ## Riesgos controlados
 - `reviewCards` ahora tiene cobertura sobre fallback RPC→update directo.
 - `crm` ahora cubre reutilización de carrito abandonado, inserción nueva y timestamp en update.
+- `wheel` ahora tiene cobertura sobre selección de promo activa y validación de coupon code.
 - Se mantuvieron side effects y flujos server-side intactos
 - No se modificaron payloads públicos ni nombres de métodos
 - No se tocó el read model de `getOrders`
