@@ -73,9 +73,9 @@ Bloques ya extraídos desde `api.js`:
 4. `adminDashboard` (`src/services/api/adminDashboard.js`)
 
 Siguiente bloque rentable en API:
-1. `CRM / abandoned carts`
-2. pulido de tests específicos por dominio extraído
-3. revisar si `api.js` ya amerita partición final por bounded contexts
+1. pulido de tests específicos por dominio extraído
+2. revisar si `api.js` ya amerita partición final por bounded contexts
+3. si sigue pesado, separar `teamMembers` o `wheel` como cortes tácticos finales
 
 ## Riesgos controlados
 - Se mantuvieron side effects y flujos server-side intactos

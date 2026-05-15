@@ -10,6 +10,7 @@ import { createOrderOperationsApi } from './api/orderOperations';
 import { createKpiAdminApi } from './api/kpiAdmin';
 import { createAdminDashboardApi } from './api/adminDashboard';
 import { createReviewCardsApi } from './api/reviewCards';
+import { createCrmApi } from './api/crm';
 import { KPI_EXECUTIVE_ALERT_BAND_POLICY, KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 import { buildWowAlerts, computeExecutiveAlertDecision, computeExecutiveScore, deltaPercent, percentage, percentile, round1 } from '../utils/executiveKpi';
@@ -131,6 +132,7 @@ const adminDashboardApi = createAdminDashboardApi({
   round1,
 });
 const reviewCardsApi = createReviewCardsApi({ supabase, hasSupabase });
+const crmApi = createCrmApi({ supabase, hasSupabase });
 
 export const api = {
   health: () => request('/health'),
@@ -298,98 +300,23 @@ export const api = {
   // Carritos abandonados
   // ---------------------------------------------------------------------------
 
-  saveAbandonedCart: async ({ email, customerName, items, totalCents }) => {
-    if (!hasSupabase) return null;
-    try {
-      // Buscar registro existente del mismo email en las últimas 2 horas
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-      const { data: existing } = await supabase
-        .from('abandoned_carts')
-        .select('id')
-        .eq('email', email.toLowerCase())
-        .in('status', ['abandoned', 'email_sent'])
-        .gte('created_at', twoHoursAgo)
-        .limit(1)
-        .maybeSingle();
+  saveAbandonedCart: async (payload) => crmApi.saveAbandonedCart(payload),
 
-      if (existing?.id) {
-        // Actualizar registro existente
-        await supabase
-          .from('abandoned_carts')
-          .update({ customer_name: customerName || null, items, total_cents: totalCents })
-          .eq('id', existing.id);
-        return { id: existing.id };
-      }
+  markCartConverted: async (cartId) => crmApi.markCartConverted(cartId),
 
-      // Insertar nuevo registro
-      const { data, error } = await supabase
-        .from('abandoned_carts')
-        .insert([{ email: email.toLowerCase(), customer_name: customerName || null, items, total_cents: totalCents }])
-        .select('id')
-        .single();
-      if (error) return null;
-      return { id: data.id };
-    } catch {
-      return null;
-    }
-  },
+  getAbandonedCarts: async () => crmApi.getAbandonedCarts(),
 
-  markCartConverted: async (cartId) => {
-    if (!hasSupabase || !cartId) return;
-    try {
-      await supabase
-        .from('abandoned_carts')
-        .update({ status: 'converted', converted_at: new Date().toISOString() })
-        .eq('id', cartId);
-    } catch {
-      // silencioso
-    }
-  },
+  getCRMContacts: async () => crmApi.getCRMContacts(),
 
-  getAbandonedCarts: async () => {
-    if (!hasSupabase) return [];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
-      .from('abandoned_carts')
-      .select('*')
-      .in('status', ['abandoned', 'email_sent', 'converted'])
-      .gte('created_at', sevenDaysAgo)
-      .order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
-    return data || [];
-  },
+  getCRMDeals: async () => crmApi.getCRMDeals(),
 
-  getCRMContacts: async () => {
-    const { data } = await supabase.from('crm_contacts').select('*, crm_deals(count)').order('created_at', { ascending: false });
-    return { contacts: data || [] };
-  },
+  createCRMDeal: async (deal) => crmApi.createCRMDeal(deal),
 
-  getCRMDeals: async () => {
-    const { data } = await supabase.from('crm_deals').select('*, crm_contacts(name, email, company, phone)').order('created_at', { ascending: false });
-    return { deals: data || [] };
-  },
+  updateCRMDeal: async (id, payload) => crmApi.updateCRMDeal(id, payload),
 
-  createCRMDeal: async (deal) => {
-    const { data, error } = await supabase.from('crm_deals').insert(deal).select().single();
-    if (error) throw error;
-    return data;
-  },
+  getCRMActivities: async (dealId) => crmApi.getCRMActivities(dealId),
 
-  updateCRMDeal: async (id, payload) => {
-    const { error } = await supabase.from('crm_deals').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) throw error;
-  },
-
-  getCRMActivities: async (dealId) => {
-    const { data } = await supabase.from('crm_activities').select('*').eq('deal_id', dealId).order('created_at', { ascending: false });
-    return { activities: data || [] };
-  },
-
-  addCRMActivity: async (activity) => {
-    const { data, error } = await supabase.from('crm_activities').insert(activity).select().single();
-    if (error) throw error;
-    return data;
-  },
+  addCRMActivity: async (activity) => crmApi.addCRMActivity(activity),
 
   getCardScans: async (profileSlug) => profilesApi.getCardScans(profileSlug),
 
