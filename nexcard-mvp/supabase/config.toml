@@ -2,3 +2,6 @@ project_id = "ghiremuuyprohdqfrxsy"
 
 [functions.mp-webhook]
 verify_jwt = false
+
+[functions.reconcile-order-payments]
+verify_jwt = false
