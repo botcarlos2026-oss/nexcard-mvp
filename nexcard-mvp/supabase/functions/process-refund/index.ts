@@ -149,11 +149,38 @@ serve(async (req) => {
 
     if (refundError) throw new Error(`Error actualizando refund: ${refundError.message}`);
 
-    // Actualizar orden a payment_status: refunded
-    const { error: orderUpdateError } = await supabase
-      .from('orders')
-      .update({ payment_status: 'refunded' })
-      .eq('id', orderId);
+    const { data: existingPayments, error: paymentLookupError } = await supabase
+      .from('payments')
+      .select('id, status')
+      .eq('order_id', orderId)
+      .eq('provider', 'mercado_pago')
+      .eq('external_id', order.mp_payment_id)
+      .is('deleted_at', null)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+
+    if (paymentLookupError) throw new Error(`Error consultando payment ledger: ${paymentLookupError.message}`);
+
+    const existingPayment = existingPayments?.[0] || null;
+    if (existingPayment && existingPayment.status !== 'refunded') {
+      const { error: paymentStatusError } = await supabase.rpc('mark_payment_status', {
+        target_payment_id: existingPayment.id,
+        new_status: 'refunded',
+        actor_id: access.userId,
+        reason: 'process_refund',
+        external_ref: order.mp_payment_id,
+      });
+
+      if (paymentStatusError) throw new Error(`Error actualizando payment ledger: ${paymentStatusError.message}`);
+    }
+
+    // Actualizar orden a payment_status: refunded vía RPC protegida
+    const { error: orderUpdateError } = await supabase.rpc('admin_transition_order_state', {
+      target_order_id: orderId,
+      next_payment_status: 'refunded',
+      next_fulfillment_status: null,
+      reason: `Refund procesado ${refundId}`,
+    });
 
     if (orderUpdateError) throw new Error(`Error actualizando orden: ${orderUpdateError.message}`);
 

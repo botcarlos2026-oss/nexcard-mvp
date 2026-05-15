@@ -82,10 +82,23 @@ async function persistPaymentLedger(
   const existingPayment = existingPayments?.[0] || null;
 
   if (existingPayment) {
+    if (existingPayment.status !== mappedStatus || existingPayment.external_id !== mpPaymentId) {
+      const { error: paymentStatusError } = await supabase.rpc('mark_payment_status', {
+        target_payment_id: existingPayment.id,
+        new_status: mappedStatus,
+        actor_id: null,
+        reason: 'mp_webhook_reconciliation',
+        external_ref: mpPaymentId,
+      });
+
+      if (paymentStatusError) {
+        throw new Error(`No se pudo actualizar payment ledger vía RPC: ${paymentStatusError.message}`);
+      }
+    }
+
     const { error: updatePaymentError } = await supabase
       .from('payments')
       .update({
-        status: mappedStatus,
         amount_cents: amountCents,
         currency,
         payload: payment,
@@ -119,6 +132,77 @@ async function persistPaymentLedger(
   }
 
   return { paymentId: insertedPayment?.id || null, existed: false };
+}
+
+async function persistOrderPaymentReference(
+  supabase: ReturnType<typeof createClient>,
+  orderId: string,
+  currentMpPaymentId: string | null | undefined,
+  nextMpPaymentId: string,
+) {
+  if (currentMpPaymentId === nextMpPaymentId) return;
+
+  const { error } = await supabase
+    .from('orders')
+    .update({ mp_payment_id: nextMpPaymentId })
+    .eq('id', orderId);
+
+  if (error) {
+    throw new Error(`No se pudo persistir mp_payment_id: ${error.message}`);
+  }
+}
+
+async function applyOrderPaymentOutcome(
+  supabase: ReturnType<typeof createClient>,
+  {
+    orderId,
+    currentPaymentStatus,
+    currentFulfillmentStatus,
+    mappedStatus,
+  }: {
+    orderId: string;
+    currentPaymentStatus: string;
+    currentFulfillmentStatus: string;
+    mappedStatus: string;
+  },
+) {
+  const nextFulfillmentStatus = mappedStatus === 'paid' && currentFulfillmentStatus === 'new'
+    ? 'in_production'
+    : currentFulfillmentStatus;
+
+  const nextPaymentStatus = currentPaymentStatus === 'paid' && mappedStatus !== 'paid'
+    ? currentPaymentStatus
+    : mappedStatus;
+
+  const shouldTransitionPayment = nextPaymentStatus !== currentPaymentStatus;
+  const shouldTransitionFulfillment = nextFulfillmentStatus !== currentFulfillmentStatus;
+
+  if (!shouldTransitionPayment && !shouldTransitionFulfillment) {
+    return {
+      changed: false,
+      nextPaymentStatus,
+      nextFulfillmentStatus,
+      downgradeIgnored: currentPaymentStatus === 'paid' && mappedStatus !== 'paid',
+    };
+  }
+
+  const { error } = await supabase.rpc('admin_transition_order_state', {
+    target_order_id: orderId,
+    next_payment_status: shouldTransitionPayment ? nextPaymentStatus : null,
+    next_fulfillment_status: shouldTransitionFulfillment ? nextFulfillmentStatus : null,
+    reason: 'mp_webhook_reconciliation',
+  });
+
+  if (error) {
+    throw new Error(`No se pudo reconciliar orden vía RPC: ${error.message}`);
+  }
+
+  return {
+    changed: true,
+    nextPaymentStatus,
+    nextFulfillmentStatus,
+    downgradeIgnored: false,
+  };
 }
 
 async function ensureProfileActivationFlow(supabase: ReturnType<typeof createClient>, supabaseUrl: string, serviceRoleKey: string, orderId: string, payerEmail?: string) {
@@ -277,54 +361,24 @@ serve(async (req) => {
 
     // Si la orden ya está pagada, no degradamos su estado por eventos tardíos o de otra fuente.
     // Solo reintentamos activación cuando corresponde.
-    if (currentOrder.payment_status === 'paid') {
-      if (mappedStatus === 'paid') {
-        await persistPaymentLedger(supabase, { orderId, mpPaymentId, mappedStatus, payment });
-        log('info', 'webhook_duplicate_ignored', { order_id: orderId, mp_payment_id: mpPaymentId });
-        await ensureProfileActivationFlow(supabase, SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId, payment.payer?.email);
-      } else {
-        log('warn', 'webhook_paid_order_downgrade_ignored', {
-          order_id: orderId,
-          current_payment_status: currentOrder.payment_status,
-          incoming_payment_status: mappedStatus,
-          mp_payment_id: mpPaymentId,
-        });
-      }
-      return new Response('ok', { status: 200 });
-    }
-
     await persistPaymentLedger(supabase, { orderId, mpPaymentId, mappedStatus, payment });
 
-    if (currentOrder.mp_payment_id && currentOrder.mp_payment_id === mpPaymentId) {
-      log('info', 'webhook_payment_id_duplicate_ignored', { order_id: orderId, mp_payment_id: mpPaymentId });
-      if (mappedStatus === 'paid') {
-        await ensureProfileActivationFlow(supabase, SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId, payment.payer?.email);
-      }
-      return new Response('ok', { status: 200 });
-    }
+    await persistOrderPaymentReference(supabase, orderId, currentOrder.mp_payment_id, mpPaymentId);
 
-    const nextFulfillmentStatus = mappedStatus === 'paid' && currentOrder.fulfillment_status === 'new'
-      ? 'in_production'
-      : currentOrder.fulfillment_status;
-
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        payment_status: mappedStatus,
-        fulfillment_status: nextFulfillmentStatus,
-        mp_payment_id: mpPaymentId,
-      })
-      .eq('id', orderId);
-
-    if (error) {
-      log('error', 'supabase_update_failed', { order_id: orderId, error: error.message, code: error.code });
-      return new Response('error', { status: 500 });
-    }
+    const transition = await applyOrderPaymentOutcome(supabase, {
+      orderId,
+      currentPaymentStatus: currentOrder.payment_status,
+      currentFulfillmentStatus: currentOrder.fulfillment_status,
+      mappedStatus,
+    });
 
     log('info', 'order_updated', {
       order_id: orderId,
       mapped_status: mappedStatus,
-      fulfillment_status: nextFulfillmentStatus,
+      payment_status: transition.nextPaymentStatus,
+      fulfillment_status: transition.nextFulfillmentStatus,
+      changed: transition.changed,
+      downgrade_ignored: transition.downgradeIgnored,
     });
 
     if (mappedStatus === 'paid') {
