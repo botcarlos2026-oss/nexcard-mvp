@@ -352,3 +352,43 @@ export const buildOrdersDashboardFunnelSnapshot = (auditScopedOrders = []) => {
     exceptions: auditScopedOrders.filter((order) => (order.observability_alerts || []).length > 0),
   };
 };
+
+export const parseOrdersAuditQueryState = ({ search = '', forceAuditFilter = null } = {}) => {
+  const params = new URLSearchParams(search);
+  const requestedAudit = params.get('audit') === 'excluded' ? 'excluded' : 'all';
+  const requestedReason = params.get('test_reason') || 'all';
+  const requestedOverrideAge = params.get('override_age') || 'all';
+  const requestedReviewStatus = params.get('review_status') || 'all';
+  const requestedRisk = params.get('risk') || 'all';
+  const requestedOrderId = params.get('order_id') || null;
+
+  return {
+    auditFilter: forceAuditFilter || requestedAudit,
+    testReasonFilter: requestedReason,
+    overrideAgeFilter: requestedOverrideAge,
+    reviewStatusFilter: requestedReviewStatus === 'pending' || requestedReviewStatus === 'reviewed' ? requestedReviewStatus : 'all',
+    riskFilter: requestedRisk === 'paid_blocked' ? 'paid_blocked' : 'all',
+    selectedOrderId: requestedOrderId,
+  };
+};
+
+export const buildOrdersAuditQueryString = ({
+  auditFilter = 'all',
+  testReasonFilter = 'all',
+  overrideAgeFilter = 'all',
+  reviewStatusFilter = 'all',
+  riskFilter = 'all',
+  orderId = null,
+} = {}) => {
+  const params = new URLSearchParams();
+
+  if (auditFilter === 'excluded') params.set('audit', 'excluded');
+  if (testReasonFilter !== 'all') params.set('test_reason', testReasonFilter);
+  if (overrideAgeFilter !== 'all') params.set('override_age', overrideAgeFilter);
+  if (reviewStatusFilter !== 'all') params.set('review_status', reviewStatusFilter);
+  if (riskFilter !== 'all') params.set('risk', riskFilter);
+  if (orderId) params.set('order_id', orderId);
+
+  const query = params.toString();
+  return query ? `/admin/orders?${query}` : '/admin/orders';
+};

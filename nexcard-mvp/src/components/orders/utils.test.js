@@ -1,10 +1,12 @@
 import {
   buildOrdersDashboardFunnelSnapshot,
   buildOrdersDashboardStats,
+  buildOrdersAuditQueryString,
   buildQaDecisionTimeline,
   buildTestReasonCounts,
   filterOrdersDashboardRows,
   normalizeOrdersForDashboard,
+  parseOrdersAuditQueryState,
   deriveManualOverrideSeverity,
   formatLabel,
 } from './utils';
@@ -81,5 +83,32 @@ describe('orders utils', () => {
     expect(buildTestReasonCounts(orders)).toEqual({ manual_admin_override_qa: 1, unclassified: 1 });
     expect(buildOrdersDashboardStats(orders)).toHaveLength(4);
     expect(buildOrdersDashboardFunnelSnapshot(orders).counts).toHaveLength(5);
+  });
+
+  it('parsea estado QA desde querystring con sanitización', () => {
+    const result = parseOrdersAuditQueryState({
+      search: '?audit=excluded&test_reason=manual_override_only&override_age=72h&review_status=pending&risk=paid_blocked&order_id=o-1',
+    });
+
+    expect(result).toEqual({
+      auditFilter: 'excluded',
+      testReasonFilter: 'manual_override_only',
+      overrideAgeFilter: '72h',
+      reviewStatusFilter: 'pending',
+      riskFilter: 'paid_blocked',
+      selectedOrderId: 'o-1',
+    });
+  });
+
+  it('construye querystring limpia para filtros QA', () => {
+    expect(buildOrdersAuditQueryString({
+      auditFilter: 'excluded',
+      testReasonFilter: 'manual_override_only',
+      reviewStatusFilter: 'pending',
+      riskFilter: 'paid_blocked',
+      orderId: 'abc',
+    })).toBe('/admin/orders?audit=excluded&test_reason=manual_override_only&review_status=pending&risk=paid_blocked&order_id=abc');
+
+    expect(buildOrdersAuditQueryString()).toBe('/admin/orders');
   });
 });

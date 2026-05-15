@@ -24,6 +24,7 @@ import { isManualTestReason } from '../utils/orderOperationalSegmentation';
 import {
   buildOrdersDashboardFunnelSnapshot,
   buildOrdersDashboardStats,
+  buildOrdersAuditQueryString,
   buildQaDecisionTimeline,
   buildTestReasonCounts,
   buildTestReasonOptions,
@@ -34,6 +35,7 @@ import {
   formatDate,
   formatLabel,
   normalizeOrdersForDashboard,
+  parseOrdersAuditQueryState,
 } from './orders/utils';
 
 const FULFILLMENT_NEXT = {
@@ -126,19 +128,13 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       if (forceAuditFilter) setAuditFilter(forceAuditFilter);
       return;
     }
-    const params = new URLSearchParams(window.location.search);
-    const requestedAudit = params.get('audit') === 'excluded' ? 'excluded' : 'all';
-    const requestedReason = params.get('test_reason') || 'all';
-    const requestedOverrideAge = params.get('override_age') || 'all';
-    const requestedReviewStatus = params.get('review_status') || 'all';
-    const requestedRisk = params.get('risk') || 'all';
-    const requestedOrderId = params.get('order_id') || null;
-    setAuditFilter(forceAuditFilter || requestedAudit);
-    setTestReasonFilter(requestedReason);
-    setOverrideAgeFilter(requestedOverrideAge);
-    setReviewStatusFilter(requestedReviewStatus === 'pending' || requestedReviewStatus === 'reviewed' ? requestedReviewStatus : 'all');
-    setRiskFilter(requestedRisk === 'paid_blocked' ? 'paid_blocked' : 'all');
-    if (requestedOrderId) setSelectedOrderId(requestedOrderId);
+    const queryState = parseOrdersAuditQueryState({ search: window.location.search, forceAuditFilter });
+    setAuditFilter(queryState.auditFilter);
+    setTestReasonFilter(queryState.testReasonFilter);
+    setOverrideAgeFilter(queryState.overrideAgeFilter);
+    setReviewStatusFilter(queryState.reviewStatusFilter);
+    setRiskFilter(queryState.riskFilter);
+    if (queryState.selectedOrderId) setSelectedOrderId(queryState.selectedOrderId);
   }, [forceAuditFilter]);
 
   // Auto-refresh cada 30 segundos
@@ -486,7 +482,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     setOverrideAgeFilter('all');
     setReviewStatusFilter('all');
     setRiskFilter('all');
-    if (typeof window !== 'undefined') window.history.replaceState({}, '', '/admin/orders');
+    if (typeof window !== 'undefined') window.history.replaceState({}, '', buildOrdersAuditQueryString());
   }, []);
 
   const selectManualOverrideFilter = useCallback(() => {
@@ -496,7 +492,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     setReviewStatusFilter('pending');
     setRiskFilter('all');
     if (!forceAuditFilter && typeof window !== 'undefined') {
-      window.history.replaceState({}, '', '/admin/orders?audit=excluded&test_reason=manual_override_only&review_status=pending');
+      window.history.replaceState({}, '', buildOrdersAuditQueryString({
+        auditFilter: 'excluded',
+        testReasonFilter: 'manual_override_only',
+        reviewStatusFilter: 'pending',
+      }));
     }
   }, [forceAuditFilter]);
 
@@ -507,7 +507,10 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     setReviewStatusFilter('all');
     setRiskFilter('all');
     if (!forceAuditFilter && typeof window !== 'undefined') {
-      window.history.replaceState({}, '', `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(reason)}`);
+      window.history.replaceState({}, '', buildOrdersAuditQueryString({
+        auditFilter: 'excluded',
+        testReasonFilter: reason,
+      }));
     }
   }, [forceAuditFilter]);
 
@@ -520,10 +523,13 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       setRiskFilter('all');
     }
     if (!forceAuditFilter && typeof window !== 'undefined') {
-      const nextUrl = value === 'excluded'
-        ? `/admin/orders?audit=excluded${testReasonFilter !== 'all' ? `&test_reason=${encodeURIComponent(testReasonFilter)}` : ''}${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${testReasonFilter === 'manual_override_only' && reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}${testReasonFilter === 'manual_override_only' && riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`
-        : '/admin/orders';
-      window.history.replaceState({}, '', nextUrl);
+      window.history.replaceState({}, '', buildOrdersAuditQueryString({
+        auditFilter: value,
+        testReasonFilter: value === 'excluded' ? testReasonFilter : 'all',
+        overrideAgeFilter: value === 'excluded' ? overrideAgeFilter : 'all',
+        reviewStatusFilter: value === 'excluded' && testReasonFilter === 'manual_override_only' ? reviewStatusFilter : 'all',
+        riskFilter: value === 'excluded' && testReasonFilter === 'manual_override_only' ? riskFilter : 'all',
+      }));
     }
   }, [forceAuditFilter, overrideAgeFilter, reviewStatusFilter, riskFilter, testReasonFilter]);
 
@@ -541,47 +547,68 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
         ? (reviewStatusFilter === 'all' ? 'pending' : reviewStatusFilter)
         : 'all';
       const effectiveRisk = value === 'manual_override_only' ? riskFilter : 'all';
-      const nextUrl = value === 'all'
-        ? '/admin/orders?audit=excluded'
-        : `/admin/orders?audit=excluded&test_reason=${encodeURIComponent(value)}${value === 'manual_override_only' && overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value === 'manual_override_only' && effectiveReviewStatus !== 'all' ? `&review_status=${encodeURIComponent(effectiveReviewStatus)}` : ''}${value === 'manual_override_only' && effectiveRisk !== 'all' ? `&risk=${encodeURIComponent(effectiveRisk)}` : ''}`;
-      window.history.replaceState({}, '', nextUrl);
+      window.history.replaceState({}, '', buildOrdersAuditQueryString({
+        auditFilter: 'excluded',
+        testReasonFilter: value,
+        overrideAgeFilter: value === 'manual_override_only' ? overrideAgeFilter : 'all',
+        reviewStatusFilter: value === 'manual_override_only' ? effectiveReviewStatus : 'all',
+        riskFilter: value === 'manual_override_only' ? effectiveRisk : 'all',
+      }));
     }
   }, [forceAuditFilter, overrideAgeFilter, reviewStatusFilter, riskFilter]);
 
   const handleOverrideAgeFilterChange = useCallback((value) => {
     setOverrideAgeFilter(value);
     if (!forceAuditFilter && typeof window !== 'undefined') {
-      const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${value !== 'all' ? `&override_age=${encodeURIComponent(value)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}`;
-      const nextUrlWithRisk = `${nextUrl}${riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`;
-      window.history.replaceState({}, '', nextUrlWithRisk);
+      window.history.replaceState({}, '', buildOrdersAuditQueryString({
+        auditFilter: 'excluded',
+        testReasonFilter: 'manual_override_only',
+        overrideAgeFilter: value,
+        reviewStatusFilter,
+        riskFilter,
+      }));
     }
   }, [forceAuditFilter, reviewStatusFilter, riskFilter]);
 
   const handleReviewStatusFilterChange = useCallback((value) => {
     setReviewStatusFilter(value);
     if (!forceAuditFilter && typeof window !== 'undefined') {
-      const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${value !== 'all' ? `&review_status=${encodeURIComponent(value)}` : ''}${riskFilter !== 'all' ? `&risk=${encodeURIComponent(riskFilter)}` : ''}`;
-      window.history.replaceState({}, '', nextUrl);
+      window.history.replaceState({}, '', buildOrdersAuditQueryString({
+        auditFilter: 'excluded',
+        testReasonFilter: 'manual_override_only',
+        overrideAgeFilter,
+        reviewStatusFilter: value,
+        riskFilter,
+      }));
     }
   }, [forceAuditFilter, overrideAgeFilter, riskFilter]);
 
   const handleRiskFilterChange = useCallback((value) => {
     setRiskFilter(value);
     if (!forceAuditFilter && typeof window !== 'undefined') {
-      const nextUrl = `/admin/orders?audit=excluded&test_reason=manual_override_only${overrideAgeFilter !== 'all' ? `&override_age=${encodeURIComponent(overrideAgeFilter)}` : ''}${reviewStatusFilter !== 'all' ? `&review_status=${encodeURIComponent(reviewStatusFilter)}` : ''}${value !== 'all' ? `&risk=${encodeURIComponent(value)}` : ''}`;
-      window.history.replaceState({}, '', nextUrl);
+      window.history.replaceState({}, '', buildOrdersAuditQueryString({
+        auditFilter: 'excluded',
+        testReasonFilter: 'manual_override_only',
+        overrideAgeFilter,
+        reviewStatusFilter,
+        riskFilter: value,
+      }));
     }
   }, [forceAuditFilter, overrideAgeFilter, reviewStatusFilter]);
 
   const handleSelectOrder = useCallback((orderId) => {
     setSelectedOrderId(orderId);
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      params.set('order_id', orderId);
-      const nextPath = `${window.location.pathname}?${params.toString()}`;
-      window.history.replaceState({}, '', nextPath);
+      window.history.replaceState({}, '', buildOrdersAuditQueryString({
+        auditFilter,
+        testReasonFilter,
+        overrideAgeFilter,
+        reviewStatusFilter,
+        riskFilter,
+        orderId,
+      }));
     }
-  }, []);
+  }, [auditFilter, overrideAgeFilter, reviewStatusFilter, riskFilter, testReasonFilter]);
 
   const handleMarkOrderPaid = useCallback((order) => {
     transitionOrderState(order.id, { payment_status: 'paid', reason: 'Marcada manualmente como pagada desde admin' }, `Orden ${order.id} marcada como pagada.`);

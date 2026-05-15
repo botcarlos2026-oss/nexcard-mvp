@@ -29,6 +29,13 @@ Bajar riesgo de regresión y costo de cambio sin alterar contratos visibles ni f
 - `src/components/orders/utils.test.js` amplía cobertura de helpers del dashboard
 - `src/components/OrdersDashboard.jsx` baja de **1350 → 1226 líneas** manteniendo handlers/side effects en el contenedor
 
+### 0.3 Segunda ola de Fase 2 sobre OrdersDashboard
+- `src/components/orders/utils.js` absorbe helpers puros de:
+  - parseo de query params QA/auditoría
+  - reconstrucción de URL de filtros QA
+- `src/components/orders/utils.test.js` agrega cobertura sobre parse/build de estado URL
+- `OrdersDashboard.jsx` reduce ruido cognitivo del bloque de sincronización URL/filters aunque el tamaño bruto no cae materialmente por wrapping
+
 ### 1. Extracción dominio cards
 - `src/services/api/cards.js`
 - `src/services/api/cards.test.js`
