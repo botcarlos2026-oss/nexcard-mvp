@@ -57,8 +57,11 @@ Extraer por UI primero, no por estado:
 
 ### AdminDashboard
 - `src/components/admin/AdminDashboardOverviewSection.jsx`
-- `src/components/AdminDashboard.jsx` ya delega overview/KPIs/cola QA/wow alerts en un bloque separado
-- próximo corte rentable: alerting ejecutivo + runtime config + transporte automático
+- `src/components/admin/AdminDashboardAlertingSection.jsx`
+- `src/components/AdminDashboard.jsx` ya delega:
+  - overview/KPIs/cola QA/wow alerts
+  - alerting ejecutivo / runtime config / transporte automático
+- próximo corte rentable: activity/recent orders + profiles table + diagnóstico final
 
 ### API
 Después de `orderOperations`, el siguiente bloque rentable es:
