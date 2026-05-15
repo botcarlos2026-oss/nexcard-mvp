@@ -486,6 +486,8 @@ export const api = {
       customer_name: order.customer_name,
       customer_email: order.customer_email,
       funnel_stage: order.funnel_stage,
+      anomaly_level: order.observability_anomaly_level,
+      anomaly_score: order.observability_anomaly_score,
       alerts: order.observability_alerts,
     }));
     const slaBreaches = operationalPaidOrders.filter((order) => {
@@ -695,6 +697,7 @@ export const api = {
     const executiveScore = computeExecutiveScore({ kpiComparisons, slaBreachesCount: slaBreaches.length, wowAlerts, productStats });
     const alertBuckets = {
       paid_without_production: operationalAlerts.filter((order) => order.alerts?.includes('Pagada sin entrar a producción')),
+      payment_status_drift: operationalAlerts.filter((order) => (order.alerts || []).some((alert) => alert.includes('Drift entre order.payment_status'))),
       advanced_without_card: operationalAlerts.filter((order) => order.alerts?.includes('Orden avanzada sin card vinculada')),
       delivered_pending_activation: operationalAlerts.filter((order) => order.alerts?.includes('Entregada sin activación cerrada')),
       pending_claim_post_delivery: operationalAlerts.filter((order) => order.alerts?.includes('Claim pendiente post-entrega')),
@@ -706,6 +709,13 @@ export const api = {
         count: slaBreaches.length,
         severity: slaBreaches.length >= 5 ? 'critical' : 'high',
         action: 'Priorizar activación/cierre de órdenes con mayor aging.',
+      },
+      {
+        key: 'payment_status_drift',
+        title: 'Drift entre order status y payment ledger',
+        count: alertBuckets.payment_status_drift.length,
+        severity: alertBuckets.payment_status_drift.length >= 2 ? 'critical' : 'high',
+        action: 'Ejecutar reconciliación order↔payment antes de que contamine fulfillment o refunds.',
       },
       {
         key: 'delivered_pending_activation',
@@ -959,6 +969,7 @@ export const api = {
         operationalFunnel,
         qaFunnel,
         operationalAlertsCount: operationalAlerts.length,
+        paymentStatusDriftCount: alertBuckets.payment_status_drift.length,
         slaBreachesCount: slaBreaches.length,
         excludedOperationalOrdersCount,
         manualOverrideQaOrdersCount,

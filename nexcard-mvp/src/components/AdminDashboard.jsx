@@ -1229,9 +1229,14 @@ const AdminDashboard = ({ dashboard }) => {
               <h2 className="font-bold text-lg text-white">Alertas operativas</h2>
               <p className="text-sm text-zinc-400 font-medium">Órdenes grises detectadas por la nueva observabilidad</p>
             </div>
-            <AdminBadge variant={operationalAlerts.length > 0 ? 'warning' : 'success'}>
-              {statsSource.operationalAlertsCount || 0}
-            </AdminBadge>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {(statsSource.paymentStatusDriftCount || 0) > 0 && (
+                <AdminBadge variant="danger">{statsSource.paymentStatusDriftCount} drift pago</AdminBadge>
+              )}
+              <AdminBadge variant={operationalAlerts.length > 0 ? 'warning' : 'success'}>
+                {statsSource.operationalAlertsCount || 0}
+              </AdminBadge>
+            </div>
           </div>
           <div className="space-y-3">
             {operationalAlerts.length === 0 ? (
@@ -1243,7 +1248,12 @@ const AdminDashboard = ({ dashboard }) => {
                     <p className="font-bold text-sm text-white">{order.customer_name || 'Sin nombre'}</p>
                     <p className="text-xs text-zinc-400 mt-0.5">{order.id}</p>
                   </div>
-                  <Siren size={16} className="text-amber-400 shrink-0" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <AdminBadge variant={order.anomaly_level === 'critical' ? 'danger' : order.anomaly_level === 'high' ? 'warning' : 'default'}>
+                      {order.anomaly_level || 'alerta'}
+                    </AdminBadge>
+                    <Siren size={16} className="text-amber-400 shrink-0" />
+                  </div>
                 </div>
                 <p className="text-xs text-amber-300 font-semibold mt-3">{order.alerts?.[0]}</p>
               </a>

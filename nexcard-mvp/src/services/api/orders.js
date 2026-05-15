@@ -4,6 +4,26 @@ const uniqById = (rows = []) => Array.from(
   new Map((rows || []).filter(Boolean).map((row) => [row.id, row])).values()
 );
 
+const PAYMENT_STATUS_PRIORITY = ['refunded', 'paid', 'pending', 'authorized', 'failed'];
+
+const deriveLedgerPaymentStatus = (payments = []) => {
+  const activePayments = (payments || []).filter((payment) => !payment?.deleted_at);
+  const statuses = Array.from(new Set(activePayments.map((payment) => payment?.status).filter(Boolean)));
+  const suggested = PAYMENT_STATUS_PRIORITY.find((status) => statuses.includes(status)) || null;
+
+  return {
+    active_payments_count: activePayments.length,
+    payment_ledger_statuses: statuses,
+    derived_payment_status: suggested === 'authorized' ? 'pending' : suggested,
+  };
+};
+
+const hoursSince = (value) => {
+  const ms = new Date(value || '').getTime();
+  if (Number.isNaN(ms)) return null;
+  return (Date.now() - ms) / (1000 * 60 * 60);
+};
+
 const deriveOrderObservability = ({ order, claim, relatedCards }) => {
   const activeCardsCount = relatedCards.filter((card) => card.status === 'active' || card.activation_status === 'activated').length;
   const programmedCardsCount = relatedCards.filter((card) => card.nfc_url || card.programmed_at || card.status === 'programmed').length;
@@ -11,6 +31,7 @@ const deriveOrderObservability = ({ order, claim, relatedCards }) => {
   const activationClaimed = claim?.status === 'claimed';
   const activationCompleted = Boolean(order.activated_at) || activeCardsCount > 0 || activationClaimed;
   const paymentPaid = order.payment_status === 'paid';
+  const ledger = deriveLedgerPaymentStatus(order.payments || []);
   const deliveryReady = paymentPaid && ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status);
   const cardLifecycleReady = relatedCards.length > 0;
   const activationReady = paymentPaid && programmedCardsCount > 0;
@@ -23,8 +44,12 @@ const deriveOrderObservability = ({ order, claim, relatedCards }) => {
   if (paymentPaid && activationCompleted) funnelStage = 'activated';
 
   const observabilityAlerts = [];
+  const paymentDrift = Boolean(ledger.derived_payment_status) && ledger.derived_payment_status !== order.payment_status;
   if (paymentPaid && order.fulfillment_status === 'new') {
     observabilityAlerts.push('Pagada sin entrar a producción');
+  }
+  if (paymentDrift) {
+    observabilityAlerts.push(`Drift entre order.payment_status (${order.payment_status}) y payment ledger (${ledger.derived_payment_status})`);
   }
   if (['ready', 'shipped', 'delivered'].includes(order.fulfillment_status) && relatedCards.length === 0) {
     observabilityAlerts.push('Orden avanzada sin card vinculada');
@@ -38,6 +63,28 @@ const deriveOrderObservability = ({ order, claim, relatedCards }) => {
   if (claim?.status === 'pending' && order.fulfillment_status === 'delivered') {
     observabilityAlerts.push('Claim pendiente post-entrega');
   }
+
+  const paidAgeHours = paymentPaid ? hoursSince(order.paid_at || order.updated_at || order.created_at) : null;
+  const shippedAgeHours = order.fulfillment_status === 'shipped' ? hoursSince(order.shipped_at || order.updated_at || order.created_at) : null;
+  const deliveredAgeHours = order.fulfillment_status === 'delivered' ? hoursSince(order.delivered_at || order.updated_at || order.created_at) : null;
+
+  if (paymentPaid && ['new', 'in_production'].includes(order.fulfillment_status) && paidAgeHours != null && paidAgeHours >= 24) {
+    observabilityAlerts.push(`Pagada con aging ${Math.round(paidAgeHours)}h sin llegar a ready`);
+  }
+  if (order.fulfillment_status === 'shipped' && shippedAgeHours != null && shippedAgeHours >= 72) {
+    observabilityAlerts.push(`Despacho con aging ${Math.round(shippedAgeHours)}h sin confirmación de entrega`);
+  }
+  if (order.fulfillment_status === 'delivered' && !activationCompleted && deliveredAgeHours != null && deliveredAgeHours >= 24) {
+    observabilityAlerts.push(`Entrega con aging ${Math.round(deliveredAgeHours)}h sin activación final`);
+  }
+
+  const anomalyScore = observabilityAlerts.reduce((score, alert) => {
+    if (alert.includes('Drift entre order.payment_status')) return score + 4;
+    if (alert.includes('Pagada con aging') || alert.includes('sin card vinculada')) return score + 3;
+    if (alert.includes('Despacho con aging') || alert.includes('Entregada sin activación')) return score + 2;
+    return score + 1;
+  }, 0);
+  const anomalyLevel = anomalyScore >= 6 ? 'critical' : anomalyScore >= 4 ? 'high' : anomalyScore >= 2 ? 'medium' : observabilityAlerts.length > 0 ? 'low' : 'ok';
 
   let terminalState = null;
   if (['failed', 'cancelled', 'refunded'].includes(order.payment_status)) {
@@ -72,6 +119,12 @@ const deriveOrderObservability = ({ order, claim, relatedCards }) => {
     funnel_stage: funnelStage,
     terminal_state: terminalState,
     observability_alerts: observabilityAlerts,
+    observability_anomaly_score: anomalyScore,
+    observability_anomaly_level: anomalyLevel,
+    payment_drift: paymentDrift,
+    payment_ledger_statuses: ledger.payment_ledger_statuses,
+    derived_payment_status: ledger.derived_payment_status,
+    active_payments_count: ledger.active_payments_count,
     payment_paid: paymentPaid,
     activation_last_at: activationLastAt,
   };
