@@ -66,9 +66,14 @@ Extraer por UI primero, no por estado:
 - siguiente corte rentable ya no es UI principal: conviene volver a `api.js` o endurecer QA/roles
 
 ### API
-Después de `orderOperations`, el siguiente bloque rentable es:
-1. `adminDashboard / executiveKpis`
-2. `kpiAdmin`
+Bloques ya extraídos desde `api.js`:
+1. `cards`
+2. `orderOperations`
+3. `kpiAdmin` (`src/services/api/kpiAdmin.js`)
+
+Siguiente bloque rentable en API:
+1. `adminDashboard / getAdminDashboard`
+2. `reviewCards` o CRM si quieres seguir bajando concentración
 
 ## Riesgos controlados
 - Se mantuvieron side effects y flujos server-side intactos
