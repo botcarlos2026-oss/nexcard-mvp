@@ -53,7 +53,12 @@ Extraer por UI primero, no por estado:
 1. `OrdersDashboardHeader`
 2. `OrdersFiltersBar`
 3. `OrdersTable`
-4. `OrderDetailPanel` y cards internas
+4. `OrderDetailPanel` y cards internas ✅
+
+### AdminDashboard
+- `src/components/admin/AdminDashboardOverviewSection.jsx`
+- `src/components/AdminDashboard.jsx` ya delega overview/KPIs/cola QA/wow alerts en un bloque separado
+- próximo corte rentable: alerting ejecutivo + runtime config + transporte automático
 
 ### API
 Después de `orderOperations`, el siguiente bloque rentable es:
