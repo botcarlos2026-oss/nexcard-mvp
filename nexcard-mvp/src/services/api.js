@@ -9,6 +9,7 @@ import { createCardsApi } from './api/cards';
 import { createOrderOperationsApi } from './api/orderOperations';
 import { createKpiAdminApi } from './api/kpiAdmin';
 import { createAdminDashboardApi } from './api/adminDashboard';
+import { createReviewCardsApi } from './api/reviewCards';
 import { KPI_EXECUTIVE_ALERT_BAND_POLICY, KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
 import { buildWowAlerts, computeExecutiveAlertDecision, computeExecutiveScore, deltaPercent, percentage, percentile, round1 } from '../utils/executiveKpi';
@@ -129,6 +130,7 @@ const adminDashboardApi = createAdminDashboardApi({
   percentile,
   round1,
 });
+const reviewCardsApi = createReviewCardsApi({ supabase, hasSupabase });
 
 export const api = {
   health: () => request('/health'),
@@ -274,55 +276,13 @@ export const api = {
   uploadAvatar: () => Promise.resolve({}),
   trackClick: async () => Promise.resolve({}),
 
-  getReviewCards: async () => {
-    if (!hasSupabase) return [];
-    const { data, error } = await supabase
-      .from('review_cards')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
-    return data || [];
-  },
+  getReviewCards: async () => reviewCardsApi.getReviewCards(),
 
-  createReviewCard: async (payload) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data, error } = await supabase
-      .from('review_cards')
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return data;
-  },
+  createReviewCard: async (payload) => reviewCardsApi.createReviewCard(payload),
 
-  updateReviewCard: async (id, payload) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data, error } = await supabase
-      .from('review_cards')
-      .update({ ...payload, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return data;
-  },
+  updateReviewCard: async (id, payload) => reviewCardsApi.updateReviewCard(id, payload),
 
-  incrementReviewScan: async (slug) => {
-    if (!hasSupabase) return;
-    await supabase.rpc('increment_review_scan', { target_slug: slug }).catch(() => {
-      // fallback: direct update if RPC not available
-      supabase
-        .from('review_cards')
-        .select('scan_count')
-        .eq('slug', slug)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            supabase.from('review_cards').update({ scan_count: (data.scan_count || 0) + 1 }).eq('slug', slug);
-          }
-        });
-    });
-  },
+  incrementReviewScan: async (slug) => reviewCardsApi.incrementReviewScan(slug),
 
   updateInventoryItem: async (itemId, payload) => inventoryApi.updateInventoryItem(itemId, payload),
 
