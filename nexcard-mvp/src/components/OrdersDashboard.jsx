@@ -6,7 +6,6 @@ import {
   Truck,
   ExternalLink,
 } from 'lucide-react';
-import { api } from '../services/api';
 import CardPreview from './CardPreview';
 import { generateCardSVG } from '../utils/cardTemplates';
 import AdminShell from './AdminShell';
@@ -20,12 +19,13 @@ import OrderQaAuditCard from './orders/OrderQaAuditCard';
 import OrderNfcCard from './orders/OrderNfcCard';
 import OrderRefundCard from './orders/OrderRefundCard';
 import { useOrdersDashboardActions } from './orders/useOrdersDashboardActions';
+import { useOrdersDashboardDetailState } from './orders/useOrdersDashboardDetailState';
+import { useOrdersDashboardRuntime } from './orders/useOrdersDashboardRuntime';
 import { isManualTestReason } from '../utils/orderOperationalSegmentation';
 import {
   buildOrdersDashboardFunnelSnapshot,
   buildOrdersDashboardStats,
   buildOrdersAuditQueryString,
-  buildQaDecisionTimeline,
   buildTestReasonCounts,
   buildTestReasonOptions,
   currency,
@@ -90,20 +90,6 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [checklistDone, setChecklistDone] = useState(Array(5).fill(false));
   const [orderHistory, setOrderHistory] = useState({});
 
-  const loadOrderHistory = useCallback(async (orderId) => {
-    try {
-      const { supabase } = await import('../services/supabaseClient');
-      const { data } = await supabase
-        .from('order_status_history')
-        .select('*')
-        .eq('order_id', orderId)
-        .order('changed_at', { ascending: false })
-        .limit(10);
-      setOrderHistory(prev => ({ ...prev, [orderId]: data || [] }));
-    } catch (err) {
-      console.warn('History error:', err);
-    }
-  }, []);
   const [refundByOrder, setRefundByOrder] = useState({});
   const [refundForm, setRefundForm] = useState({ reason: 'Producto defectuoso', amount_cents: '', notes: '' });
   const [refundBusy, setRefundBusy] = useState(false);
@@ -113,15 +99,23 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [overrideAgeFilter, setOverrideAgeFilter] = useState('all');
   const [reviewStatusFilter, setReviewStatusFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
-  const [newOrdersCount, setNewOrdersCount] = useState(0);
-  const [lastChecked, setLastChecked] = useState(new Date());
-  const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    const incoming = orders.filter(o => new Date(o.created_at) > lastChecked);
-    setNewOrdersCount(incoming.length);
-    setRows(orders);
-  }, [orders, lastChecked]);
+  const {
+    newOrdersCount,
+    refreshing,
+    loadOrderHistory,
+    handleRefresh,
+    handleSelectOrder,
+  } = useOrdersDashboardRuntime({
+    orders,
+    auditFilter,
+    testReasonFilter,
+    overrideAgeFilter,
+    reviewStatusFilter,
+    riskFilter,
+    setRows,
+    setSelectedOrderId,
+    setOrderHistory,
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -136,41 +130,6 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     setRiskFilter(queryState.riskFilter);
     if (queryState.selectedOrderId) setSelectedOrderId(queryState.selectedOrderId);
   }, [forceAuditFilter]);
-
-  // Auto-refresh cada 30 segundos
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      setRefreshing(true);
-      try {
-        const { api } = await import('../services/api');
-        const response = await api.getOrders();
-        const newOrders = response.orders || [];
-        const newCount = newOrders.filter(o => new Date(o.created_at) > lastChecked).length;
-        setNewOrdersCount(newCount);
-        setRows(newOrders);
-      } catch (err) {
-        console.warn('Auto-refresh error:', err);
-      } finally {
-        setRefreshing(false);
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [lastChecked]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const { api } = await import('../services/api');
-      const response = await api.getOrders();
-      setRows(response.orders || []);
-      setLastChecked(new Date());
-      setNewOrdersCount(0);
-    } catch (err) {
-      console.warn('Refresh error:', err);
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   const normalizedOrders = useMemo(() => normalizeOrdersForDashboard(rows), [rows]);
 
@@ -213,66 +172,29 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     testReasonFilter,
   }), [auditScopedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter, testReasonFilter]);
 
-  const selectedOrder = filteredOrders.find((order) => order.id === selectedOrderId) || filteredOrders[0] || null;
-
-  const selectedOrderOverrideAudit = useMemo(() => {
-    if (!selectedOrder) return null;
-    const history = orderHistory[selectedOrder.id] || [];
-    return history.find((entry) => entry.field === 'is_test' || entry.field === 'test_reason') || null;
-  }, [selectedOrder, orderHistory]);
-
-  const selectedOrderQaTimeline = useMemo(() => {
-    if (!selectedOrder) return [];
-    return buildQaDecisionTimeline(selectedOrder, orderHistory[selectedOrder.id] || []);
-  }, [selectedOrder, orderHistory]);
-
-  const loadSlugForOrder = useCallback(async (order) => {
-    setNfcSlugLoading(true);
-    try {
-      const slug = await api.getProfileSlugForOrder(order.id, order.customer_email);
-      if (slug) setNfcSlug(slug);
-    } catch (_) {
-      // slug queda vacío, el admin lo ingresa manualmente
-    } finally {
-      setNfcSlugLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!selectedOrder) {
-      setDraftOrder(null);
-      return;
-    }
-    loadOrderHistory(selectedOrder.id);
-
-    setDraftOrder({
-      customer_phone: selectedOrder.customer_phone || '',
-      customer_email: selectedOrder.customer_email || '',
-      customer_address: selectedOrder.customer_address || selectedOrder.delivery_address || '',
-      notes: selectedOrder.notes || '',
-    });
-    setDraftShipping({
-      carrier: selectedOrder.carrier || '',
-      tracking_code: selectedOrder.tracking_code || '',
-    });
-    setLinkingCardId('');
-    setNfcSlug('');
-    setNfcQrDataUrl(null);
-    setChecklistDone(Array(5).fill(false));
-    setRefundForm({ reason: 'Producto defectuoso', amount_cents: selectedOrder.amount_cents || '', notes: '' });
-    setTestOverrideReason(selectedOrder.test_reason || '');
-    setReviewNote(selectedOrder.qa_review_note || '');
-    // Auto-cargar slug si hay cards vinculadas
-    if (selectedOrder.related_cards?.length > 0) {
-      loadSlugForOrder(selectedOrder);
-    }
-    // Cargar refund existente para esta orden
-    if (!refundByOrder[selectedOrder.id]) {
-      api.getRefundForOrder(selectedOrder.id).then(r => {
-        if (r) setRefundByOrder(prev => ({ ...prev, [selectedOrder.id]: r }));
-      }).catch(() => {});
-    }
-  }, [selectedOrder, loadOrderHistory, loadSlugForOrder, refundByOrder]);
+  const {
+    selectedOrder,
+    selectedOrderOverrideAudit,
+    selectedOrderQaTimeline,
+    loadSlugForOrder,
+  } = useOrdersDashboardDetailState({
+    filteredOrders,
+    selectedOrderId,
+    orderHistory,
+    setNfcSlugLoading,
+    setNfcSlug,
+    loadOrderHistory,
+    setDraftOrder,
+    setDraftShipping,
+    setLinkingCardId,
+    setNfcQrDataUrl,
+    setChecklistDone,
+    setRefundForm,
+    setTestOverrideReason,
+    setReviewNote,
+    refundByOrder,
+    setRefundByOrder,
+  });
 
   const {
     saveDraftOrder,
@@ -453,20 +375,6 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       }));
     }
   }, [forceAuditFilter, overrideAgeFilter, reviewStatusFilter]);
-
-  const handleSelectOrder = useCallback((orderId) => {
-    setSelectedOrderId(orderId);
-    if (typeof window !== 'undefined') {
-      window.history.replaceState({}, '', buildOrdersAuditQueryString({
-        auditFilter,
-        testReasonFilter,
-        overrideAgeFilter,
-        reviewStatusFilter,
-        riskFilter,
-        orderId,
-      }));
-    }
-  }, [auditFilter, overrideAgeFilter, reviewStatusFilter, riskFilter, testReasonFilter]);
 
   const content = (
     <>

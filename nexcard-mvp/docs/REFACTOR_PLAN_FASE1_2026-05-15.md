@@ -48,6 +48,21 @@ Bajar riesgo de regresión y costo de cambio sin alterar contratos visibles ni f
 - `OrdersDashboard.jsx` baja de **1226 → 1099 líneas**
 - el contenedor conserva estado y composición visual, pero ya no carga el paquete principal de side effects operativos
 
+### 0.5 Cuarta ola de Fase 2 sobre OrdersDashboard
+- `src/components/orders/useOrdersDashboardDetailState.js` absorbe:
+  - selección de orden activa
+  - audit override derivado
+  - timeline QA derivado
+  - inicialización del panel derecho
+  - carga de slug NFC y refund asociado
+- `src/components/orders/useOrdersDashboardRuntime.js` absorbe:
+  - refresh manual
+  - auto-refresh 30s
+  - carga de historial
+  - sync de selección con URL
+- `OrdersDashboard.jsx` baja de **1099 → 1007 líneas**
+- el contenedor queda mucho más cerca de coordinator puro
+
 ### 1. Extracción dominio cards
 - `src/services/api/cards.js`
 - `src/services/api/cards.test.js`
