@@ -7,7 +7,6 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { api } from '../services/api';
-import QRCode from 'qrcode';
 import CardPreview from './CardPreview';
 import { generateCardSVG } from '../utils/cardTemplates';
 import AdminShell from './AdminShell';
@@ -20,6 +19,7 @@ import OrderTraceabilityCard from './orders/OrderTraceabilityCard';
 import OrderQaAuditCard from './orders/OrderQaAuditCard';
 import OrderNfcCard from './orders/OrderNfcCard';
 import OrderRefundCard from './orders/OrderRefundCard';
+import { useOrdersDashboardActions } from './orders/useOrdersDashboardActions';
 import { isManualTestReason } from '../utils/orderOperationalSegmentation';
 import {
   buildOrdersDashboardFunnelSnapshot,
@@ -274,180 +274,38 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     }
   }, [selectedOrder, loadOrderHistory, loadSlugForOrder, refundByOrder]);
 
-  const updateOrderField = async (orderId, payload, successMessage) => {
-    setBusyOrderId(orderId);
-    setFeedback({ type: '', message: '' });
-    try {
-      const response = await api.updateOrder(orderId, payload);
-      setRows(response.orders || []);
-      setFeedback({ type: 'success', message: successMessage });
-    } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la orden.' });
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const transitionOrderState = async (orderId, payload, successMessage) => {
-    setBusyOrderId(orderId);
-    setFeedback({ type: '', message: '' });
-    try {
-      const response = await api.transitionOrderState(orderId, payload);
-      setRows(response.orders || []);
-      setFeedback({ type: 'success', message: successMessage });
-    } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No fue posible cambiar el estado de la orden.' });
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const saveDraftOrder = async () => {
-    if (!selectedOrder || !draftOrder) return;
-    await updateOrderField(selectedOrder.id, draftOrder, `Datos operativos actualizados para ${selectedOrder.id}.`);
-  };
-
-  const linkCardToOrder = async () => {
-    if (!selectedOrder || !linkingCardId) return;
-
-    setBusyOrderId(selectedOrder.id);
-    setFeedback({ type: '', message: '' });
-    try {
-      const response = await api.linkOrderCard(selectedOrder.id, linkingCardId);
-      setRows(response.orders || []);
-      setFeedback({ type: 'success', message: `Tarjeta vinculada formalmente a la orden ${selectedOrder.id}.` });
-      setLinkingCardId('');
-      // Auto-cargar slug del cliente tras vincular
-      loadSlugForOrder(response.orders?.find(o => o.id === selectedOrder.id) || selectedOrder);
-    } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No fue posible vincular la tarjeta a la orden.' });
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const confirmNfcProgramming = async () => {
-    if (!selectedOrder || !nfcSlug) return;
-    const normalizedSlug = nfcSlug.trim().toLowerCase();
-    if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
-      setFeedback({ type: 'error', message: 'El slug NFC solo puede contener letras minúsculas, números y guiones.' });
-      return;
-    }
-    const linkedCard = selectedOrder.related_cards?.find(c => c.order_id === selectedOrder.id) || selectedOrder.related_cards?.[0];
-    if (!linkedCard) {
-      setFeedback({ type: 'error', message: 'Vincula primero una card a la orden.' });
-      return;
-    }
-    const nfc_url = `https://nexcard.cl/${normalizedSlug}`;
-    setNfcBusy(true);
-    setFeedback({ type: '', message: '' });
-    try {
-      const response = await api.updateCardNFC(linkedCard.id, { nfc_url });
-      setRows(response.orders || []);
-      // Generar QR de verificación (en memoria, sin descarga automática)
-      const qrDataUrl = await QRCode.toDataURL(nfc_url, {
-        errorCorrectionLevel: 'H',
-        type: 'image/png',
-        quality: 1,
-        margin: 1,
-        width: 256,
-      });
-      setNfcQrDataUrl(qrDataUrl);
-      setFeedback({ type: 'success', message: `NFC programado: ${nfc_url}` });
-    } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'Error al programar NFC.' });
-    } finally {
-      setNfcBusy(false);
-    }
-  };
-
-  const saveShipping = async () => {
-    if (!selectedOrder) return;
-    setShippingBusy(true);
-    setFeedback({ type: '', message: '' });
-    try {
-      const response = await api.dispatchOrder(selectedOrder.id, draftShipping);
-      setRows(response.orders || []);
-      const decremented = response.itemsDecremented || [];
-      const decrMsg = decremented.length > 0
-        ? ` Insumos descontados: ${decremented.map(d => `${d.name} ×${d.quantity}`).join(', ')}.`
-        : '';
-      setFeedback({ type: 'success', message: `Orden despachada #${selectedOrder.id.slice(0, 8).toUpperCase()} — notificación enviada al cliente.${decrMsg}` });
-    } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No se pudo registrar el despacho.' });
-    } finally {
-      setShippingBusy(false);
-    }
-  };
-
-  const applyTestOverride = async (targetOrder, nextIsTest) => {
-    if (!targetOrder) return;
-
-    setBusyOrderId(targetOrder.id);
-    setFeedback({ type: '', message: '' });
-    try {
-      const response = await api.overrideOrderTestClassification(targetOrder.id, {
-        is_test: nextIsTest,
-        test_reason: testOverrideReason,
-      });
-      setRows(response.orders || []);
-      setFeedback({
-        type: 'success',
-        message: nextIsTest
-          ? `Orden ${targetOrder.id} marcada manualmente como QA/test.`
-          : `Orden ${targetOrder.id} restaurada manualmente como operativa real.`,
-      });
-    } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la clasificación QA/test.' });
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const reviewTestClassification = async (targetOrder) => {
-    if (!targetOrder) return;
-
-    setBusyOrderId(targetOrder.id);
-    setFeedback({ type: '', message: '' });
-    try {
-      const response = await api.reviewOrderTestClassification(targetOrder.id, {
-        review_note: reviewNote,
-      });
-      setRows(response.orders || []);
-      setFeedback({ type: 'success', message: `Orden ${targetOrder.id} marcada como revisada en auditoría QA.` });
-    } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No fue posible registrar la revisión QA/test.' });
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
-
-  const processRefund = async () => {
-    if (!selectedOrder) return;
-    const amount = Number(refundForm.amount_cents);
-    if (!amount || amount <= 0) {
-      setFeedback({ type: 'error', message: 'El monto del reembolso debe ser mayor a 0.' });
-      return;
-    }
-    setRefundBusy(true);
-    setFeedback({ type: '', message: '' });
-    try {
-      const result = await api.createRefund({
-        orderId: selectedOrder.id,
-        reason: refundForm.reason,
-        amount_cents: amount,
-        notes: refundForm.notes,
-      });
-      setRefundByOrder(prev => ({ ...prev, [selectedOrder.id]: result.refund }));
-      const updatedOrders = await api.getOrders();
-      setRows(updatedOrders.orders || []);
-      setFeedback({ type: 'success', message: `Reembolso procesado. ID MP: ${result.mp_refund_id}` });
-    } catch (error) {
-      setFeedback({ type: 'error', message: error.message || 'No se pudo procesar el reembolso.' });
-    } finally {
-      setRefundBusy(false);
-    }
-  };
+  const {
+    saveDraftOrder,
+    linkCardToOrder,
+    confirmNfcProgramming,
+    saveShipping,
+    applyTestOverride,
+    reviewTestClassification,
+    processRefund,
+    handleMarkOrderPaid,
+    handleAdvanceFulfillment,
+    transitionOrderState,
+  } = useOrdersDashboardActions({
+    selectedOrder,
+    draftOrder,
+    linkingCardId,
+    nfcSlug,
+    draftShipping,
+    testOverrideReason,
+    reviewNote,
+    refundForm,
+    setBusyOrderId,
+    setFeedback,
+    setRows,
+    setLinkingCardId,
+    loadSlugForOrder,
+    setNfcBusy,
+    setNfcQrDataUrl,
+    setShippingBusy,
+    setRefundByOrder,
+    setRefundBusy,
+    fulfillmentNext: FULFILLMENT_NEXT,
+  });
 
   const stats = useMemo(() => buildOrdersDashboardStats(auditScopedOrders), [auditScopedOrders]);
 
@@ -609,18 +467,6 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       }));
     }
   }, [auditFilter, overrideAgeFilter, reviewStatusFilter, riskFilter, testReasonFilter]);
-
-  const handleMarkOrderPaid = useCallback((order) => {
-    transitionOrderState(order.id, { payment_status: 'paid', reason: 'Marcada manualmente como pagada desde admin' }, `Orden ${order.id} marcada como pagada.`);
-  }, []);
-
-  const handleAdvanceFulfillment = useCallback((order) => {
-    transitionOrderState(
-      order.id,
-      { fulfillment_status: FULFILLMENT_NEXT[order.fulfillment_status], reason: 'Avance operacional desde admin' },
-      `Orden ${order.id} avanzada a ${formatLabel(FULFILLMENT_NEXT[order.fulfillment_status])}.`
-    );
-  }, []);
 
   const content = (
     <>

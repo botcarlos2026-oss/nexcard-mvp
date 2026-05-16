@@ -36,6 +36,18 @@ Bajar riesgo de regresión y costo de cambio sin alterar contratos visibles ni f
 - `src/components/orders/utils.test.js` agrega cobertura sobre parse/build de estado URL
 - `OrdersDashboard.jsx` reduce ruido cognitivo del bloque de sincronización URL/filters aunque el tamaño bruto no cae materialmente por wrapping
 
+### 0.4 Tercera ola de Fase 2 sobre OrdersDashboard
+- `src/components/orders/useOrdersDashboardActions.js` absorbe handlers operativos de:
+  - update/transition
+  - link card
+  - programación NFC
+  - despacho
+  - QA override / review
+  - refund
+  - acciones rápidas de pago/fulfillment
+- `OrdersDashboard.jsx` baja de **1226 → 1099 líneas**
+- el contenedor conserva estado y composición visual, pero ya no carga el paquete principal de side effects operativos
+
 ### 1. Extracción dominio cards
 - `src/services/api/cards.js`
 - `src/services/api/cards.test.js`
