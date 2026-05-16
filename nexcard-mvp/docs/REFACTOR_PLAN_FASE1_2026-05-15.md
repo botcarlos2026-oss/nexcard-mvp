@@ -63,6 +63,20 @@ Bajar riesgo de regresión y costo de cambio sin alterar contratos visibles ni f
 - `OrdersDashboard.jsx` baja de **1099 → 1007 líneas**
 - el contenedor queda mucho más cerca de coordinator puro
 
+### 0.6 Quinta ola de Fase 2 sobre OrdersDashboard
+- `src/components/orders/OrdersDetailSupportPanels.jsx` absorbe bloques visuales restantes del panel derecho:
+  - items de la orden
+  - cards relacionadas
+  - historial de cambios
+  - edición operativa base (contacto/dirección/notas)
+  - personalización de tarjeta
+  - refund + warning final
+- `OrdersDashboard.jsx` baja de **1007 → 777 líneas**
+- el panel derecho queda dividido entre:
+  - hooks de estado/runtime/acciones
+  - cards operativas específicas
+  - paneles de soporte visual
+
 ### 1. Extracción dominio cards
 - `src/services/api/cards.js`
 - `src/services/api/cards.test.js`
