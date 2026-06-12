@@ -11,11 +11,10 @@ const FEATURES = [
 ];
 
 // Metadata estático por SKU — precios vienen de Supabase (price_cents)
-// SKUs activos: BASIC-5 ($89.990), PREMIUM-5 ($79.990), PREMIUM-10 ($149.990), PREMIUM-20 ($269.990)
+// SKUs activos: NEXCARD-1, BASIC-5 ($89.990), PREMIUM-10 ($149.990), PREMIUM-20 ($269.990)
 const PRICING_META = {
   'NEXCARD-1':  { name: 'Solo',       cards: 1,  description: 'Para empezar a probar el formato', highlight: false, features: ['1 tarjeta NFC', 'Perfil digital', 'Activación guiada', 'Soporte por email'] },
   'BASIC-5':    { name: 'Starter',    cards: 5,  description: 'Ideal para profesionales independientes', highlight: false, features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Activación guiada', 'Soporte por email'] },
-  'PREMIUM-5':  { name: 'Plus',       cards: 5,  description: 'El más popular para emprendedores',       highlight: false, features: ['5 tarjetas NFC premium', 'Perfil personalizado', 'Analítica básica', 'Soporte prioritario'] },
   'PREMIUM-10': { name: 'Business',   cards: 10, description: 'Para equipos de ventas en crecimiento',   highlight: true,  badge: 'Más popular', features: ['10 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte prioritario', 'Dashboard de equipo'] },
   'PREMIUM-20': { name: 'Enterprise', cards: 20, description: 'La mejor relación precio-volumen',        highlight: false, features: ['20 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte dedicado', 'Dashboard de equipo', 'Onboarding asistido'] },
 };
@@ -24,7 +23,6 @@ const PRICING_META = {
 const PRICING_FALLBACK = [
   { sku: 'NEXCARD-1',  price: 19990 },
   { sku: 'BASIC-5',    price: 79990 },
-  { sku: 'PREMIUM-5',  price: 79990 },
   { sku: 'PREMIUM-10', price: 149990 },
   { sku: 'PREMIUM-20', price: 269990 },
 ];
@@ -170,7 +168,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               Ver precios y packs
               <ArrowRight size={18} />
             </button>
-            <button onClick={() => window.location.href = '/carlos'} className="btn-press inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-colors border border-zinc-700 text-base">
+            <button onClick={() => window.location.href = '/carlos-alvarez'} className="btn-press inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-colors border border-zinc-700 text-base">
               Ver demo en vivo
             </button>
           </div>
@@ -242,19 +240,19 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       {/* Social Proof */}
       <section className="border-t border-zinc-800/60 py-20 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-zinc-600 text-xs uppercase tracking-widest mb-12">Profesionales que ya dejaron el papel atrás</p>
+          <p className="text-zinc-600 text-xs uppercase tracking-widest mb-12">Hecho para profesionales que dejaron el papel atrás</p>
           <div className="grid grid-cols-3 gap-6 mb-14 max-w-lg mx-auto">
-            <div>
-              <p className="text-3xl font-bold text-emerald-400">+500</p>
-              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">tarjetas activadas</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-emerald-400">48h</p>
-              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">tiempo de entrega</p>
-            </div>
             <div>
               <p className="text-3xl font-bold text-emerald-400">100%</p>
               <p className="text-zinc-500 text-xs mt-1.5 leading-snug">compatible iPhone y Android</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-emerald-400">5-7 días</p>
+              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">despacho a todo Chile</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-emerald-400">∞</p>
+              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">actualizaciones gratuitas</p>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
