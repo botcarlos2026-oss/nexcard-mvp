@@ -157,6 +157,146 @@ export const fulfillmentBadgeVariant = (status) => {
   return 'default';
 };
 
+export const deriveActivationStatus = (order) => {
+  if (order?.active_cards_count > 0 || order?.activation_completed) return { label: 'Activa', variant: 'success' };
+  if (order?.programmed_cards_count > 0 || order?.activation_ready) return { label: 'NFC programado', variant: 'info' };
+  if (order?.related_cards?.length > 0) return { label: 'Card vinculada', variant: 'info' };
+  if (order?.activation_claim?.status === 'claimed') return { label: 'Claim tomado', variant: 'success' };
+  if (order?.activation_claim?.status === 'pending') return { label: 'Claim pendiente', variant: 'warning' };
+  return { label: 'Sin claim', variant: 'default' };
+};
+
+const HOURS_MS = 60 * 60 * 1000;
+
+const ageHours = (dateValue, now = new Date()) => {
+  if (!dateValue) return 0;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return 0;
+  return Math.max(0, (now.getTime() - date.getTime()) / HOURS_MS);
+};
+
+export const deriveOrderSlaAlert = (order, now = new Date()) => {
+  if (!order) return null;
+  if (order.payment_status === 'paid' && !order.related_cards?.length && ['ready', 'shipped', 'delivered'].includes(order.fulfillment_status)) {
+    return { label: 'Pagada sin card', level: 'critical' };
+  }
+  if (order.payment_status === 'paid' && order.fulfillment_status === 'new' && ageHours(order.paid_at || order.created_at, now) > 24) {
+    return { label: '>24h sin producción', level: 'warning' };
+  }
+  if (order.payment_status === 'paid' && order.fulfillment_status === 'ready' && !order.tracking_code && ageHours(order.ready_at || order.updated_at || order.created_at, now) > 12) {
+    return { label: '>12h sin tracking', level: 'warning' };
+  }
+  if (order.fulfillment_status === 'shipped' && ageHours(order.shipped_at || order.updated_at || order.created_at, now) > 72) {
+    return { label: '>72h sin entrega', level: 'warning' };
+  }
+  if (order.fulfillment_status === 'delivered' && !order.activation_completed && ageHours(order.delivered_at || order.updated_at || order.created_at, now) > 24) {
+    return { label: '>24h sin activación', level: 'critical' };
+  }
+  return null;
+};
+
+export const OPERATIONAL_FILTERS = [
+  { key: 'all', label: 'Todas' },
+  { key: 'paid_new', label: 'Pagadas nuevas' },
+  { key: 'in_production', label: 'En producción' },
+  { key: 'ready_to_ship', label: 'Listas despacho' },
+  { key: 'shipped_pending_delivery', label: 'Despachadas' },
+  { key: 'delivered_pending_activation', label: 'Entrega sin activación' },
+  { key: 'alerts', label: 'Con alerta' },
+];
+
+export const KANBAN_LANES = [
+  { key: 'paid_new', label: 'Pagadas nuevas', description: 'Compras pagadas que todavía no entran a producción' },
+  { key: 'in_production', label: 'En producción', description: 'Pedidos en armado, diseño o programación NFC' },
+  { key: 'ready_to_ship', label: 'Listas despacho', description: 'Órdenes listas para asignar courier y tracking' },
+  { key: 'shipped_pending_delivery', label: 'Despachadas', description: 'En ruta, pendientes de confirmación de entrega' },
+  { key: 'delivered', label: 'Entregadas', description: 'Entregadas y sin alertas activas' },
+  { key: 'alerts', label: 'Problemas', description: 'Excepciones, activaciones pendientes o drift operativo' },
+];
+
+export const KANBAN_PRIORITY_ORDER = [
+  'alerts',
+  'ready_to_ship',
+  'paid_new',
+  'in_production',
+  'shipped_pending_delivery',
+  'delivered',
+];
+
+export const matchesOperationalFilter = (order, filter = 'all') => {
+  if (filter === 'all') return true;
+  if (filter === 'paid_new') return order.payment_status === 'paid' && order.fulfillment_status === 'new';
+  if (filter === 'in_production') return order.payment_status === 'paid' && order.fulfillment_status === 'in_production';
+  if (filter === 'ready_to_ship') return order.payment_status === 'paid' && order.fulfillment_status === 'ready';
+  if (filter === 'shipped_pending_delivery') return order.fulfillment_status === 'shipped';
+  if (filter === 'delivered_pending_activation') return order.fulfillment_status === 'delivered' && !order.activation_completed;
+  if (filter === 'alerts') return (order.observability_alerts || []).length > 0 || !!deriveOrderSlaAlert(order);
+  return true;
+};
+
+export const getKanbanLaneKey = (order) => {
+  const hasAlerts = (order?.observability_alerts || []).length > 0;
+  const hasSlaAlert = !!deriveOrderSlaAlert(order);
+  const deliveredWithoutActivation = order?.fulfillment_status === 'delivered' && !order?.activation_completed;
+  if (hasAlerts || hasSlaAlert || deliveredWithoutActivation) return 'alerts';
+  if (order?.payment_status === 'paid' && order?.fulfillment_status === 'new') return 'paid_new';
+  if (order?.payment_status === 'paid' && order?.fulfillment_status === 'in_production') return 'in_production';
+  if (order?.payment_status === 'paid' && order?.fulfillment_status === 'ready') return 'ready_to_ship';
+  if (order?.fulfillment_status === 'shipped') return 'shipped_pending_delivery';
+  if (order?.fulfillment_status === 'delivered') return 'delivered';
+  return null;
+};
+
+export const deriveOrderNextAction = (order) => {
+  const activation = deriveActivationStatus(order);
+  const hasAlerts = (order?.observability_alerts || []).length > 0;
+  const slaAlert = deriveOrderSlaAlert(order);
+  if (hasAlerts) return 'Revisar alerta operativa';
+  if (slaAlert) return `Resolver SLA: ${slaAlert.label}`;
+  if (order?.fulfillment_status === 'delivered' && !order?.activation_completed) return 'Reenviar o revisar activación';
+  if (order?.payment_status !== 'paid') return 'Validar pago antes de operar';
+  if (order?.fulfillment_status === 'new') return 'Pasar a producción';
+  if (order?.fulfillment_status === 'in_production') {
+    if (activation.label === 'Sin claim' || activation.label === 'Claim pendiente') return 'Vincular card / programar NFC';
+    return 'Marcar lista para despacho';
+  }
+  if (order?.fulfillment_status === 'ready') return 'Asignar courier y tracking';
+  if (order?.fulfillment_status === 'shipped') return 'Confirmar entrega';
+  if (order?.fulfillment_status === 'delivered') return 'Cerrar seguimiento';
+  return 'Revisar orden';
+};
+
+export const isOrderReadyForDispatch = (order) => {
+  if (order?.payment_status !== 'paid' || order?.fulfillment_status !== 'in_production') return false;
+  return Boolean(
+    order?.programmed_cards_count > 0
+    || order?.activation_ready
+    || order?.related_cards?.some((card) => card?.nfc_url || card?.programmed_at)
+  );
+};
+
+export const buildOrdersKanbanGroups = (orders = []) => {
+  const groups = KANBAN_LANES.reduce((acc, lane) => ({ ...acc, [lane.key]: [] }), {});
+  orders.forEach((order) => {
+    const laneKey = getKanbanLaneKey(order);
+    if (laneKey && groups[laneKey]) groups[laneKey].push(order);
+  });
+  return groups;
+};
+
+export const buildOrdersKanbanSummary = (orders = []) => {
+  const groups = buildOrdersKanbanGroups(orders);
+  const today = new Date().toDateString();
+  return {
+    today: orders.filter((order) => new Date(order.created_at).toDateString() === today).length,
+    paidNew: groups.paid_new.length,
+    inProduction: groups.in_production.length,
+    readyToShip: groups.ready_to_ship.length,
+    shipped: groups.shipped_pending_delivery.length,
+    alerts: groups.alerts.length,
+  };
+};
+
 export const FUNNEL_STEPS = [
   { key: 'paid', label: 'Paid' },
   { key: 'ready', label: 'Ready' },
@@ -266,6 +406,7 @@ export const filterOrdersDashboardRows = ({
   fulfillmentFilter = 'all',
   dateFilter = 'all',
   testReasonFilter = 'all',
+  operationalFilter = 'all',
 }) => {
   const term = searchTerm.trim().toLowerCase();
   const now = new Date();
@@ -273,6 +414,7 @@ export const filterOrdersDashboardRows = ({
   const baseOrders = auditScopedOrders.filter((order) => {
     const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
     const matchesFulfillment = fulfillmentFilter === 'all' || order.fulfillment_status === fulfillmentFilter;
+    const matchesOperational = matchesOperationalFilter(order, operationalFilter);
 
     if (dateFilter !== 'all') {
       const orderDate = new Date(order.created_at);
@@ -287,7 +429,7 @@ export const filterOrdersDashboardRows = ({
       }
     }
 
-    if (!matchesPayment || !matchesFulfillment) return false;
+    if (!matchesPayment || !matchesFulfillment || !matchesOperational) return false;
     if (!term) return true;
 
     const haystack = [

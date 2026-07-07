@@ -11,7 +11,7 @@ import AdminCard from './ui/AdminCard';
 import AdminBadge from './ui/AdminBadge';
 import OrdersDashboardHeader from './orders/OrdersDashboardHeader';
 import OrdersFiltersBar from './orders/OrdersFiltersBar';
-import OrdersTable from './orders/OrdersTable';
+import OrdersKanbanBoard from './orders/OrdersKanbanBoard';
 import OrderTraceabilityCard from './orders/OrderTraceabilityCard';
 import OrderQaAuditCard from './orders/OrderQaAuditCard';
 import OrderNfcCard from './orders/OrderNfcCard';
@@ -28,6 +28,7 @@ import {
   buildTestReasonCounts,
   buildTestReasonOptions,
   currency,
+  OPERATIONAL_FILTERS,
   filterAuditScopedOrders,
   filterOrdersDashboardRows,
   formatDate,
@@ -92,6 +93,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [refundForm, setRefundForm] = useState({ reason: 'Producto defectuoso', amount_cents: '', notes: '' });
   const [refundBusy, setRefundBusy] = useState(false);
   const [dateFilter, setDateFilter] = useState('all');
+  const [operationalFilter, setOperationalFilter] = useState('all');
   const [auditFilter, setAuditFilter] = useState('all');
   const [testReasonFilter, setTestReasonFilter] = useState('all');
   const [overrideAgeFilter, setOverrideAgeFilter] = useState('all');
@@ -168,7 +170,8 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     fulfillmentFilter,
     dateFilter,
     testReasonFilter,
-  }), [auditScopedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter, testReasonFilter]);
+    operationalFilter,
+  }), [auditScopedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter, testReasonFilter, operationalFilter]);
 
   const {
     selectedOrder,
@@ -402,12 +405,15 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
         </div>
       )}
 
-      <div className="grid lg:grid-cols-[1.5fr,1fr] gap-6">
-        {/* Lista de órdenes */}
+      <div className="space-y-6">
+        {/* Bandeja Kanban de órdenes */}
         <AdminCard className="!p-0 overflow-hidden">
           <OrdersFiltersBar
             dateFilter={dateFilter}
             onDateFilterChange={setDateFilter}
+            operationalFilter={operationalFilter}
+            onOperationalFilterChange={setOperationalFilter}
+            operationalFilters={OPERATIONAL_FILTERS}
             newOrdersCount={newOrdersCount}
             refreshing={refreshing}
             onRefresh={handleRefresh}
@@ -437,22 +443,31 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
             formatLabel={formatLabel}
           />
 
-          <div key={`${dateFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}-${riskFilter}`}>
-            <OrdersTable
-              orders={filteredOrders}
-              selectedOrderId={selectedOrderId}
-              busyOrderId={busyOrderId}
-              fulfillmentNext={FULFILLMENT_NEXT}
-              onMarkPaid={handleMarkOrderPaid}
-              onAdvanceFulfillment={handleAdvanceFulfillment}
-              onSelectOrder={handleSelectOrder}
-            />
+          <div key={`${dateFilter}-${operationalFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}-${riskFilter}`}>
+            <div className="p-4 md:p-5">
+              <OrdersKanbanBoard
+                orders={filteredOrders}
+                selectedOrderId={selectedOrderId}
+                busyOrderId={busyOrderId}
+                fulfillmentNext={FULFILLMENT_NEXT}
+                onMarkPaid={handleMarkOrderPaid}
+                onAdvanceFulfillment={handleAdvanceFulfillment}
+                onSelectOrder={handleSelectOrder}
+                onOperationalFilterChange={setOperationalFilter}
+              />
+            </div>
           </div>
         </AdminCard>
 
-        {/* Panel detalle */}
+        {/* Panel detalle bajo el Kanban para no competir visualmente con la bandeja diaria */}
         <AdminCard>
-          <h2 className="font-bold text-lg text-white mb-4">Detalle de orden</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-lg text-white">Detalle de orden</h2>
+              <p className="mt-1 text-sm font-medium text-zinc-500">Se abre al seleccionar una card; queda debajo para mantener el Kanban como foco operativo.</p>
+            </div>
+            {selectedOrder && <AdminBadge variant="info">{selectedOrder.folio || selectedOrder.id}</AdminBadge>}
+          </div>
           {selectedOrder ? (
             <div className="space-y-5">
               <OrderTraceabilityCard order={selectedOrder} />
