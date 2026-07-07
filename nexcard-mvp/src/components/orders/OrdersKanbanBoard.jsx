@@ -45,17 +45,21 @@ function OrderKanbanCard({ order, laneKey, selected, busy, fulfillmentNext, onMa
   const actionLabel = (() => {
     if (laneKey === 'alerts') return 'Revisar alerta';
     if (laneKey === 'ready_to_ship') return 'Registrar despacho';
-    if (laneKey === 'delivered') return 'Ver detalle';
+    if (laneKey === 'delivered') return 'Estado final';
     if (laneKey === 'in_production' && !isOrderReadyForDispatch(order)) return 'Vincular / programar NFC';
+    if (laneKey === 'shipped_pending_delivery' && canQuickAdvance && nextFulfillment) return 'Cerrar seguimiento';
     if (canQuickAdvance && nextFulfillment) return `Mover a ${formatLabel(nextFulfillment)}`;
     if (order.payment_status !== 'paid') return 'Revisar pago';
     return 'Abrir detalle';
   })();
   const action = canQuickAdvance && nextFulfillment
-    ? () => onAdvanceFulfillment(order)
+    ? () => {
+      onSelectOrder(order.id, 'detail');
+      onAdvanceFulfillment(order);
+    }
     : order.payment_status !== 'paid' && laneKey !== 'alerts'
       ? () => onMarkPaid(order)
-      : () => onSelectOrder(order.id);
+      : () => onSelectOrder(order.id, laneKey === 'ready_to_ship' ? 'shipping' : 'detail');
 
   return (
     <article
@@ -64,7 +68,7 @@ function OrderKanbanCard({ order, laneKey, selected, busy, fulfillmentNext, onMa
       data-order-id={order.id}
       data-lane={laneKey}
     >
-      <button type="button" onClick={() => onSelectOrder(order.id)} className="block w-full text-left">
+      <button type="button" onClick={() => onSelectOrder(order.id, 'detail')} className="block w-full text-left">
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="font-black text-white text-sm">{order.folio || order.id}</p>
@@ -108,10 +112,10 @@ function OrderKanbanCard({ order, laneKey, selected, busy, fulfillmentNext, onMa
         <button
           type="button"
           data-cy="order-kanban-view-action"
-          onClick={() => onSelectOrder(order.id)}
+          onClick={() => onSelectOrder(order.id, 'detail')}
           className="rounded-xl border border-zinc-700 px-3 py-2 text-xs font-black text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
         >
-          Ver
+          Ver detalle
         </button>
       </div>
     </article>

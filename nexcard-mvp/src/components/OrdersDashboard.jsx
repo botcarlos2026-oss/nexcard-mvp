@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -99,6 +99,8 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [overrideAgeFilter, setOverrideAgeFilter] = useState('all');
   const [reviewStatusFilter, setReviewStatusFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
+  const detailPanelRef = useRef(null);
+  const shippingPanelRef = useRef(null);
   const {
     newOrdersCount,
     refreshing,
@@ -229,6 +231,38 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     setRefundBusy,
     fulfillmentNext: FULFILLMENT_NEXT,
   });
+
+  const scrollToOrderDetail = useCallback((target = 'detail') => {
+    if (typeof window === 'undefined') return;
+    window.requestAnimationFrame(() => {
+      const node = target === 'shipping' ? shippingPanelRef.current : detailPanelRef.current;
+      node?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
+  const selectOrderAndScroll = useCallback((orderId, target = 'detail') => {
+    handleSelectOrder(orderId);
+    scrollToOrderDetail(target);
+  }, [handleSelectOrder, scrollToOrderDetail]);
+
+  const getDispatchBlocker = useCallback(() => {
+    if (!selectedOrder) return 'Selecciona una orden antes de registrar despacho.';
+    if (selectedOrder.fulfillment_status !== 'ready') return 'Solo puedes registrar despacho para órdenes en estado ready.';
+    if (!draftShipping.carrier) return 'Selecciona un courier.';
+    if (!draftShipping.tracking_code.trim()) return 'Ingresa el código de seguimiento.';
+    if (!checklistDone.every(Boolean)) return 'Completa el checklist pre-despacho.';
+    return '';
+  }, [checklistDone, draftShipping.carrier, draftShipping.tracking_code, selectedOrder]);
+
+  const handleSaveShipping = useCallback(() => {
+    const blocker = getDispatchBlocker();
+    if (blocker) {
+      setFeedback({ type: 'error', message: blocker });
+      scrollToOrderDetail('shipping');
+      return;
+    }
+    saveShipping();
+  }, [getDispatchBlocker, saveShipping, scrollToOrderDetail]);
 
   const stats = useMemo(() => buildOrdersDashboardStats(auditScopedOrders), [auditScopedOrders]);
 
@@ -452,7 +486,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 fulfillmentNext={FULFILLMENT_NEXT}
                 onMarkPaid={handleMarkOrderPaid}
                 onAdvanceFulfillment={handleAdvanceFulfillment}
-                onSelectOrder={handleSelectOrder}
+                onSelectOrder={selectOrderAndScroll}
                 onOperationalFilterChange={setOperationalFilter}
               />
             </div>
@@ -461,6 +495,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
 
         {/* Panel detalle bajo el Kanban para no competir visualmente con la bandeja diaria */}
         <AdminCard>
+          <div ref={detailPanelRef} className="scroll-mt-6" />
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-bold text-lg text-white">Detalle de orden</h2>
@@ -645,7 +680,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
               />
 
               {/* Shipping tracking section */}
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4 space-y-4">
+              <div ref={shippingPanelRef} className="scroll-mt-6 rounded-xl border border-zinc-700 bg-zinc-800 p-4 space-y-4">
                 <div className="flex items-center gap-2">
                   <Truck size={16} className="text-blue-400" />
                   <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Envío y seguimiento</p>
@@ -661,15 +696,21 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                       </p>
                       <p className="font-bold text-sm text-white font-mono">{selectedOrder.tracking_code}</p>
                     </div>
-                    <a
-                      href={selectedOrder.delivery_token ? `/seguimiento/${selectedOrder.id}/${selectedOrder.delivery_token}` : '#'}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold ${selectedOrder.delivery_token ? 'bg-blue-600' : 'bg-zinc-700 pointer-events-none opacity-60'}`}
-                    >
-                      <ExternalLink size={12} />
-                      Ver seguimiento
-                    </a>
+                    {selectedOrder.delivery_token ? (
+                      <a
+                        href={`/seguimiento/${selectedOrder.id}/${selectedOrder.delivery_token}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold bg-blue-600 hover:bg-blue-500"
+                      >
+                        <ExternalLink size={12} />
+                        Ver seguimiento
+                      </a>
+                    ) : (
+                      <span className="rounded-lg bg-zinc-700 px-3 py-2 text-xs font-bold text-zinc-400" title="Esta orden aún no tiene token público de seguimiento.">
+                        Sin link público
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -745,9 +786,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 <div className="relative group/dispatch">
                   <button
                     type="button"
-                    onClick={saveShipping}
-                    disabled={shippingBusy || !draftShipping.carrier || !draftShipping.tracking_code.trim() || !checklistDone.every(Boolean)}
-                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-colors ${checklistDone.every(Boolean) && draftShipping.tracking_code.trim() ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-zinc-700 opacity-50 cursor-not-allowed'} disabled:opacity-50`}
+                    onClick={handleSaveShipping}
+                    disabled={shippingBusy}
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-colors ${!getDispatchBlocker() ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-zinc-700 hover:bg-zinc-600'} disabled:opacity-50`}
                   >
                     {shippingBusy ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
                     Registrar envío y notificar cliente
