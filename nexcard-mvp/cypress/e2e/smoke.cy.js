@@ -13,10 +13,16 @@ describe('NexCard smoke flow', () => {
     cy.contains(/NexCard/i).should('exist');
   });
 
-  it('preview landing loads', () => {
-    cy.visit('/preview');
+  it('preview landing loads after delayed marketing effects', () => {
+    cy.visit('/preview', {
+      onBeforeLoad(win) {
+        win.localStorage.removeItem('nx_wheel_spun');
+      },
+    });
     cy.contains(/NexCard/i).should('exist');
     cy.contains(/tarjeta|digital|contacto|comprar|checkout/i).should('exist');
+    cy.wait(5000);
+    cy.get('#root').invoke('text').should('include', 'NexCard');
   });
 
   it('legal pages load', () => {
