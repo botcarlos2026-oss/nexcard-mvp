@@ -49,6 +49,7 @@ describe('NexCard smoke flow', () => {
     cy.loginUI();
     cy.visit('/admin/orders');
     cy.get('[data-cy=orders-kanban-board]', { timeout: 15000 }).should('exist');
+    cy.get('[data-cy=orders-kanban-toggle-qa]').should('exist');
     [
       'paid_new',
       'in_production',

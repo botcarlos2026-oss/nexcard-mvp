@@ -457,6 +457,10 @@ export const filterOrdersDashboardRows = ({
   return baseOrders;
 };
 
+export const filterOrdersKanbanRows = (orders = [], { showQa = false } = {}) => (
+  showQa ? orders : orders.filter((order) => !order.isNonOperational)
+);
+
 export const buildOrdersDashboardStats = (auditScopedOrders = []) => {
   const paidOrders = auditScopedOrders.filter((order) => order.payment_status === 'paid');
   const paidRevenue = paidOrders.reduce((sum, order) => sum + order.totalCents, 0);
