@@ -1,6 +1,26 @@
 #!/usr/bin/env node
 
+const fs = require('fs');
+const path = require('path');
+
 const mode = process.argv[2] || 'local';
+
+const loadEnvFile = (file) => {
+  const fullPath = path.resolve(process.cwd(), file);
+  if (!fs.existsSync(fullPath)) return;
+  const content = fs.readFileSync(fullPath, 'utf8');
+  content.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const idx = trimmed.indexOf('=');
+    if (idx === -1) return;
+    const key = trimmed.slice(0, idx).trim();
+    const rawValue = trimmed.slice(idx + 1).trim();
+    if (!process.env[key]) process.env[key] = rawValue.replace(/^["']|["']$/g, '');
+  });
+};
+
+['.env', '.env.local', '.env.e2e.local'].forEach(loadEnvFile);
 
 const readEnv = (name) => {
   const value = process.env[name];
