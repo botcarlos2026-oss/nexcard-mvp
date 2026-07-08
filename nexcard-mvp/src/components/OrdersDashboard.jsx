@@ -31,6 +31,7 @@ import {
   OPERATIONAL_FILTERS,
   filterAuditScopedOrders,
   filterOrdersDashboardRows,
+  filterOrdersKanbanRows,
   formatDate,
   formatLabel,
   normalizeOrdersForDashboard,
@@ -94,6 +95,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [refundBusy, setRefundBusy] = useState(false);
   const [dateFilter, setDateFilter] = useState('all');
   const [operationalFilter, setOperationalFilter] = useState('all');
+  const [showQaInKanban, setShowQaInKanban] = useState(false);
   const [auditFilter, setAuditFilter] = useState('all');
   const [testReasonFilter, setTestReasonFilter] = useState('all');
   const [overrideAgeFilter, setOverrideAgeFilter] = useState('all');
@@ -174,6 +176,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     testReasonFilter,
     operationalFilter,
   }), [auditScopedOrders, searchTerm, paymentFilter, fulfillmentFilter, dateFilter, testReasonFilter, operationalFilter]);
+
+  const kanbanOrders = useMemo(() => filterOrdersKanbanRows(filteredOrders, { showQa: showQaInKanban }), [filteredOrders, showQaInKanban]);
+  const hiddenQaKanbanCount = filteredOrders.length - kanbanOrders.length;
 
   const {
     selectedOrder,
@@ -477,10 +482,32 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
             formatLabel={formatLabel}
           />
 
-          <div key={`${dateFilter}-${operationalFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}-${riskFilter}`}>
+          <div key={`${dateFilter}-${operationalFilter}-${paymentFilter}-${fulfillmentFilter}-${auditFilter}-${testReasonFilter}-${overrideAgeFilter}-${reviewStatusFilter}-${riskFilter}-${showQaInKanban}`}>
+            <div className="border-t border-zinc-800 bg-zinc-950/60 px-4 py-3 md:px-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Problemas reales primero</p>
+                  <p className="mt-1 text-xs font-semibold text-zinc-500">
+                    {showQaInKanban
+                      ? 'Mostrando QA/test junto a la operación real.'
+                      : hiddenQaKanbanCount > 0
+                        ? `${hiddenQaKanbanCount} orden${hiddenQaKanbanCount === 1 ? '' : 'es'} QA/test ocultas del Kanban operativo.`
+                        : 'Sin QA/test ocultas en la vista actual.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-cy="orders-kanban-toggle-qa"
+                  onClick={() => setShowQaInKanban((value) => !value)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-black transition-colors ${showQaInKanban ? 'border-amber-700 bg-amber-950/40 text-amber-300' : 'border-emerald-800 bg-emerald-950/30 text-emerald-300'}`}
+                >
+                  {showQaInKanban ? 'Ocultar QA/test' : 'Mostrar QA/test'}
+                </button>
+              </div>
+            </div>
             <div className="p-4 md:p-5">
               <OrdersKanbanBoard
-                orders={filteredOrders}
+                orders={kanbanOrders}
                 selectedOrderId={selectedOrderId}
                 busyOrderId={busyOrderId}
                 fulfillmentNext={FULFILLMENT_NEXT}

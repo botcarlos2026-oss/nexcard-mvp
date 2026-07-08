@@ -10,6 +10,7 @@ import {
   deriveOrderNextAction,
   deriveOrderSlaAlert,
   filterOrdersDashboardRows,
+  filterOrdersKanbanRows,
   getKanbanLaneKey,
   isOrderReadyForDispatch,
   KANBAN_PRIORITY_ORDER,
@@ -140,13 +141,23 @@ describe('orders utils', () => {
     expect(isOrderReadyForDispatch({ payment_status: 'paid', fulfillment_status: 'new', programmed_cards_count: 1 })).toBe(false);
   });
 
+  it('oculta QA/test del Kanban operativo por defecto', () => {
+    const orders = [
+      { id: 'real-problem', isNonOperational: false },
+      { id: 'qa-problem', isNonOperational: true },
+    ];
+
+    expect(filterOrdersKanbanRows(orders).map((order) => order.id)).toEqual(['real-problem']);
+    expect(filterOrdersKanbanRows(orders, { showQa: true }).map((order) => order.id)).toEqual(['real-problem', 'qa-problem']);
+  });
+
   it('cubre fixture sintético completo de columnas Kanban', () => {
     const now = new Date('2026-07-07T12:00:00Z');
     const orders = [
       { id: 'paid-new', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'new' },
       { id: 'in-production', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'in_production', activation_claim: { status: 'pending' } },
-      { id: 'ready', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'ready', related_cards: [{ nfc_url: 'https://nexcard.cl/ready' }] },
-      { id: 'shipped', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'shipped', activation_completed: true, related_cards: [{}] },
+      { id: 'ready', created_at: now.toISOString(), ready_at: new Date().toISOString(), payment_status: 'paid', fulfillment_status: 'ready', related_cards: [{ nfc_url: 'https://nexcard.cl/ready' }] },
+      { id: 'shipped', created_at: now.toISOString(), shipped_at: new Date().toISOString(), payment_status: 'paid', fulfillment_status: 'shipped', activation_completed: true, related_cards: [{}] },
       { id: 'delivered', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'delivered', activation_completed: true, related_cards: [{}] },
       { id: 'delivered-no-activation', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'delivered', activation_completed: false, related_cards: [{}] },
       { id: 'observability-alert', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'in_production', observability_alerts: ['drift'] },
