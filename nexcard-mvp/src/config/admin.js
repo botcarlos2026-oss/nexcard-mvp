@@ -1,4 +1,5 @@
 export const ADMIN_EMAILS = [
+  'admin@nexcard.cl',
   'bot.carlos.2026@gmail.com',
   'carlos.alvarez.contreras@gmail.com',
   // 'carlos@nexcard.com', // activar cuando el dominio esté operativo

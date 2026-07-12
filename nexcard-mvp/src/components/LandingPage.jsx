@@ -82,10 +82,15 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       const merged = sorted.map((dbProduct) => {
         const meta = PRICING_META[dbProduct.sku] || {};
         const isPopular = dbProduct.popular ?? meta.highlight ?? false;
+        const cards = meta.cards || 1;
         return {
           sku: dbProduct.sku,
           price: dbProduct.price_cents,
-          perUnit: Math.round(dbProduct.price_cents / (meta.cards || 1)),
+          name: meta.name || dbProduct.name,
+          description: meta.description || dbProduct.description || '',
+          cards,
+          features: meta.features || dbProduct.features || [],
+          perUnit: Math.round(dbProduct.price_cents / cards),
           ...meta,
           highlight: isPopular,
           badge: isPopular ? (meta.badge || 'Más popular') : undefined,
@@ -315,7 +320,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                   <p className="text-zinc-500 text-xs mt-1.5">${formatPrice(plan.perUnit)} por tarjeta · {plan.cards} unidades</p>
                 </div>
                 <ul className="space-y-2.5 mb-7 flex-1">
-                  {plan.features.map((feat, i) => (
+                  {(plan.features || []).map((feat, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
                       <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />
                       {feat}

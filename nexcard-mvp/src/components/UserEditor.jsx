@@ -74,6 +74,14 @@ const UserEditor = ({ data, onSave, onLogout }) => {
     setTimeout(() => setShowSavedAlert(false), 3000);
   };
 
+  const profileInitials = (profile.full_name || profile.contact_email || 'NC')
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .map(part => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   const tabs = [
     { id: 'stats', label: 'Stats', icon: TrendingUp },
     { id: 'basic', label: 'Básico', icon: User },
@@ -167,7 +175,13 @@ const UserEditor = ({ data, onSave, onLogout }) => {
             <div className="space-y-6">
               <div className="flex flex-col items-center gap-4 mb-8">
                 <div className="relative group">
-                  <img src={profile.avatar_url} className={`w-24 h-24 rounded-full object-cover border-4 border-zinc-50 shadow-inner ${uploading ? 'opacity-50' : ''}`} alt="Preview" />
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} className={`w-24 h-24 rounded-full object-cover border-4 border-zinc-50 shadow-inner ${uploading ? 'opacity-50' : ''}`} alt="Preview" />
+                  ) : (
+                    <div className={`w-24 h-24 rounded-full border-4 border-zinc-50 shadow-inner bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-black ${uploading ? 'opacity-50' : ''}`}>
+                      {profileInitials}
+                    </div>
+                  )}
                   <label className="absolute bottom-0 right-0 p-2 bg-white rounded-full shadow-lg border border-zinc-100 text-zinc-400 hover:text-zinc-950 transition-all cursor-pointer">
                     <ImageIcon size={16} />
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />

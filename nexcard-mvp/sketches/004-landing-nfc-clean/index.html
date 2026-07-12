@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NexCard — Landing limpia</title>
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #141417;
+      --surface-2: #1d1d21;
+      --line: #2d2d33;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --soft: #71717a;
+      --green: #10b981;
+      --green-2: #34d399;
+      --max: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+    .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(9, 9, 11, .88);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+    .nav .wrap {
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .logo { font-weight: 900; letter-spacing: -.04em; font-size: 1.35rem; }
+    .logo span { color: var(--green-2); }
+    .navlinks { display: flex; align-items: center; gap: 22px; color: var(--muted); font-size: .93rem; }
+    .navlinks a:hover { color: white; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--green); color: white; }
+    .btn-primary:hover { background: #059669; }
+    .btn-ghost { background: var(--surface-2); border-color: var(--line); color: white; }
+    .btn-ghost:hover { border-color: #3f3f46; }
+
+    .hero { padding: 88px 0 72px; border-bottom: 1px solid var(--line); }
+    .hero-grid { display: grid; grid-template-columns: 1.02fr .98fr; gap: 58px; align-items: center; }
+    .tag { display: inline-flex; color: var(--green-2); border: 1px solid rgba(16,185,129,.32); background: rgba(16,185,129,.08); border-radius: 999px; padding: 7px 11px; font-size: .78rem; font-weight: 800; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 22px; margin-top: 18px; max-width: 680px; font-size: clamp(3rem, 6.6vw, 6.2rem); line-height: .94; letter-spacing: -.07em; }
+    .lead { max-width: 650px; color: var(--muted); font-size: 1.18rem; line-height: 1.62; margin-bottom: 30px; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .checks { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px; color: var(--soft); font-size: .9rem; }
+
+    .visual { position: relative; min-height: 440px; }
+    .phone {
+      position: absolute;
+      right: 20px;
+      top: 10px;
+      width: 238px;
+      height: 470px;
+      border-radius: 36px;
+      background: #222227;
+      padding: 12px;
+      transform: rotate(4deg);
+      box-shadow: 0 28px 70px rgba(0,0,0,.45);
+    }
+    .screen { height: 100%; border-radius: 27px; background: #050506; border: 1px solid #2c2c32; overflow: hidden; padding: 22px 16px; }
+    .cover { height: 82px; border-radius: 18px; background: linear-gradient(135deg, #10b981, #064e3b); }
+    .avatar { width: 60px; height: 60px; margin: -26px 0 14px 12px; border: 4px solid #050506; border-radius: 18px; background: #111; display: grid; place-items: center; color: var(--green-2); font-weight: 900; }
+    .phone h3 { font-size: 1rem; margin-bottom: 3px; }
+    .phone p { color: var(--muted); font-size: .75rem; margin-bottom: 14px; }
+    .pill { border: 1px solid rgba(16,185,129,.25); background: rgba(16,185,129,.1); color: var(--green-2); border-radius: 12px; padding: 10px; font-size: .76rem; font-weight: 800; margin-bottom: 8px; }
+    .lines { margin-top: 16px; display: grid; gap: 8px; }
+    .line { height: 8px; border-radius: 999px; background: #27272a; }
+    .line:nth-child(2) { width: 74%; }
+    .line:nth-child(3) { width: 54%; }
+    .card {
+      position: absolute;
+      left: 0;
+      top: 120px;
+      width: 390px;
+      height: 230px;
+      border-radius: 26px;
+      padding: 26px;
+      background: linear-gradient(145deg, #202025, #050506 72%);
+      border: 1px solid #33333a;
+      transform: rotate(-8deg);
+      box-shadow: 0 30px 80px rgba(0,0,0,.5);
+    }
+    .chip { width: 48px; height: 34px; border-radius: 9px; background: #ad8731; }
+    .nfc { position: absolute; top: 26px; right: 26px; color: var(--green-2); font-size: .76rem; font-weight: 900; letter-spacing: .16em; }
+    .card-logo { position: absolute; bottom: 26px; left: 26px; font-weight: 900; font-size: 1.55rem; letter-spacing: -.05em; }
+    .card-logo span { color: var(--green-2); }
+    .card-note { position: absolute; right: 26px; bottom: 30px; color: var(--soft); font-size: .78rem; text-align: right; }
+
+    section { padding: 78px 0; border-bottom: 1px solid var(--line); }
+    .section-head { display: grid; grid-template-columns: 1fr .78fr; gap: 32px; align-items: end; margin-bottom: 30px; }
+    h2 { font-size: clamp(2.15rem, 4.2vw, 4rem); line-height: 1; letter-spacing: -.06em; margin-bottom: 0; }
+    .section-head p { color: var(--muted); line-height: 1.55; margin-bottom: 0; }
+
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .box { border: 1px solid var(--line); border-radius: 22px; background: var(--surface); padding: 24px; }
+    .box.green { border-color: rgba(16,185,129,.45); background: #0d1f1a; }
+    .label { display: flex; justify-content: space-between; color: var(--soft); text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; font-weight: 900; margin-bottom: 18px; }
+    ul.clean { list-style: none; padding: 0; margin: 0; display: grid; gap: 13px; }
+    ul.clean li { color: #d4d4d8; line-height: 1.45; }
+    ul.clean b { color: white; }
+    .mark { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 10px; border-radius: 9px; background: var(--surface-2); color: var(--green-2); font-weight: 900; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .step { min-height: 220px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); padding: 24px; }
+    .num { color: rgba(52,211,153,.18); font-weight: 900; font-size: 4rem; line-height: .8; margin-bottom: 36px; }
+    .step h3 { margin-bottom: 12px; font-size: 1.35rem; }
+    .step p { color: var(--muted); line-height: 1.5; margin-bottom: 0; }
+
+    .prices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .price-card { border: 1px solid var(--line); border-radius: 22px; background: var(--surface); padding: 22px; display: flex; flex-direction: column; min-height: 350px; position: relative; }
+    .price-card.featured { border-color: var(--green); background: #0d1f1a; }
+    .badge { position: absolute; top: -12px; left: 18px; background: var(--green); color: white; border-radius: 999px; padding: 6px 10px; font-size: .74rem; font-weight: 900; }
+    .price-card h3 { font-size: 1.05rem; margin-bottom: 8px; }
+    .desc { color: var(--muted); font-size: .9rem; min-height: 42px; margin-bottom: 18px; }
+    .price { font-size: 2rem; font-weight: 900; letter-spacing: -.05em; margin-bottom: 4px; }
+    .save { color: var(--green-2); font-size: .86rem; font-weight: 900; min-height: 20px; }
+    .price-card ul { list-style: none; padding: 0; margin: 22px 0; display: grid; gap: 10px; color: #d4d4d8; font-size: .9rem; flex: 1; }
+    .price-card li::before { content: "✓"; color: var(--green-2); margin-right: 8px; font-weight: 900; }
+    .corp { margin-top: 16px; border: 1px solid rgba(16,185,129,.42); background: #0d1f1a; border-radius: 22px; padding: 22px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .corp p { color: var(--muted); margin: 5px 0 0; }
+
+    .faq-layout { display: grid; grid-template-columns: .8fr 1.2fr; gap: 30px; align-items: start; }
+    .trust { border: 1px solid var(--line); border-radius: 22px; background: var(--surface); padding: 24px; }
+    .trust p { color: var(--muted); line-height: 1.55; }
+    .pay { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .pay span { border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; color: #d4d4d8; font-weight: 800; font-size: .84rem; }
+    details { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); margin-bottom: 10px; }
+    summary { padding: 18px; cursor: pointer; list-style: none; font-weight: 850; display: flex; justify-content: space-between; gap: 16px; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; color: var(--green-2); }
+    details[open] summary::after { content: "–"; }
+    details p { color: var(--muted); margin: 0; padding: 0 18px 18px; line-height: 1.55; }
+
+    .closing { border-bottom: 0; padding-bottom: 90px; }
+    .cta-box { border: 1px solid rgba(16,185,129,.35); border-radius: 28px; background: #0d1f1a; padding: 44px 28px; text-align: center; }
+    .cta-box h2 { margin-bottom: 14px; }
+    .cta-box p { max-width: 620px; margin: 0 auto 24px; color: var(--muted); line-height: 1.55; }
+    .cta-box .pay { justify-content: center; }
+
+    .toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 90px); opacity: 0; border-radius: 999px; background: white; color: #09090b; padding: 12px 17px; font-weight: 900; transition: .2s ease; box-shadow: 0 20px 60px rgba(0,0,0,.38); }
+    .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+    @media (max-width: 920px) {
+      .navlinks a:not(.btn) { display: none; }
+      .hero-grid, .section-head, .split, .faq-layout { grid-template-columns: 1fr; }
+      .visual { min-height: 410px; order: -1; }
+      .phone { right: 0; width: 210px; height: 420px; }
+      .card { width: min(340px, 82vw); height: 205px; top: 120px; }
+      .steps, .prices { grid-template-columns: 1fr; }
+      .corp { flex-direction: column; align-items: stretch; }
+      .corp .btn { width: 100%; }
+    }
+
+    @media (max-width: 560px) {
+      .wrap { width: min(100% - 28px, var(--max)); }
+      .hero { padding-top: 54px; }
+      h1 { font-size: 3.05rem; }
+      .actions .btn { width: 100%; }
+      .checks { display: grid; }
+      .visual { transform: scale(.92); transform-origin: center top; margin-bottom: -30px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a href="#top" class="logo">Nex<span>Card</span></a>
+      <div class="navlinks">
+        <a href="#como">Cómo funciona</a>
+        <a href="#precios">Precios</a>
+        <a href="#faq">FAQ</a>
+        <a href="#precios" class="btn btn-primary">Personalizar mi NexCard</a>
+      </div>
+    </div>
+  </nav>
+
+  <main id="top">
+    <header class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="tag">NFC + QR dinámico · sin apps</span>
+          <h1>Tu última tarjeta de presentación. Elegante, eterna y digital.</h1>
+          <p class="lead">Pasa tus datos de contacto, redes sociales y datos de transferencia a un solo toque (NFC). Cambia tu información en tiempo real cuando quieras, sin volver a imprimir jamás.</p>
+          <div class="actions">
+            <a href="#precios" class="btn btn-primary">Personalizar mi NexCard</a>
+            <a href="#friccion" class="btn btn-ghost">Ver la diferencia</a>
+          </div>
+          <div class="checks">
+            <span>✓ Plataforma incluida de por vida</span>
+            <span>✓ Pago seguro</span>
+            <span>✓ iPhone, Android y QR</span>
+          </div>
+        </div>
+        <div class="visual" aria-label="Tarjeta NexCard y teléfono mostrando perfil digital">
+          <div class="phone">
+            <div class="screen">
+              <div class="cover"></div>
+              <div class="avatar">CA</div>
+              <h3>Carlos Alvarez</h3>
+              <p>Operaciones · Mas Medios</p>
+              <div class="pill">Guardar contacto</div>
+              <div class="pill">WhatsApp y redes</div>
+              <div class="pill">Datos de transferencia</div>
+              <div class="lines"><span class="line"></span><span class="line"></span><span class="line"></span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="chip"></div>
+            <div class="nfc">NFC</div>
+            <div class="card-logo">Nex<span>Card</span></div>
+            <div class="card-note">negro mate<br>QR al reverso</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section id="friccion">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Menos dictar datos. Más cerrar contactos.</h2>
+          <p>La comparación debe sentirse cotidiana: transferencia, correo, reunión y tarjeta de papel que deja de servir.</p>
+        </div>
+        <div class="split">
+          <article class="box">
+            <div class="label"><span>El pasado</span><span>fricción</span></div>
+            <ul class="clean">
+              <li><span class="mark">–</span><b>Dictar el RUT apurado</b> para una transferencia.</li>
+              <li><span class="mark">–</span><b>Deletrear correos largos</b> en una reunión o feria.</li>
+              <li><span class="mark">–</span><b>Tarjetas de papel</b> arrugadas, perdidas o desactualizadas.</li>
+            </ul>
+          </article>
+          <article class="box green">
+            <div class="label"><span>El efecto NexCard</span><span>un toque</span></div>
+            <ul class="clean">
+              <li><span class="mark">✓</span><b>Acercas la tarjeta</b> al celular del cliente.</li>
+              <li><span class="mark">✓</span><b>El perfil se abre</b> con contacto, redes y datos de banco.</li>
+              <li><span class="mark">✓</span><b>Editas online</b> y la tarjeta física sigue vigente.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="como">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Cómo funciona.</h2>
+          <p>Sin app, sin explicación larga, sin volver a imprimir cuando cambias tus datos.</p>
+        </div>
+        <div class="steps">
+          <article class="step"><div class="num">01</div><h3>Acerca</h3><p>Toca el teléfono de tu cliente con tu NexCard.</p></article>
+          <article class="step"><div class="num">02</div><h3>Conecta</h3><p>Tu perfil digital personalizado se abre al instante, sin instalar aplicaciones.</p></article>
+          <article class="step"><div class="num">03</div><h3>Actualiza</h3><p>Modifica banco, links o teléfono desde nexcard.cl en tiempo real.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="precios">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Precios simples.</h2>
+          <p>Oferta directa con ahorro visible para empujar packs de 3, 5 y 7 tarjetas.</p>
+        </div>
+        <div class="prices">
+          <article class="price-card">
+            <h3>Individual</h3><p class="desc">1 tarjeta NexCard</p><div class="price">$14.990</div><div class="save">Pago único</div>
+            <ul><li>Tarjeta NFC</li><li>Perfil digital editable</li><li>Datos de banco y redes</li><li>QR dinámico</li></ul>
+            <button class="btn btn-ghost buy" data-pack="Individual">Elegir Individual</button>
+          </article>
+          <article class="price-card">
+            <h3>Pack Emprendedor</h3><p class="desc">3 tarjetas para socios o primeras ventas</p><div class="price">$39.990</div><div class="save">Ahorras $4.980</div>
+            <ul><li>3 tarjetas NFC</li><li>3 perfiles editables</li><li>Activación guiada</li><li>Sin mensualidad</li></ul>
+            <button class="btn btn-ghost buy" data-pack="Pack Emprendedor">Elegir pack</button>
+          </article>
+          <article class="price-card featured">
+            <span class="badge">Recomendado</span><h3>Pack Socios</h3><p class="desc">5 tarjetas para equipo fundador o comercial</p><div class="price">$59.990</div><div class="save">Ahorras $14.960</div>
+            <ul><li>5 tarjetas premium</li><li>Perfil por persona</li><li>Datos actualizables</li><li>Ideal para reuniones</li></ul>
+            <button class="btn btn-primary buy" data-pack="Pack Socios">Comprar Pack Socios</button>
+          </article>
+          <article class="price-card">
+            <h3>Pack Equipo</h3><p class="desc">7 tarjetas para ventas, atención o terreno</p><div class="price">$74.990</div><div class="save">Ahorras $29.940</div>
+            <ul><li>7 tarjetas NFC + QR</li><li>Onboarding simple</li><li>Imagen consistente</li><li>Mejor precio por unidad</li></ul>
+            <button class="btn btn-ghost buy" data-pack="Pack Equipo">Elegir Equipo</button>
+          </article>
+        </div>
+        <div class="corp">
+          <div><strong>¿Necesitas más de 7 tarjetas para tu empresa?</strong><p>Diseñemos un plan a tu medida.</p></div>
+          <a class="btn btn-primary" href="mailto:hola@nexcard.cl?subject=Cotizar%20Plan%20Corporativo%20NexCard">Cotizar Plan Corporativo</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap faq-layout">
+        <aside class="trust">
+          <h2>Antes de comprar.</h2>
+          <p>Respuestas cortas para eliminar dudas típicas: compatibilidad, mensualidad y activación.</p>
+          <div class="pay"><span>Transbank</span><span>Mercado Pago</span><span>Pago seguro</span></div>
+        </aside>
+        <div>
+          <details open><summary>¿Sirve para cualquier celular?</summary><p>Sí. Funciona por NFC en equipos modernos iPhone y Android, y mediante código QR dinámico incorporado para celulares antiguos.</p></details>
+          <details><summary>¿Tengo que pagar una mensualidad por usar la plataforma?</summary><p>No. La plataforma nexcard.cl viene incluida de por vida con tu tarjeta física.</p></details>
+          <details><summary>¿Cómo personalizo mis datos?</summary><p>Al recibir tu tarjeta, escaneas un código de activación único para configurar tu perfil y datos de banco en 2 minutos.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="wrap cta-box">
+        <h2>Crear mi NexCard.</h2>
+        <p>Una tarjeta física premium, un perfil digital editable y una forma más rápida de compartir tus datos.</p>
+        <a href="#precios" class="btn btn-primary">Crear mi NexCard</a>
+        <div class="pay"><span>Transbank</span><span>Mercado Pago</span><span>Compra protegida</span></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast">Pack seleccionado</div>
+  <script>
+    const toast = document.getElementById('toast');
+    document.querySelectorAll('.buy').forEach((button) => {
+      button.addEventListener('click', () => {
+        toast.textContent = `${button.dataset.pack} seleccionado · checkout simulado`;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1800);
+      });
+    });
+  </script>
+</body>
+</html>

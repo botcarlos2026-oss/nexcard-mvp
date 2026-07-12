@@ -35,18 +35,41 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('Supabase service role no configurado');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const authHeader = req.headers.get('Authorization') || '';
+    const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const { data: authData } = bearerToken
+      ? await supabase.auth.getUser(bearerToken)
+      : { data: { user: null } };
+    const callerUserId = authData?.user?.id || null;
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, customer_email, amount_cents, currency, payment_status')
+      .select('id, user_id, customer_email, amount_cents, currency, payment_status, fulfillment_status')
       .eq('id', orderId)
+      .eq('payment_status', 'pending')
       .single();
 
     if (orderError || !order) {
-      log('warn', 'order_not_found', { order_id: orderId, order_error: orderError?.message });
+      log('warn', 'order_not_found_or_unavailable', { order_id: orderId, order_error: orderError?.message });
       return new Response(
-        JSON.stringify({ error: 'Orden no encontrada' }),
+        JSON.stringify({ error: 'Orden no encontrada o no disponible para pago' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (order.user_id && order.user_id !== callerUserId) {
+      log('warn', 'order_owner_mismatch', { order_id: orderId, caller_user_id: callerUserId });
+      return new Response(
+        JSON.stringify({ error: 'Forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!order.user_id && order.fulfillment_status !== 'new') {
+      log('warn', 'guest_order_not_initial_state', { order_id: orderId, fulfillment_status: order.fulfillment_status });
+      return new Response(
+        JSON.stringify({ error: 'Orden invitada no disponible para pago' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -63,7 +86,11 @@ serve(async (req) => {
       );
     }
 
-    const productIds = [...new Set(orderItems.map((item: any) => item.product_id).filter(Boolean))];
+    const productIds = orderItems
+      .map((item: any) => item.product_id)
+      .filter((productId: string | null | undefined, index: number, ids: Array<string | null | undefined>) =>
+        Boolean(productId) && ids.indexOf(productId) === index
+      );
     const { data: products } = await supabase
       .from('products')
       .select('id, name')
@@ -138,9 +165,10 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    log('error', 'create_preference_exception', { message: error.message });
+    const message = error instanceof Error ? error.message : String(error);
+    log('error', 'create_preference_exception', { message });
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

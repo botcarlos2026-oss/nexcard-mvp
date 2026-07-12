@@ -2,7 +2,7 @@ import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { TH, TR, TD } from '../ui/AdminTable';
 import AdminBadge from '../ui/AdminBadge';
-import { currency, formatDate, formatLabel, fulfillmentBadgeVariant, paymentBadgeVariant } from './utils';
+import { currency, deriveActivationStatus, formatDate, formatLabel, fulfillmentBadgeVariant, paymentBadgeVariant } from './utils';
 
 export default function OrdersTable({
   orders,
@@ -95,9 +95,10 @@ export default function OrdersTable({
                 </div>
               </TD>
               <TD>
-                <AdminBadge variant={order.activation_ready ? 'success' : order.active_cards_count > 0 ? 'info' : 'warning'}>
-                  {order.activation_ready ? `Lista (${order.activation_ready_count})` : order.active_cards_count > 0 ? `Activas (${order.active_cards_count})` : 'Pendiente'}
-                </AdminBadge>
+                {(() => {
+                  const activation = deriveActivationStatus(order);
+                  return <AdminBadge variant={activation.variant}>{activation.label}</AdminBadge>;
+                })()}
               </TD>
               <TD className="font-bold text-zinc-300">{order.itemCount}</TD>
               <TD className="text-zinc-400">{formatDate(order.created_at)}</TD>

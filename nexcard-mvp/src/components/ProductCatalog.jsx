@@ -91,6 +91,7 @@ export default function ProductCatalog({ onProceedToCart }) {
                 const isAdded = addedProducts.has(product.id);
                 return (
                   <div
+                    data-cy="product-card"
                     key={product.id}
                     className="bg-zinc-900 border border-zinc-800 hover:border-emerald-500/60 rounded-xl p-6 flex flex-col transition-all duration-200 hover:shadow-lg hover:shadow-emerald-900/20"
                   >
@@ -107,6 +108,7 @@ export default function ProductCatalog({ onProceedToCart }) {
                     </div>
 
                     <button
+                      data-cy="add-to-cart"
                       onClick={() => handleAddToCart(product)}
                       disabled={isAdded}
                       className={`w-full py-3 rounded-lg font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
@@ -138,6 +140,7 @@ export default function ProductCatalog({ onProceedToCart }) {
         {!loading && totalItems > 0 && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-sm">
             <button
+              data-cy="view-cart"
               onClick={onProceedToCart}
               className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl shadow-2xl shadow-emerald-900/50 transition-all"
             >

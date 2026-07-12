@@ -12,16 +12,31 @@ import {
   Briefcase
 } from 'lucide-react';
 
+const slugify = (value = '') => value
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9\s-]/g, '')
+  .trim()
+  .replace(/\s+/g, '-')
+  .replace(/-+/g, '-');
+
+const isValidSlug = (value = '') => /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/.test(value);
+
 const SetupWizard = ({ onComplete }) => {
   const [step, setStep] = useState(0); // 0: Account Type
   const [formData, setFormData] = useState({
     account_type: 'personal', // personal | business
     full_name: '',
     profession: '',
+    slug: '',
     bio: '',
     theme_color: '#10B981',
     whatsapp: '',
   });
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [slugStatus, setSlugStatus] = useState('idle');
+  const [slugError, setSlugError] = useState('');
 
   const profilePreset = formData.account_type === 'business'
     ? {
@@ -44,31 +59,63 @@ const SetupWizard = ({ onComplete }) => {
   const nextStep = () => setStep(s => s + 1);
   const prevStep = () => setStep(s => s - 1);
 
-  const handleFinish = async () => {
-    const generateSlug = (name) => name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .trim()
-      .replace(/\s+/g, '-');
+  const checkSlugAvailability = async (slug) => {
+    const candidate = slugify(slug);
+    setSlugError('');
 
-    let slug = generateSlug(formData.full_name || '');
-    try {
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('slug', slug)
-        .maybeSingle();
-      if (existing) {
-        slug = `${slug}-${Date.now()}`;
-      }
-    } catch (e) {
-      console.warn('Slug uniqueness check skipped:', e.message);
+    if (!isValidSlug(candidate)) {
+      setSlugStatus('invalid');
+      setSlugError('Usa 3-40 caracteres: letras, números y guiones.');
+      return false;
     }
+
+    setSlugStatus('checking');
+    const { data: existing, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('slug', candidate)
+      .maybeSingle();
+
+    if (error) {
+      setSlugStatus('invalid');
+      setSlugError('No pudimos validar el usuario. Intenta nuevamente.');
+      return false;
+    }
+
+    if (existing) {
+      setSlugStatus('taken');
+      setSlugError('Ese usuario ya está ocupado. Prueba otro.');
+      return false;
+    }
+
+    setSlugStatus('available');
+    return true;
+  };
+
+  const handleNameChange = (value) => {
+    const next = { ...formData, full_name: value };
+    if (!slugTouched) next.slug = slugify(value);
+    setFormData(next);
+    setSlugStatus('idle');
+    setSlugError('');
+  };
+
+  const handleSlugChange = (value) => {
+    setSlugTouched(true);
+    setFormData({ ...formData, slug: slugify(value) });
+    setSlugStatus('idle');
+    setSlugError('');
+  };
+
+  const handleFinish = async () => {
+    const slug = slugify(formData.slug || formData.full_name || '');
+    const available = await checkSlugAvailability(slug);
+    if (!available) return;
 
     onComplete({ ...formData, slug });
   };
+
+  const canAdvanceFromBasic = formData.full_name.trim() && isValidSlug(formData.slug) && slugStatus !== 'taken' && slugStatus !== 'checking';
 
   return (
     <div className="fixed inset-0 z-[100] bg-zinc-950 text-white font-sans flex items-center justify-center p-6">
@@ -135,9 +182,26 @@ const SetupWizard = ({ onComplete }) => {
                 type="text" 
                 placeholder={profilePreset.namePlaceholder}
                 value={formData.full_name}
-                onChange={e => setFormData({...formData, full_name: e.target.value})}
+                onChange={e => handleNameChange(e.target.value)}
                 className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl px-6 py-5 text-lg font-bold focus:border-emerald-500 outline-none transition-all"
               />
+              <label className="block">
+                <span className="text-xs font-black uppercase tracking-widest text-zinc-500 ml-1">Usuario público</span>
+                <div className="mt-2 flex rounded-2xl border-2 border-zinc-800 bg-zinc-900 focus-within:border-emerald-500 transition-all overflow-hidden">
+                  <span className="px-5 py-5 text-zinc-500 font-bold border-r border-zinc-800">nexcard.cl/</span>
+                  <input
+                    data-cy="wizard-slug"
+                    type="text"
+                    placeholder="tu-usuario"
+                    value={formData.slug}
+                    onBlur={() => checkSlugAvailability(formData.slug)}
+                    onChange={e => handleSlugChange(e.target.value)}
+                    className="flex-1 bg-transparent px-5 py-5 text-lg font-bold outline-none"
+                  />
+                </div>
+                {slugStatus === 'available' ? <p className="mt-2 text-xs font-bold text-emerald-400">Usuario disponible.</p> : null}
+                {slugError ? <p className="mt-2 text-xs font-bold text-rose-400">{slugError}</p> : null}
+              </label>
               <input 
                 data-cy="wizard-profession"
                 type="text" 
@@ -240,7 +304,7 @@ const SetupWizard = ({ onComplete }) => {
           
           {step < 4 ? (
             <button 
-              disabled={step === 1 && !formData.full_name}
+              disabled={step === 1 && !canAdvanceFromBasic}
               onClick={nextStep}
               className="flex-1 bg-white text-zinc-950 p-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100"
             >

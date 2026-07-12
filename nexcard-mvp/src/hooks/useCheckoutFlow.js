@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { getLastOrderSnapshot } from '../services/api';
+import { hasSupabase, supabase } from '../services/supabaseClient';
 
 export function useCheckoutFlow() {
   const [checkoutStep, setCheckoutStep] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
+  const [paymentVerificationOrderId, setPaymentVerificationOrderId] = useState(null);
 
   const handleCheckoutStart = () => {
     setCheckoutStep('catalog');
@@ -36,17 +38,95 @@ export function useCheckoutFlow() {
     const params = new URLSearchParams(window.location.search);
     const payment = params.get('payment');
     const orderId = params.get('order');
+
     if (payment && orderId) {
       const snapshot = getLastOrderSnapshot();
+      const isSuccessReturn = payment === 'success';
+
       window.history.replaceState({}, '', '/');
+
       setCurrentOrder({
         ...(snapshot?.id === orderId ? snapshot : {}),
         id: orderId,
-        payment_status: payment === 'success' ? 'paid' : payment,
+        payment_status: isSuccessReturn ? 'verifying' : payment,
+        isVerifyingPayment: isSuccessReturn,
+        payment_verification_message: isSuccessReturn
+          ? 'Estamos procesando tu pago. Esto puede tardar unos segundos.'
+          : null,
       });
       setCheckoutStep('confirmation');
+      setPaymentVerificationOrderId(isSuccessReturn ? orderId : null);
     }
   }, []);
+
+  useEffect(() => {
+    if (!paymentVerificationOrderId) return undefined;
+
+    let cancelled = false;
+
+    const updateVerificationState = (payload) => {
+      setCurrentOrder((order) => (
+        order?.id === paymentVerificationOrderId
+          ? { ...order, ...payload }
+          : order
+      ));
+    };
+
+    const verifyPaymentStatus = async () => {
+      if (!hasSupabase || !supabase) {
+        if (!cancelled) {
+          updateVerificationState({
+            payment_status: 'pending',
+            isVerifyingPayment: false,
+            payment_verification_message: 'No pudimos verificar el pago automáticamente. Te contactaremos si necesitamos más información.',
+          });
+          setPaymentVerificationOrderId(null);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, payment_status, paid_at, fulfillment_status, updated_at')
+        .eq('id', paymentVerificationOrderId)
+        .single();
+
+      if (cancelled) return;
+
+      if (error || !data) {
+        updateVerificationState({
+          payment_status: 'pending',
+          isVerifyingPayment: false,
+          payment_verification_message: 'No pudimos verificar el pago automáticamente. Revisaremos tu orden.',
+        });
+        setPaymentVerificationOrderId(null);
+        return;
+      }
+
+      const isPaid = data.payment_status === 'paid';
+
+      updateVerificationState({
+        ...data,
+        payment_status: isPaid ? 'paid' : 'verifying',
+        isVerifyingPayment: !isPaid,
+        payment_verification_message: isPaid
+          ? null
+          : 'Estamos procesando tu pago. Te avisaremos apenas Mercado Pago lo confirme.',
+      });
+
+      if (isPaid) {
+        setPaymentVerificationOrderId(null);
+      }
+    };
+
+    verifyPaymentStatus();
+    const intervalId = window.setInterval(verifyPaymentStatus, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [paymentVerificationOrderId]);
 
   return {
     checkoutStep,

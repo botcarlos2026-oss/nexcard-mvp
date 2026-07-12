@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NexCard Ops Kanban — Command Center</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #05070a; color: #f4f4f5; }
+    .shell { min-height: 100vh; padding: 24px; background: radial-gradient(circle at top left, rgba(16,185,129,.16), transparent 34%), #05070a; }
+    .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
+    .eyebrow { color: #34d399; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 800; }
+    h1 { margin: 6px 0 4px; font-size: clamp(26px, 4vw, 44px); line-height: 1; }
+    .subtitle { color: #a1a1aa; max-width: 760px; margin: 0; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    button { border: 1px solid #334155; background: #0f172a; color: #e5e7eb; border-radius: 14px; padding: 10px 14px; font-weight: 800; cursor: pointer; }
+    button.primary { background: #10b981; border-color: #10b981; color: #052e22; }
+    button:hover { transform: translateY(-1px); border-color: #34d399; }
+    .metrics { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 12px; margin: 18px 0; }
+    .metric { border: 1px solid #1f2937; background: rgba(15,23,42,.78); border-radius: 18px; padding: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.18); }
+    .metric .label { color: #9ca3af; font-size: 12px; font-weight: 800; }
+    .metric .value { font-size: 28px; font-weight: 900; margin-top: 4px; }
+    .metric.hot { border-color: rgba(251,191,36,.45); background: rgba(120,53,15,.22); }
+    .layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+    .board { overflow-x: auto; padding-bottom: 14px; }
+    .lanes { display: grid; grid-template-columns: repeat(6, minmax(250px, 1fr)); gap: 12px; min-width: 1560px; }
+    .lane { border: 1px solid #1f2937; border-radius: 20px; background: rgba(9,13,20,.9); min-height: 620px; padding: 12px; }
+    .lane-head { display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; }
+    .lane h2 { font-size: 14px; margin:0; }
+    .count { background: #111827; color:#a7f3d0; border:1px solid #064e3b; border-radius:999px; padding:3px 8px; font-size:12px; font-weight:900; }
+    .card { background: #0f172a; border: 1px solid #263244; border-radius: 18px; padding: 12px; margin-bottom: 10px; transition: .18s ease; }
+    .card:hover { border-color:#34d399; box-shadow: 0 10px 30px rgba(16,185,129,.08); }
+    .folio { display:flex; justify-content:space-between; gap:8px; font-weight:900; font-size:14px; }
+    .tag { border-radius:999px; padding:2px 7px; font-size:10px; font-weight:900; border:1px solid #374151; color:#cbd5e1; white-space:nowrap; }
+    .tag.green { color:#6ee7b7; border-color:#065f46; background:#022c22; }
+    .tag.yellow { color:#fde68a; border-color:#92400e; background:#451a03; }
+    .tag.red { color:#fecaca; border-color:#991b1b; background:#450a0a; }
+    .customer { margin:8px 0 2px; font-weight:800; color:#e5e7eb; }
+    .muted { color:#9ca3af; font-size:12px; }
+    .next { margin-top:10px; border-top:1px solid #1f2937; padding-top:10px; color:#d1fae5; font-size:12px; font-weight:800; }
+    .side { border:1px solid #1f2937; border-radius:20px; background:rgba(15,23,42,.82); padding:16px; height:max-content; position:sticky; top:24px; }
+    .side h3 { margin:0 0 10px; }
+    .alert { border:1px solid #78350f; background:#451a03; border-radius:14px; padding:12px; margin:10px 0; color:#fde68a; font-size:13px; }
+    .timeline { margin-top:16px; border-top:1px solid #1f2937; padding-top:12px; }
+    .step { display:grid; grid-template-columns:24px 1fr; gap:8px; margin:10px 0; color:#d4d4d8; font-size:13px; }
+    .dot { width:14px; height:14px; margin-top:3px; border-radius:50%; background:#10b981; box-shadow:0 0 0 4px rgba(16,185,129,.12); }
+    .filters { display:flex; flex-wrap:wrap; gap:8px; margin: 14px 0 18px; }
+    .pill { padding:8px 11px; border:1px solid #1f2937; background:#090d14; border-radius:999px; color:#a1a1aa; font-size:12px; font-weight:800; }
+    .pill.active { border-color:#10b981; color:#a7f3d0; background:#022c22; }
+    @media (max-width: 1100px) { .metrics { grid-template-columns: repeat(3, 1fr); } .layout { grid-template-columns: 1fr; } .side { position: static; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="topbar">
+      <div>
+        <div class="eyebrow">NexCard Operaciones · Hoy</div>
+        <h1>Tablero diario de compras, despacho y activación</h1>
+        <p class="subtitle">Una sola vista para saber qué entró, qué falta producir, qué hay que despachar y qué está trabado.</p>
+      </div>
+      <div class="actions">
+        <button>Actualizar</button>
+        <button>Exportar CSV</button>
+        <button class="primary" onclick="document.querySelector('.toast').style.display='block'">+ Nota operativa</button>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <div class="metric"><div class="label">Compras hoy</div><div class="value">12</div></div>
+      <div class="metric"><div class="label">Pagadas nuevas</div><div class="value">4</div></div>
+      <div class="metric"><div class="label">En producción</div><div class="value">5</div></div>
+      <div class="metric"><div class="label">Listas despacho</div><div class="value">3</div></div>
+      <div class="metric"><div class="label">Despachadas</div><div class="value">7</div></div>
+      <div class="metric hot"><div class="label">Alertas</div><div class="value">2</div></div>
+    </section>
+
+    <div class="filters">
+      <span class="pill active">Todas</span><span class="pill">SLA hoy</span><span class="pill">Con alerta</span><span class="pill">Solo físicas</span><span class="pill">Activación pendiente</span>
+    </div>
+
+    <section class="layout">
+      <div class="board">
+        <div class="lanes">
+          <div class="lane"><div class="lane-head"><h2>Pagadas nuevas</h2><span class="count">4</span></div>
+            <article class="card"><div class="folio">NX-2026-031 <span class="tag green">paid</span></div><div class="customer">María Silva</div><div class="muted">1 tarjeta · Providencia · hace 18 min</div><div class="next">Siguiente: pasar a producción</div></article>
+            <article class="card"><div class="folio">NX-2026-032 <span class="tag green">paid</span></div><div class="customer">Agencia Sur</div><div class="muted">3 tarjetas · Las Condes · hace 42 min</div><div class="next">Siguiente: revisar diseño</div></article>
+          </div>
+          <div class="lane"><div class="lane-head"><h2>En producción</h2><span class="count">5</span></div>
+            <article class="card"><div class="folio">NX-2026-026 <span class="tag green">control</span></div><div class="customer">Carlos A Contreras</div><div class="muted">Card activa · entrega validada</div><div class="next">Siguiente: mantener como caso control</div></article>
+            <article class="card"><div class="folio">NX-2026-027 <span class="tag yellow">SLA 6h</span></div><div class="customer">Dental Norte</div><div class="muted">NFC pendiente · Santiago</div><div class="next">Siguiente: programar NFC</div></article>
+          </div>
+          <div class="lane"><div class="lane-head"><h2>Listas despacho</h2><span class="count">3</span></div>
+            <article class="card"><div class="folio">NX-2026-024 <span class="tag green">ready</span></div><div class="customer">PropTech Sur</div><div class="muted">Tracking vacío · 2 tarjetas</div><div class="next">Siguiente: asignar courier</div></article>
+          </div>
+          <div class="lane"><div class="lane-head"><h2>Despachadas</h2><span class="count">7</span></div>
+            <article class="card"><div class="folio">NX-2026-022 <span class="tag yellow">48h</span></div><div class="customer">Francisco Mora</div><div class="muted">Bluexpress · BX-778812</div><div class="next">Siguiente: esperar confirmación</div></article>
+          </div>
+          <div class="lane"><div class="lane-head"><h2>Entregadas</h2><span class="count">9</span></div>
+            <article class="card"><div class="folio">NX-2026-021 <span class="tag green">delivered</span></div><div class="customer">Clínica Oeste</div><div class="muted">Activación completa</div><div class="next">Siguiente: cerrar seguimiento</div></article>
+          </div>
+          <div class="lane"><div class="lane-head"><h2>Problemas</h2><span class="count">2</span></div>
+            <article class="card"><div class="folio">NX-2026-018 <span class="tag red">alerta</span></div><div class="customer">Retail Uno</div><div class="muted">Entregada sin activación · 28h</div><div class="next">Siguiente: reenviar claim</div></article>
+            <article class="card"><div class="folio">NX-2026-019 <span class="tag red">drift</span></div><div class="customer">Camila Rojas</div><div class="muted">Pago/order no alineados</div><div class="next">Siguiente: revisar ledger</div></article>
+          </div>
+        </div>
+      </div>
+      <aside class="side">
+        <h3>Prioridad ahora</h3>
+        <div class="alert">2 órdenes necesitan acción antes del cierre de la tarde.</div>
+        <div class="timeline">
+          <div class="step"><span class="dot"></span><span>Producir 4 compras pagadas nuevas.</span></div>
+          <div class="step"><span class="dot"></span><span>Asignar courier a 3 listas para despacho.</span></div>
+          <div class="step"><span class="dot"></span><span>Reenviar activación a 1 cliente entregado.</span></div>
+        </div>
+        <button class="primary" style="width:100%; margin-top:18px">Ver solo problemas</button>
+        <p class="muted toast" style="display:none; margin-top:12px">Nota creada: “revisar alertas antes de las 18:00”.</p>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

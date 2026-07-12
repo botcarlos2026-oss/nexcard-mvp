@@ -30,6 +30,8 @@
     "ops:reconcile-orders:cron": "node ./scripts/run-order-payment-reconciliation.mjs cron",
     "ops:backfill-payments": "node ./scripts/run-payment-ledger-backfill.mjs manual",
     "ops:backfill-payments:dry": "node ./scripts/run-payment-ledger-backfill.mjs manual --dry-run",
+    "ops:stress-test:safe": "node ./scripts/run-safe-stress-test.mjs",
+    "ops:stress-test:safe:execute": "node ./scripts/run-safe-stress-test.mjs --execute",
     "check:fast": "npm run build",
     "check:smoke": "npm run build && npm run test:e2e:smoke",
     "check": "npm run build && npm run test:e2e:env-check && npm run test:e2e:smoke",

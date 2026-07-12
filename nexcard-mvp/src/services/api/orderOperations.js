@@ -187,7 +187,6 @@ export function createOrderOperationsApi({ supabase, hasSupabase, fetchOrders })
       .update({
         nfc_url,
         programmed_at: new Date().toISOString(),
-        status: 'programmed',
         updated_at: new Date().toISOString(),
       })
       .eq('id', cardId);

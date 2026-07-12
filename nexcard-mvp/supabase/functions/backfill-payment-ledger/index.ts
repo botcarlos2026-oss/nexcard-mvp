@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ops-secret',
 };
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
@@ -33,9 +33,16 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const OPS_SHARED_SECRET = Deno.env.get('OPS_SHARED_SECRET');
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({ success: false, error: 'Supabase env faltante' }), {
         status: 500,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    if (!OPS_SHARED_SECRET || req.headers.get('x-ops-secret') !== OPS_SHARED_SECRET) {
+      return new Response(JSON.stringify({ success: false, error: 'No autorizado' }), {
+        status: 401,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }

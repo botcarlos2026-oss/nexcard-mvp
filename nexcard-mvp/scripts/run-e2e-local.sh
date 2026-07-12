@@ -20,6 +20,7 @@ MODE="local"
 PREV_ARG=""
 for ARG in "$@"; do
   case "$ARG" in
+    *smoke.cy.js) MODE="smoke" ;;
     *nfc-bridge.cy.js) MODE="nfc" ;;
     *profile-soft-delete-guard.cy.js) MODE="soft-delete" ;;
     *admin-cards.cy.js|*nfc-invalid-card-states.cy.js) MODE="cards-lifecycle" ;;

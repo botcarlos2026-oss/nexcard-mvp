@@ -3,11 +3,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ops-secret',
 };
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
+};
+
+const escapeHtml = (value: unknown): string =>
+  String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
+  }[char] || char));
+
+const maskEmailDomainOnly = (value: unknown): string => {
+  const email = String(value ?? '');
+  const [, domain] = email.split('@');
+  return domain ? `***@${domain}` : '***';
 };
 
 const CARRIER_NAMES: Record<string, string> = {
@@ -22,6 +37,16 @@ const CARRIER_NAMES: Record<string, string> = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  const opsSecret = Deno.env.get('OPS_SHARED_SECRET');
+  const providedOpsSecret = req.headers.get('x-ops-secret');
+
+  if (!opsSecret || providedOpsSecret !== opsSecret) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
 
   try {
     const RESEND_API_KEY           = Deno.env.get('RESEND_API_KEY');
@@ -76,6 +101,7 @@ serve(async (req) => {
     const confirmUrl    = `${APP_URL}/confirmar/${orderId}/${order.delivery_token}`;
     const shortOrderId  = String(orderId).slice(0, 8).toUpperCase();
     const folio         = order.folio || null;
+    const displayOrderId = folio || '#' + shortOrderId;
 
     const html = `
 <!DOCTYPE html>
@@ -91,31 +117,31 @@ serve(async (req) => {
 
     <div style="padding:32px 40px">
       <p style="color:#52525b;font-size:15px;line-height:1.6">
-        Hola <strong style="color:#09090b">${order.customer_name}</strong>,<br>
-        tu pedido <strong style="color:#09090b">${folio || '#' + shortOrderId}</strong> ya fue despachado y está en camino contigo.
+        Hola <strong style="color:#09090b">${escapeHtml(order.customer_name)}</strong>,<br>
+        tu pedido <strong style="color:#09090b">${escapeHtml(displayOrderId)}</strong> ya fue despachado y está en camino contigo.
       </p>
 
       <div style="background:#f4f4f5;border-radius:16px;padding:20px 24px;margin:24px 0">
         <table style="width:100%;border-collapse:collapse">
           <tr>
             <td style="padding:6px 0;color:#71717a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Courier</td>
-            <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right">${carrierName}</td>
+            <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right">${escapeHtml(carrierName)}</td>
           </tr>
           ${order.tracking_code ? `
           <tr>
             <td style="padding:6px 0;color:#71717a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Código</td>
-            <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right;font-family:monospace">${order.tracking_code}</td>
+            <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right;font-family:monospace">${escapeHtml(order.tracking_code)}</td>
           </tr>` : ''}
           ${order.customer_address ? `
           <tr>
             <td style="padding:6px 0;color:#71717a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Dirección</td>
-            <td style="padding:6px 0;color:#09090b;font-size:13px;font-weight:600;text-align:right">${order.customer_address}</td>
+            <td style="padding:6px 0;color:#09090b;font-size:13px;font-weight:600;text-align:right">${escapeHtml(order.customer_address)}</td>
           </tr>` : ''}
         </table>
       </div>
 
       <div style="text-align:center;margin:28px 0">
-        <a href="${trackingUrl}" style="display:inline-block;background:#10B981;color:#fff;font-size:14px;font-weight:900;text-decoration:none;padding:14px 32px;border-radius:100px">
+        <a href="${escapeHtml(trackingUrl)}" style="display:inline-block;background:#10B981;color:#fff;font-size:14px;font-weight:900;text-decoration:none;padding:14px 32px;border-radius:100px">
           Seguir mi pedido →
         </a>
       </div>
@@ -125,7 +151,7 @@ serve(async (req) => {
         <p style="margin:0 0 12px;color:#71717a;font-size:13px;line-height:1.5">
           Una vez que la recibas, confírmanos la entrega para completar la activación de tu tarjeta NexCard.
         </p>
-        <a href="${confirmUrl}" style="color:#10B981;font-size:13px;font-weight:900;text-decoration:none">
+        <a href="${escapeHtml(confirmUrl)}" style="color:#10B981;font-size:13px;font-weight:900;text-decoration:none">
           Confirmar que la recibí ✓
         </a>
       </div>
@@ -164,7 +190,7 @@ serve(async (req) => {
       });
     }
 
-    log('info', 'shipping_email_sent', { order_id: orderId, resend_id: resendData.id, customer_email: order.customer_email });
+    log('info', 'shipping_email_sent', { order_id: orderId, resend_id: resendData.id, customer_email: maskEmailDomainOnly(order.customer_email) });
 
     try {
       await supabase.rpc('log_email_event', {

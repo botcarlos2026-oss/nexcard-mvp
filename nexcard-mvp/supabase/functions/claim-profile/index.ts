@@ -10,6 +10,11 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
 
+const truncateAccessToken = (value: unknown): string => {
+  const token = String(value ?? '');
+  return token ? `${token.slice(0, 6)}...` : '';
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -38,7 +43,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (claimError || !claim) {
-      log('warn', 'claim_not_found', { token, error: claimError?.message || null });
+      log('warn', 'claim_not_found', { token: truncateAccessToken(token), error: claimError?.message || null });
       return new Response(JSON.stringify({ error: 'Link de activación inválido o expirado' }), {
         status: 404,
         headers: { ...CORS, 'Content-Type': 'application/json' },

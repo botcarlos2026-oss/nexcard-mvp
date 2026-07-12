@@ -1,10 +1,19 @@
 import {
   buildOrdersDashboardFunnelSnapshot,
   buildOrdersDashboardStats,
+  buildOrdersKanbanGroups,
+  buildOrdersKanbanSummary,
   buildOrdersAuditQueryString,
   buildQaDecisionTimeline,
   buildTestReasonCounts,
+  deriveActivationStatus,
+  deriveOrderNextAction,
+  deriveOrderSlaAlert,
   filterOrdersDashboardRows,
+  getKanbanLaneKey,
+  isOrderReadyForDispatch,
+  KANBAN_PRIORITY_ORDER,
+  matchesOperationalFilter,
   normalizeOrdersForDashboard,
   parseOrdersAuditQueryState,
   deriveManualOverrideSeverity,
@@ -72,6 +81,93 @@ describe('orders utils', () => {
     });
 
     expect(rows.map((row) => row.id)).toEqual(['2', '1']);
+  });
+
+  it('deriva estados de activación operativos claros', () => {
+    expect(deriveActivationStatus({ active_cards_count: 1 }).label).toBe('Activa');
+    expect(deriveActivationStatus({ programmed_cards_count: 1 }).label).toBe('NFC programado');
+    expect(deriveActivationStatus({ related_cards: [{}] }).label).toBe('Card vinculada');
+    expect(deriveActivationStatus({ activation_claim: { status: 'pending' } }).label).toBe('Claim pendiente');
+    expect(deriveActivationStatus({}).label).toBe('Sin claim');
+  });
+
+  it('aplica filtros operativos rápidos', () => {
+    expect(matchesOperationalFilter({ payment_status: 'paid', fulfillment_status: 'ready' }, 'ready_to_ship')).toBe(true);
+    expect(matchesOperationalFilter({ fulfillment_status: 'shipped' }, 'shipped_pending_delivery')).toBe(true);
+    expect(matchesOperationalFilter({ fulfillment_status: 'delivered', activation_completed: false }, 'delivered_pending_activation')).toBe(true);
+    expect(matchesOperationalFilter({ observability_alerts: ['alerta'] }, 'alerts')).toBe(true);
+
+    const rows = filterOrdersDashboardRows({
+      auditScopedOrders: [
+        { id: '1', created_at: '2026-05-15T10:00:00Z', payment_status: 'paid', fulfillment_status: 'ready', customerLabel: 'A' },
+        { id: '2', created_at: '2026-05-15T10:00:00Z', payment_status: 'paid', fulfillment_status: 'shipped', customerLabel: 'B' },
+      ],
+      operationalFilter: 'ready_to_ship',
+    });
+
+    expect(rows.map((row) => row.id)).toEqual(['1']);
+  });
+
+  it('agrupa órdenes en Kanban operativo y prioriza problemas', () => {
+    const orders = [
+      { id: 'paid-new', created_at: new Date().toISOString(), payment_status: 'paid', fulfillment_status: 'new' },
+      { id: 'ready', created_at: new Date().toISOString(), payment_status: 'paid', fulfillment_status: 'ready', related_cards: [{}] },
+      { id: 'delivered-risk', created_at: new Date().toISOString(), payment_status: 'paid', fulfillment_status: 'delivered', activation_completed: false },
+      { id: 'alert', created_at: new Date().toISOString(), payment_status: 'paid', fulfillment_status: 'in_production', observability_alerts: ['drift'] },
+    ];
+
+    expect(getKanbanLaneKey(orders[0])).toBe('paid_new');
+    expect(getKanbanLaneKey(orders[2])).toBe('alerts');
+    expect(deriveOrderNextAction(orders[1])).toBe('Asignar courier y tracking');
+
+    const groups = buildOrdersKanbanGroups(orders);
+    expect(groups.paid_new.map((order) => order.id)).toEqual(['paid-new']);
+    expect(groups.ready_to_ship.map((order) => order.id)).toEqual(['ready']);
+    expect(groups.alerts.map((order) => order.id)).toEqual(['delivered-risk', 'alert']);
+
+    expect(buildOrdersKanbanSummary(orders)).toMatchObject({
+      today: 4,
+      paidNew: 1,
+      readyToShip: 1,
+      alerts: 2,
+    });
+  });
+
+  it('protege prioridad y readiness del Kanban', () => {
+    expect(KANBAN_PRIORITY_ORDER.slice(0, 2)).toEqual(['alerts', 'ready_to_ship']);
+    expect(isOrderReadyForDispatch({ payment_status: 'paid', fulfillment_status: 'in_production', activation_claim: { status: 'pending' } })).toBe(false);
+    expect(isOrderReadyForDispatch({ payment_status: 'paid', fulfillment_status: 'in_production', related_cards: [{ nfc_url: 'https://nexcard.cl/demo' }] })).toBe(true);
+    expect(isOrderReadyForDispatch({ payment_status: 'paid', fulfillment_status: 'new', programmed_cards_count: 1 })).toBe(false);
+  });
+
+  it('cubre fixture sintético completo de columnas Kanban', () => {
+    const now = new Date(Date.now() - 60 * 60 * 1000);
+    const orders = [
+      { id: 'paid-new', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'new' },
+      { id: 'in-production', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'in_production', activation_claim: { status: 'pending' } },
+      { id: 'ready', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'ready', related_cards: [{ nfc_url: 'https://nexcard.cl/ready' }] },
+      { id: 'shipped', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'shipped', activation_completed: true, related_cards: [{}] },
+      { id: 'delivered', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'delivered', activation_completed: true, related_cards: [{}] },
+      { id: 'delivered-no-activation', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'delivered', activation_completed: false, related_cards: [{}] },
+      { id: 'observability-alert', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'in_production', observability_alerts: ['drift'] },
+    ];
+
+    const groups = buildOrdersKanbanGroups(orders);
+    expect(groups.paid_new.map((order) => order.id)).toEqual(['paid-new']);
+    expect(groups.in_production.map((order) => order.id)).toEqual(['in-production']);
+    expect(groups.ready_to_ship.map((order) => order.id)).toEqual(['ready']);
+    expect(groups.shipped_pending_delivery.map((order) => order.id)).toEqual(['shipped']);
+    expect(groups.delivered.map((order) => order.id)).toEqual(['delivered']);
+    expect(groups.alerts.map((order) => order.id)).toEqual(['delivered-no-activation', 'observability-alert']);
+  });
+
+  it('deriva alertas SLA visuales para operación diaria', () => {
+    const now = new Date('2026-07-07T12:00:00Z');
+    expect(deriveOrderSlaAlert({ payment_status: 'paid', fulfillment_status: 'new', paid_at: '2026-07-06T10:00:00Z' }, now)?.label).toBe('>24h sin producción');
+    expect(deriveOrderSlaAlert({ payment_status: 'paid', fulfillment_status: 'ready', ready_at: '2026-07-06T23:00:00Z', related_cards: [{}] }, now)?.label).toBe('>12h sin tracking');
+    expect(deriveOrderSlaAlert({ payment_status: 'paid', fulfillment_status: 'shipped', shipped_at: '2026-07-04T10:00:00Z', related_cards: [{}] }, now)?.label).toBe('>72h sin entrega');
+    expect(deriveOrderSlaAlert({ payment_status: 'paid', fulfillment_status: 'delivered', delivered_at: '2026-07-06T10:00:00Z', activation_completed: false, related_cards: [{}] }, now)?.label).toBe('>24h sin activación');
+    expect(getKanbanLaneKey({ payment_status: 'paid', fulfillment_status: 'new', paid_at: '2026-07-06T10:00:00Z' })).toBe('alerts');
   });
 
   it('construye counts y stats del dashboard', () => {

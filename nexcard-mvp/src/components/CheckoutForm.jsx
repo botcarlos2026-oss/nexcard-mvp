@@ -371,7 +371,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
         {/* Error global */}
         {error && (
-          <div className="flex items-start gap-3 bg-red-950 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+          <div data-cy="checkout-error" className="flex items-start gap-3 bg-red-950 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
             <AlertCircle size={18} className="shrink-0 mt-0.5 text-red-400" />
             <span className="text-sm">{error}</span>
           </div>
@@ -390,6 +390,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 <div>
                   <label className={labelClass}>Nombre completo</label>
                   <input
+                    data-cy="checkout-name"
                     type="text"
                     name="customerName"
                     value={formData.customerName}
@@ -402,6 +403,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 <div>
                   <label className={labelClass}>Teléfono</label>
                   <input
+                    data-cy="checkout-phone"
                     type="tel"
                     name="customerPhone"
                     value={formData.customerPhone}
@@ -416,6 +418,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               <div className="mb-4">
                 <label className={labelClass}>Email</label>
                 <input
+                  data-cy="checkout-email"
                   type="email"
                   name="customerEmail"
                   value={formData.customerEmail}
@@ -450,6 +453,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               <div>
                 <label className={labelClass}>Dirección de despacho</label>
                 <textarea
+                  data-cy="checkout-address"
                   name="customerAddress"
                   value={formData.customerAddress}
                   onChange={handleChange}
@@ -656,6 +660,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
               <label className="flex items-start gap-3 cursor-pointer min-h-[44px]">
                 <input
+                  data-cy="checkout-accept-terms"
                   type="checkbox"
                   name="acceptTerms"
                   checked={formData.acceptTerms}
@@ -688,6 +693,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               </button>
               <div className="flex-[2] flex flex-col gap-1.5">
                 <button
+                  data-cy="checkout-submit"
                   type="submit"
                   disabled={loading}
                   className="btn-press w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"

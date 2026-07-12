@@ -10,6 +10,11 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
 
+const maskTrackingCode = (value: unknown): string => {
+  const code = String(value ?? '');
+  return code ? `...${code.slice(-4)}` : '';
+};
+
 // ─── Normalized types ──────────────────────────────────────────────────────
 
 interface TrackingEvent {
@@ -38,7 +43,7 @@ async function fetchBlueExpress(trackingCode: string): Promise<TrackingResult> {
   const clientSecret = Deno.env.get('BX_CLIENT_SECRET');
 
   if (!clientId || !clientSecret) {
-    log('warn', 'bx_credentials_missing', { tracking_code: trackingCode });
+    log('warn', 'bx_credentials_missing', { tracking_code: maskTrackingCode(trackingCode) });
     // Return a graceful degraded response so the page still renders
     return {
       carrier: 'blueexpress',
@@ -75,12 +80,12 @@ async function fetchBlueExpress(trackingCode: string): Promise<TrackingResult> {
 
   if (!trackRes.ok) {
     const body = await trackRes.text();
-    log('error', 'bx_tracking_failed', { status: trackRes.status, tracking_code: trackingCode, body });
+    log('error', 'bx_tracking_failed', { status: trackRes.status, tracking_code: maskTrackingCode(trackingCode), body });
     throw new Error(`BlueExpress: no se encontró el seguimiento para ${trackingCode}`);
   }
 
   const raw = await trackRes.json();
-  log('info', 'bx_tracking_fetched', { tracking_code: trackingCode, status: raw?.status });
+  log('info', 'bx_tracking_fetched', { tracking_code: maskTrackingCode(trackingCode), status: raw?.status });
 
   // ─── Normalize BlueExpress response → TrackingResult ──────────────────
   // BlueExpress returns: { shipmentNumber, status, events: [{ date, time, description, location }] }
@@ -126,7 +131,7 @@ async function getTracking(carrier: string, trackingCode: string): Promise<Track
     case 'blueexpress':
       return fetchBlueExpress(trackingCode);
     default:
-      log('warn', 'unsupported_carrier_tracking_fallback', { carrier, tracking_code: trackingCode });
+      log('warn', 'unsupported_carrier_tracking_fallback', { carrier, tracking_code: maskTrackingCode(trackingCode) });
       return {
         carrier,
         tracking_code: trackingCode,
@@ -201,7 +206,7 @@ serve(async (req) => {
       });
     }
 
-    log('info', 'tracking_requested', { order_id: orderId, carrier: order.carrier, tracking_code: order.tracking_code });
+    log('info', 'tracking_requested', { order_id: orderId, carrier: order.carrier, tracking_code: maskTrackingCode(order.tracking_code) });
 
     const result = await getTracking(order.carrier, order.tracking_code);
     const carrierSupported = order.carrier === 'blueexpress';

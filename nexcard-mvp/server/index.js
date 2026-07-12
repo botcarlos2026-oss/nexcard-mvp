@@ -17,6 +17,111 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
+function createFallbackDb() {
+  return {
+    users: [{
+      id: 'user-admin-local',
+      email: 'admin@nexcard.local',
+      password: 'nexcard-local-admin',
+      name: 'Admin NexCard',
+    }],
+    profiles: [{
+      id: 'profile-1',
+      user_id: 'user-admin-local',
+      full_name: 'NexCard Demo',
+      profession: 'Perfil comercial de prueba',
+      company: 'NexCard',
+      location: 'Santiago, Chile',
+      bio: 'Perfil local de prueba para validar humo, rutas públicas y NFC sin depender de Supabase.',
+      avatar_url: 'https://ui-avatars.com/api/?name=NexCard&background=10B981&color=fff',
+      theme_color: '#10B981',
+      is_dark_mode: true,
+      slug: 'carlos-alvarez',
+      status: 'active',
+      account_type: 'business',
+      vcard_enabled: true,
+      whatsapp: '56993183021',
+      contact_phone: '+56 9 3183 021',
+      contact_email: 'hola@nexcard.cl',
+      website_url: 'https://nexcard.cl',
+      instagram: 'nexcard.cl',
+      view_count: 0,
+      bank_enabled: false,
+    }],
+    products: [{
+      id: 'prod-nexcard-basic',
+      sku: 'NEXCARD-BASIC',
+      name: 'NexCard Digital',
+      description: 'Tarjeta NFC con perfil digital editable y soporte de activación.',
+      price_cents: 29990,
+      currency: 'CLP',
+      status: 'active',
+      display_order: 1,
+    }],
+    orders: [{
+      id: 'ord-local-1001',
+      folio: 'NXC-LOCAL-1001',
+      created_at: '2026-07-03T00:00:00.000Z',
+      updated_at: '2026-07-03T00:00:00.000Z',
+      customer_name: 'Cliente Demo',
+      customer_email: 'cliente@nexcard.local',
+      customer_phone: '+56 9 1111 1111',
+      customer_address: 'Santiago, Chile',
+      payment_method: 'mercado-pago',
+      payment_status: 'paid',
+      fulfillment_status: 'in_production',
+      amount_cents: 29990,
+      amount: 29990,
+      currency: 'CLP',
+    }],
+    order_items: [{
+      id: 'item-local-1001',
+      order_id: 'ord-local-1001',
+      product_id: 'prod-nexcard-basic',
+      quantity: 1,
+      unit_price_cents: 29990,
+      currency: 'CLP',
+    }],
+    payments: [],
+    cards: [{
+      id: 'card-1',
+      profile_id: 'profile-1',
+      order_id: 'ord-local-1001',
+      card_code: 'NXC-LOCAL-001',
+      public_token: 'nxc-local-token',
+      status: 'active',
+      activation_status: 'activated',
+      nfc_url: 'http://localhost:4000/c/nxc-local-token',
+      created_at: '2026-07-03T00:00:00.000Z',
+      updated_at: '2026-07-03T00:00:00.000Z',
+      activated_at: '2026-07-03T00:00:00.000Z',
+      deleted_at: null,
+    }],
+    card_events: [],
+    card_scans: [],
+    inventory: [{
+      id: 'inv-card-basic',
+      name: 'Tarjeta NFC estándar',
+      sku: 'NFC-STANDARD',
+      stock: 10,
+      unit: 'unidad',
+      low_stock_threshold: 3,
+    }],
+    content: {
+      landing: {
+        heroTitle: 'Conecta Mejor',
+        heroAccent: 'Hoy',
+        heroBadge: 'NexCard MVP',
+        heroDescription: 'La tarjeta de presentación inteligente que evoluciona con tu negocio.',
+        primaryCta: 'Comenzar',
+        socialProof: '100+ Profesionales',
+        finalCtaTitle: '¿Listo para el siguiente nivel?',
+        finalCtaButton: 'Crear mi Tarjeta',
+      },
+    },
+  };
+}
+
 app.use(cors({
   origin: process.env.PUBLIC_APP_URL || 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -28,7 +133,11 @@ app.use(express.json({ limit: '2mb' }));
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(DB_FILE)) {
-    fs.copyFileSync(SEED_FILE, DB_FILE);
+    if (fs.existsSync(SEED_FILE)) {
+      fs.copyFileSync(SEED_FILE, DB_FILE);
+    } else {
+      fs.writeFileSync(DB_FILE, JSON.stringify(createFallbackDb(), null, 2));
+    }
   }
 }
 

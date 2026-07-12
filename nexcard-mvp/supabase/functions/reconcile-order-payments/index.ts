@@ -3,12 +3,68 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ops-secret',
 };
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
+
+async function findApprovedMercadoPagoPayment(orderId: string, token: string) {
+  const response = await fetch(`https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent(orderId)}&sort=date_created&criteria=desc&limit=5`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`Mercado Pago search ${response.status}: ${JSON.stringify(data)}`);
+  }
+  return (data?.results || []).find((payment: any) => payment?.status === 'approved' && payment?.id) || null;
+}
+
+async function reconcileApprovedMercadoPagoPayment(supabase: ReturnType<typeof createClient>, order: any, payment: any, trigger: string) {
+  const paymentId = String(payment.id);
+  const amountCents = Math.round(Number(payment.transaction_amount || 0));
+  const currency = String(payment.currency_id || order.currency || 'CLP');
+
+  const { data: existingPayment, error: existingError } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('provider', 'mercado_pago')
+    .eq('external_id', paymentId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  if (existingPayment?.id) {
+    const { error } = await supabase
+      .from('payments')
+      .update({ status: 'paid', order_id: order.id, amount_cents: amountCents, currency, payload: payment, updated_at: new Date().toISOString() })
+      .eq('id', existingPayment.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('payments')
+      .insert({ order_id: order.id, provider: 'mercado_pago', status: 'paid', amount_cents: amountCents, currency, external_id: paymentId, payload: payment });
+    if (error) throw error;
+  }
+
+  const nextFulfillmentStatus = order.fulfillment_status === 'new' ? 'in_production' : order.fulfillment_status;
+  const { error: transitionError } = await supabase.rpc('admin_transition_order_state', {
+    target_order_id: order.id,
+    next_payment_status: 'paid',
+    next_fulfillment_status: nextFulfillmentStatus !== order.fulfillment_status ? nextFulfillmentStatus : null,
+    reason: `mp_search_reconcile_${trigger}`,
+  });
+  if (transitionError) throw transitionError;
+
+  const { error: orderUpdateError } = await supabase
+    .from('orders')
+    .update({ mp_payment_id: paymentId, paid_at: payment.date_approved || new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', order.id);
+  if (orderUpdateError) throw orderUpdateError;
+
+  return { payment_id: paymentId, amount_cents: amountCents, fulfillment_status: nextFulfillmentStatus };
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -16,9 +72,17 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const OPS_SHARED_SECRET = Deno.env.get('OPS_SHARED_SECRET');
+    const MP_ACCESS_TOKEN = Deno.env.get('MP_ACCESS_TOKEN');
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({ success: false, error: 'Supabase env faltante' }), {
         status: 500,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+    if (!OPS_SHARED_SECRET || req.headers.get('x-ops-secret') !== OPS_SHARED_SECRET) {
+      return new Response(JSON.stringify({ success: false, error: 'No autorizado' }), {
+        status: 401,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
@@ -43,7 +107,7 @@ serve(async (req) => {
       ? Object.fromEntries(
           ((await supabase
             .from('orders')
-            .select('id, customer_name, customer_email, payment_status, fulfillment_status, updated_at')
+            .select('id, customer_name, customer_email, payment_method, payment_status, fulfillment_status, amount_cents, currency, updated_at')
             .in('id', orderIds)).data || []).map((order: any) => [order.id, order])
         )
       : {};
@@ -85,6 +149,38 @@ serve(async (req) => {
           drift_reason: row.drift_reason,
         });
         continue;
+      }
+
+      if (row.active_payments === 0 && meta.payment_method === 'mercado-pago' && meta.payment_status !== 'paid' && MP_ACCESS_TOKEN) {
+        try {
+          const payment = await findApprovedMercadoPagoPayment(row.order_id, MP_ACCESS_TOKEN);
+          if (payment) {
+            const reconciled = await reconcileApprovedMercadoPagoPayment(supabase, meta, payment, trigger);
+            summary.auto_reconciled += 1;
+            results.push({
+              order_id: row.order_id,
+              customer_name: meta.customer_name || null,
+              status: 'mp_payment_reconciled',
+              payment_status: 'paid',
+              ...reconciled,
+            });
+            continue;
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          summary.failed += 1;
+          results.push({
+            order_id: row.order_id,
+            customer_name: meta.customer_name || null,
+            status: 'failed',
+            error: message,
+            order_payment_status: row.order_payment_status,
+            suggested_order_payment_status: row.suggested_order_payment_status,
+            payment_statuses: row.payment_statuses,
+          });
+          log('error', 'mp_search_reconcile_failed', { order_id: row.order_id, error: message });
+          continue;
+        }
       }
 
       const { data, error } = await supabase.rpc('reconcile_order_payment_status', {
@@ -154,8 +250,9 @@ serve(async (req) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    log('error', 'reconciliation_unhandled_exception', { message: error.message });
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    const message = error instanceof Error ? error.message : String(error);
+    log('error', 'reconciliation_unhandled_exception', { message });
+    return new Response(JSON.stringify({ success: false, error: message }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });

@@ -1,5 +1,27 @@
 #!/usr/bin/env node
 
+const fs = require('fs');
+const path = require('path');
+
+const loadEnvFile = (file) => {
+  const fullPath = path.join(process.cwd(), file);
+  if (!fs.existsSync(fullPath)) return;
+  const content = fs.readFileSync(fullPath, 'utf8');
+  content.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const idx = trimmed.indexOf('=');
+    if (idx === -1) return;
+    const key = trimmed.slice(0, idx).trim();
+    const rawValue = trimmed.slice(idx + 1).trim();
+    if (!process.env[key]) process.env[key] = rawValue.replace(/^["']|["']$/g, '');
+  });
+};
+
+loadEnvFile('.env');
+loadEnvFile('.env.local');
+loadEnvFile('.env.e2e.local');
+
 const mode = process.argv[2] || 'local';
 
 const readEnv = (name) => {
@@ -9,7 +31,10 @@ const readEnv = (name) => {
 
 const groups = {
   local: ['CYPRESS_login_email', 'CYPRESS_login_password'],
-  smoke: ['CYPRESS_login_email', 'CYPRESS_login_password'],
+  // Smoke must remain runnable in a fresh checkout so public routing/build regressions
+  // are catchable even before an admin test account has been seeded. Authenticated
+  // smoke assertions skip themselves when these vars are absent.
+  smoke: [],
   nfc: ['CYPRESS_nfc_token', 'CYPRESS_nfc_expected_slug'],
   'soft-delete': ['CYPRESS_deleted_profile_slug'],
   'cards-lifecycle': [

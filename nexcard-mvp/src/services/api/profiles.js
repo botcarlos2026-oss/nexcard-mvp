@@ -147,18 +147,20 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
       existingProfile,
     });
 
+    const { data: slugTaken, error: slugError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('slug', profilePayload.slug)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (slugError) throw new Error(slugError.message);
+    if (slugTaken && slugTaken.id !== existingProfile?.id) {
+      throw new Error('Ese usuario ya está ocupado. Prueba otro.');
+    }
+
     if (!existingProfile) {
       let uniquePayload = { ...profilePayload };
-      const { data: slugTaken } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('slug', uniquePayload.slug)
-        .maybeSingle();
-
-      if (slugTaken) {
-        uniquePayload.slug = `${uniquePayload.slug}-${Date.now()}`;
-      }
-
       const { data, error } = await supabase
         .from('profiles')
         .insert(uniquePayload)

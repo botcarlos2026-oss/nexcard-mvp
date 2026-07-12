@@ -4,6 +4,9 @@ import { AlertCircle, Bell, Calendar, CheckCircle2, Clock3, Download, Filter, Qr
 export default function OrdersFiltersBar({
   dateFilter,
   onDateFilterChange,
+  operationalFilter,
+  onOperationalFilterChange,
+  operationalFilters,
   newOrdersCount,
   refreshing,
   onRefresh,
@@ -70,6 +73,18 @@ export default function OrdersFiltersBar({
             Export CSV
           </button>
         </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {operationalFilters.map((filter) => (
+          <button
+            key={filter.key}
+            type="button"
+            onClick={() => onOperationalFilterChange(filter.key)}
+            className={`rounded-full border px-3 py-1.5 text-[11px] font-bold transition-colors ${operationalFilter === filter.key ? 'border-emerald-700 bg-emerald-950/40 text-emerald-300' : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-white'}`}
+          >
+            {filter.label}
+          </button>
+        ))}
       </div>
       <div className="flex gap-3 flex-1 flex-col sm:flex-row sm:flex-wrap">
         <label className="relative block flex-1">

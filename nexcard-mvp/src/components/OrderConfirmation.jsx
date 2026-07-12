@@ -1,8 +1,11 @@
 import React from 'react';
-import { CheckCircle, Clock, Copy } from 'lucide-react';
+import { CheckCircle, Clock, Copy, Loader2 } from 'lucide-react';
 
 export default function OrderConfirmation({ order, onContinueShopping }) {
   const [copied, setCopied] = React.useState(false);
+  const isVerifyingPayment = Boolean(order.isVerifyingPayment);
+  const isPaid = order.payment_status === 'paid' || order.payment_status === 'success';
+  const isFailed = order.payment_status === 'failure' || order.payment_status === 'failed';
 
   const handleCopyOrderId = () => {
     navigator.clipboard.writeText(order.id);
@@ -10,13 +13,15 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const paymentStatusLabel = {
-    paid: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
-    success: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
-    pending: { text: 'Pendiente de confirmación', color: 'text-amber-400', dot: 'bg-amber-400' },
-    failure: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
-    failed: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
-  }[order.payment_status] || { text: 'Pendiente', color: 'text-amber-400', dot: 'bg-amber-400' };
+  const paymentStatusLabel = isVerifyingPayment
+    ? { text: 'Verificando acreditación', color: 'text-sky-400', dot: 'bg-sky-400' }
+    : {
+        paid: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
+        success: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
+        pending: { text: 'Pendiente de confirmación', color: 'text-amber-400', dot: 'bg-amber-400' },
+        failure: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
+        failed: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
+      }[order.payment_status] || { text: 'Pendiente', color: 'text-amber-400', dot: 'bg-amber-400' };
 
   const orderDate = new Date(order.created_at).toLocaleDateString('es-CL', {
     year: 'numeric',
@@ -29,11 +34,20 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
   const totalCLP = (order.amount_cents).toLocaleString('es-CL');
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-8">
+    <div data-cy="order-confirmation" className="min-h-screen bg-zinc-950 text-white p-8">
       <div className="max-w-2xl mx-auto">
         {/* Icono y título según estado de pago */}
         <div className="text-center mb-8">
-          {order.payment_status === 'paid' || order.payment_status === 'success' ? (
+          {isVerifyingPayment ? (
+            <>
+              <Loader2 size={80} className="mx-auto text-sky-400 mb-4 animate-spin" />
+              <h1 className="text-4xl font-black mb-2">Verificando pago</h1>
+              <p className="text-zinc-400 text-lg max-w-xl mx-auto">
+                {order.payment_verification_message
+                  || 'Estamos verificando la acreditación de tu pago con Mercado Pago. Esto tomará solo unos segundos.'}
+              </p>
+            </>
+          ) : isPaid ? (
             <>
               <CheckCircle size={80} className="mx-auto text-emerald-400 mb-4" />
               <h1 className="text-4xl font-black mb-2">¡Orden Confirmada!</h1>
@@ -41,9 +55,15 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
             </>
           ) : (
             <>
-              <Clock size={80} className="mx-auto text-amber-400 mb-4" />
-              <h1 className="text-4xl font-black mb-2">Orden Recibida</h1>
-              <p className="text-zinc-400 text-lg">Tu orden fue recibida. El pago está siendo verificado.</p>
+              <Clock size={80} className={`mx-auto mb-4 ${isFailed ? 'text-red-400' : 'text-amber-400'}`} />
+              <h1 className="text-4xl font-black mb-2">
+                {isFailed ? 'Pago no confirmado' : 'Orden Recibida'}
+              </h1>
+              <p className="text-zinc-400 text-lg">
+                {isFailed
+                  ? 'No pudimos confirmar el pago. Si crees que esto es un error, contáctanos con tu número de orden.'
+                  : 'Tu orden fue recibida. El pago está siendo verificado.'}
+              </p>
             </>
           )}
         </div>
@@ -54,7 +74,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
             <div>
               <p className="text-zinc-400 text-sm mb-1">Número de Orden</p>
               <div className="flex items-center gap-2">
-                <code className="bg-zinc-800 px-3 py-2 rounded font-mono text-sm break-all">
+                <code data-cy="order-id" className="bg-zinc-800 px-3 py-2 rounded font-mono text-sm break-all">
                   {order.folio || '#' + order.id.substring(0, 8).toUpperCase()}
                 </code>
                 <button
@@ -92,13 +112,15 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
               <p className="text-zinc-400 text-sm mb-2">Estado de Pago</p>
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${
-                  order.payment_status === 'paid' || order.payment_status === 'success'
+                  isPaid
                     ? 'bg-emerald-500'
-                    : order.payment_status === 'failure' || order.payment_status === 'failed'
+                    : isFailed
                     ? 'bg-red-500'
+                    : isVerifyingPayment
+                    ? 'bg-sky-500'
                     : 'bg-yellow-500'
                 }`} />
-                <span className="font-semibold">
+                <span data-cy="order-payment-status" className="font-semibold">
                   {paymentStatusLabel.text}
                 </span>
               </div>
@@ -123,7 +145,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
         </div>
 
         {/* Información */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-8">
+        <div data-cy="order-next-step" className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-8">
           <h2 className="font-bold text-lg mb-4">¿Qué sucede ahora?</h2>
           <ol className="space-y-3 text-sm">
             <li className="flex gap-3">
