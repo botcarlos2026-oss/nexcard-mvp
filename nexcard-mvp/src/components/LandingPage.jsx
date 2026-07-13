@@ -1,49 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Share2, BarChart2, Shield, CheckCircle, ArrowRight, Smartphone, Linkedin, Mail, ChevronDown, MessageCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle, ChevronDown, Mail, MessageCircle, Smartphone } from 'lucide-react';
 import { api } from '../services/api';
 import DiscountWheel from './DiscountWheel';
 
-const FEATURES = [
-  { icon: <Zap size={22} className="text-emerald-400" />, title: 'Comparte al instante', description: 'Un toque con tu tarjeta NFC y tu contacto completo aparece en el teléfono de tu cliente. Sin apps, sin fricción.' },
-  { icon: <Share2 size={22} className="text-emerald-400" />, title: 'Perfil digital completo', description: 'Nombre, cargo, empresa, redes sociales, WhatsApp y más — todo en una página personalizada con tu marca.' },
-  { icon: <BarChart2 size={22} className="text-emerald-400" />, title: 'Actualizable siempre', description: 'Cambias de cargo, número o empresa? Actualiza tu perfil en segundos. La tarjeta física nunca queda obsoleta.' },
-  { icon: <Shield size={22} className="text-emerald-400" />, title: 'Compatible con todos', description: 'Funciona con iPhone y Android sin necesidad de instalar nada. Solo acercar y compartir.' },
-];
-
 // Metadata estático por SKU — precios vienen de Supabase (price_cents)
-// SKUs activos: NEXCARD-1, BASIC-5 ($89.990), PREMIUM-10 ($149.990), PREMIUM-20 ($269.990)
+// SKUs activos: NEXCARD-1, BASIC-5, PREMIUM-10, PREMIUM-20
 const PRICING_META = {
-  'NEXCARD-1':  { name: 'Solo',       cards: 1,  description: 'Para empezar a probar el formato', highlight: false, features: ['1 tarjeta NFC', 'Perfil digital', 'Activación guiada', 'Soporte por email'] },
-  'BASIC-5':    { name: 'Starter',    cards: 5,  description: 'Ideal para profesionales independientes', highlight: false, features: ['5 tarjetas NFC', 'Perfil digital por tarjeta', 'Activación guiada', 'Soporte por email'] },
-  'PREMIUM-10': { name: 'Business',   cards: 10, description: 'Para equipos de ventas en crecimiento',   highlight: true,  badge: 'Más popular', features: ['10 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte prioritario', 'Dashboard de equipo'] },
-  'PREMIUM-20': { name: 'Enterprise', cards: 20, description: 'La mejor relación precio-volumen',        highlight: false, features: ['20 tarjetas NFC premium', 'Perfiles personalizados', 'Analítica avanzada', 'Soporte dedicado', 'Dashboard de equipo', 'Onboarding asistido'] },
+  'NEXCARD-1': {
+    name: 'Individual',
+    cards: 1,
+    description: '1 tarjeta NexCard para empezar a compartir contacto sin fricción.',
+    highlight: false,
+    save: 'Pago único',
+    cta: 'Comprar Individual',
+    features: ['Tarjeta NFC', 'Perfil digital editable', 'Datos de banco y redes', 'QR dinámico'],
+  },
+  'BASIC-5': {
+    name: 'Pack Emprendedor',
+    cards: 5,
+    description: 'Para socios, primeras ventas o un equipo pequeño.',
+    highlight: false,
+    save: 'Ideal para equipo inicial',
+    cta: 'Comprar pack',
+    features: ['5 tarjetas NFC', '5 perfiles editables', 'Activación guiada', 'Sin mensualidad'],
+  },
+  'PREMIUM-10': {
+    name: 'Pack Socios',
+    cards: 10,
+    description: 'Para equipo fundador, ventas o atención comercial.',
+    highlight: true,
+    badge: 'Recomendado',
+    save: 'Mejor equilibrio',
+    cta: 'Comprar Pack Socios',
+    features: ['10 tarjetas premium', 'Perfil por persona', 'Datos actualizables', 'Ideal para reuniones'],
+  },
+  'PREMIUM-20': {
+    name: 'Pack Equipo',
+    cards: 20,
+    description: 'Para equipos comerciales que necesitan presencia consistente.',
+    highlight: false,
+    save: 'Mejor precio por unidad',
+    cta: 'Comprar Equipo',
+    features: ['20 tarjetas NFC + QR', 'Onboarding simple', 'Imagen consistente', 'Soporte dedicado'],
+  },
 };
 
 // Fallback si Supabase no responde
 const PRICING_FALLBACK = [
-  { sku: 'NEXCARD-1',  price: 19990 },
-  { sku: 'BASIC-5',    price: 79990 },
+  { sku: 'NEXCARD-1', price: 19990 },
+  { sku: 'BASIC-5', price: 79990 },
   { sku: 'PREMIUM-10', price: 149990 },
   { sku: 'PREMIUM-20', price: 269990 },
 ];
 
+const FRICTION = [
+  {
+    label: 'El pasado',
+    status: 'fricción',
+    tone: 'neutral',
+    items: [
+      ['Dictar el RUT apurado', 'para una transferencia.'],
+      ['Deletrear correos largos', 'en una reunión o feria.'],
+      ['Tarjetas de papel', 'arrugadas, perdidas o desactualizadas.'],
+    ],
+  },
+  {
+    label: 'El efecto NexCard',
+    status: 'un toque',
+    tone: 'green',
+    items: [
+      ['Acercas la tarjeta', 'al celular del cliente.'],
+      ['El perfil se abre', 'con contacto, redes y datos de banco.'],
+      ['Editas online', 'y la tarjeta física sigue vigente.'],
+    ],
+  },
+];
+
 const STEPS = [
-  { num: '01', title: 'Elige tu pack', desc: 'Selecciona la cantidad de tarjetas que necesitas según el tamaño de tu equipo.' },
-  { num: '02', title: 'Recíbelas en casa', desc: 'Despachamos a todo Chile. Recibes tus tarjetas NFC listas para activar.' },
-  { num: '03', title: 'Activa y personaliza', desc: 'Configura tu perfil digital en minutos desde cualquier dispositivo.' },
-  { num: '04', title: 'Comparte al instante', desc: 'Acerca tu tarjeta a cualquier smartphone y comparte tu contacto al toque.' },
+  { num: '01', title: 'Acerca', desc: 'Toca el teléfono de tu cliente con tu NexCard o muestra el QR de respaldo.' },
+  { num: '02', title: 'Conecta', desc: 'Tu perfil digital personalizado se abre al instante, sin instalar aplicaciones.' },
+  { num: '03', title: 'Actualiza', desc: 'Modifica banco, links, teléfono o redes desde nexcard.cl en tiempo real.' },
+];
+
+const FAQS = [
+  { q: '¿Sirve para cualquier celular?', a: 'Sí. Funciona por NFC en equipos modernos iPhone y Android, y mediante código QR dinámico incorporado para celulares antiguos o con NFC desactivado.' },
+  { q: '¿Tengo que pagar una mensualidad por usar la plataforma?', a: 'No. La plataforma nexcard.cl viene incluida con tu tarjeta física. Puedes actualizar tu perfil sin volver a imprimir.' },
+  { q: '¿Cómo personalizo mis datos?', a: 'Al recibir tu tarjeta, escaneas un código de activación único para configurar tu perfil, contacto, redes y datos de banco en pocos minutos.' },
+  { q: '¿Puedo pedir factura?', a: 'Sí. En el checkout puedes activar factura e ingresar RUT y razón social. La información queda asociada a tu pedido.' },
+  { q: '¿Qué métodos de pago aceptan?', a: 'El checkout opera con Mercado Pago para tarjeta de crédito, débito y otros medios disponibles según tu cuenta/banco.' },
+  { q: '¿La tarjeta tiene QR de respaldo?', a: 'Sí. Cada tarjeta puede incluir QR dinámico al reverso para que el contacto funcione incluso si el teléfono no lee NFC.' },
 ];
 
 function TeamMemberCard({ member }) {
   const [imgError, setImgError] = useState(false);
   const initials = member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   return (
-    <div className="flex flex-col items-center text-center p-6 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl transition-colors">
+    <div className="flex flex-col items-center text-center p-6 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-2xl transition-colors">
       {member.photo_url && !imgError ? (
         <img src={member.photo_url} alt={member.name} onError={() => setImgError(true)} className="w-24 h-24 rounded-full object-cover mb-4 border-2 border-zinc-800" />
       ) : (
-        <div className="w-24 h-24 rounded-full bg-emerald-900 border-2 border-emerald-800 flex items-center justify-center mb-4">
-          <span className="text-emerald-300 text-2xl font-bold">{initials}</span>
+        <div className="w-24 h-24 rounded-3xl bg-emerald-950 border-2 border-emerald-800 flex items-center justify-center mb-4">
+          <span className="text-emerald-300 text-2xl font-black">{initials}</span>
         </div>
       )}
       <p className="font-bold text-lg mb-0.5">{member.name}</p>
@@ -52,7 +109,7 @@ function TeamMemberCard({ member }) {
       <div className="flex items-center gap-3 mt-auto">
         {member.linkedin_url && (
           <a href={member.linkedin_url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors" aria-label="LinkedIn">
-            <Linkedin size={18} />
+            in
           </a>
         )}
         {member.email && (
@@ -65,6 +122,75 @@ function TeamMemberCard({ member }) {
   );
 }
 
+function SectionHead({ eyebrow, title, children }) {
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_0.78fr] lg:items-end mb-8 md:mb-10">
+      <div>
+        {eyebrow && <p className="text-emerald-300 text-xs font-black uppercase tracking-[0.18em] mb-3">{eyebrow}</p>}
+        <h2 className="text-4xl md:text-6xl font-black tracking-[-0.06em] leading-none">{title}</h2>
+      </div>
+      {children && <p className="text-zinc-400 leading-relaxed">{children}</p>}
+    </div>
+  );
+}
+
+function HeroVisual() {
+  return (
+    <div className="relative min-h-[390px] sm:min-h-[440px]" aria-label="Tarjeta NexCard y teléfono mostrando perfil digital">
+      <div className="absolute right-0 sm:right-5 top-0 w-[210px] sm:w-[238px] h-[420px] sm:h-[470px] rounded-[36px] bg-zinc-800 p-3 rotate-[4deg] shadow-2xl shadow-black/50">
+        <div className="h-full rounded-[27px] bg-zinc-950 border border-zinc-700 overflow-hidden p-4 sm:p-5">
+          <div className="h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-900" />
+          <div className="w-16 h-16 -mt-7 ml-3 mb-3 rounded-2xl border-4 border-zinc-950 bg-zinc-900 grid place-items-center text-emerald-300 font-black">CA</div>
+          <h3 className="font-black text-base leading-tight">Carlos Alvarez</h3>
+          <p className="text-zinc-400 text-xs mb-4">Operaciones · Mas Medios</p>
+          {['Guardar contacto', 'WhatsApp y redes', 'Datos de transferencia'].map((item) => (
+            <div key={item} className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-emerald-300 px-3 py-2.5 text-xs font-black mb-2">
+              {item}
+            </div>
+          ))}
+          <div className="grid gap-2 mt-5">
+            <span className="h-2 rounded-full bg-zinc-800" />
+            <span className="h-2 rounded-full bg-zinc-800 w-3/4" />
+            <span className="h-2 rounded-full bg-zinc-800 w-1/2" />
+          </div>
+        </div>
+      </div>
+      <div className="absolute left-0 top-[118px] w-[min(360px,82vw)] sm:w-[390px] h-[218px] sm:h-[230px] rounded-[26px] p-6 bg-gradient-to-br from-zinc-800 to-black border border-zinc-700 -rotate-[8deg] shadow-2xl shadow-black/60">
+        <div className="w-12 h-8 rounded-lg bg-yellow-700" />
+        <div className="absolute top-6 right-6 text-emerald-300 text-xs font-black tracking-[0.18em]">NFC</div>
+        <div className="absolute bottom-6 left-6 text-2xl font-black tracking-[-0.05em]">Nex<span className="text-emerald-300">Card</span></div>
+        <div className="absolute right-6 bottom-7 text-zinc-500 text-xs text-right">negro mate<br />QR al reverso</div>
+      </div>
+    </div>
+  );
+}
+
+function PricingCard({ plan, formatPrice, onCheckoutStart }) {
+  return (
+    <article className={`pricing-card relative rounded-[22px] p-6 flex flex-col min-h-[350px] ${plan.highlight ? 'bg-emerald-950/70 border border-emerald-500 shadow-2xl shadow-emerald-950/30' : 'bg-zinc-900 border border-zinc-800'}`}>
+      {plan.badge && <span className="absolute -top-3 left-5 bg-emerald-500 text-white rounded-full px-3 py-1 text-xs font-black">{plan.badge}</span>}
+      <h3 className="text-lg font-black mb-2">{plan.name}</h3>
+      <p className="text-zinc-400 text-sm leading-relaxed min-h-[44px] mb-5">{plan.description}</p>
+      <div className="text-3xl font-black tracking-[-0.05em] mb-1">${formatPrice(plan.price)}</div>
+      <p className="text-emerald-300 text-sm font-black min-h-[20px]">{plan.save || `$${formatPrice(plan.perUnit)} por tarjeta · ${plan.cards} unidades`}</p>
+      <ul className="grid gap-2.5 my-6 flex-1 text-sm text-zinc-300">
+        {(plan.features || []).map((feat, i) => (
+          <li key={i} className="flex items-start gap-2">
+            <CheckCircle size={15} className="text-emerald-300 shrink-0 mt-0.5" />
+            {feat}
+          </li>
+        ))}
+      </ul>
+      <button
+        onClick={onCheckoutStart}
+        className={`btn-press w-full min-h-[46px] rounded-xl font-black transition-colors ${plan.highlight ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'}`}
+      >
+        {plan.cta || 'Comprar pack'}
+      </button>
+    </article>
+  );
+}
+
 export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
   const [pricing, setPricing] = useState(() =>
@@ -73,7 +199,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [teamMembers, setTeamMembers] = useState([]);
   const [showWheel, setShowWheel] = useState(false);
   const [wheelData, setWheelData] = useState(null);
-  const formatPrice = (n) => n.toLocaleString('es-CL');
+  const formatPrice = (n) => Number(n || 0).toLocaleString('es-CL');
 
   useEffect(() => {
     api.getProducts().then((products) => {
@@ -82,18 +208,18 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       const merged = sorted.map((dbProduct) => {
         const meta = PRICING_META[dbProduct.sku] || {};
         const isPopular = dbProduct.popular ?? meta.highlight ?? false;
-        const cards = meta.cards || 1;
+        const cards = meta.cards || Number(dbProduct.cards) || 1;
         return {
           sku: dbProduct.sku,
           price: dbProduct.price_cents,
-          name: meta.name || dbProduct.name,
-          description: meta.description || dbProduct.description || '',
+          name: meta.name || dbProduct.name || 'NexCard',
+          description: meta.description || dbProduct.description || 'Tarjeta NFC con perfil digital editable.',
           cards,
           features: meta.features || dbProduct.features || [],
-          perUnit: Math.round(dbProduct.price_cents / cards),
+          perUnit: Math.round((dbProduct.price_cents || 0) / cards),
           ...meta,
           highlight: isPopular,
-          badge: isPopular ? (meta.badge || 'Más popular') : undefined,
+          badge: isPopular ? (meta.badge || 'Recomendado') : undefined,
         };
       });
       setPricing(merged);
@@ -101,7 +227,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
   }, []);
 
   useEffect(() => {
-    api.getTeamMembers().then(({ members }) => setTeamMembers(Array.isArray(members) ? members : [])).catch(() => {});
+    api.getTeamMembers().then(({ members }) => setTeamMembers(members || [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -128,289 +254,202 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     );
     cards.forEach((c) => observer.observe(c));
     return () => observer.disconnect();
-  }, []);
+  }, [pricing]);
+
+  const heroTitle = content.hero_title || 'Tu última tarjeta de presentación. Elegante, eterna y digital.';
+  const heroLead = content.hero_subtitle || 'Pasa tus datos de contacto, redes sociales y datos de transferencia a un solo toque (NFC). Cambia tu información en tiempo real cuando quieras, sin volver a imprimir jamás.';
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-
-      <nav className="border-b border-zinc-800/60 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-        <span className="text-xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-400">Card</span></span>
-        <div className="flex items-center gap-3">
-          <a href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors px-3 py-3 min-h-[44px] inline-flex items-center">Iniciar sesión</a>
-          <button onClick={onCheckoutStart} className="btn-press text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-3 min-h-[44px] rounded-lg transition-colors">Comprar</button>
+    <div className="min-h-screen bg-zinc-950 text-white antialiased">
+      <nav className="sticky top-0 z-30 bg-zinc-950/90 border-b border-zinc-800 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto px-5 min-h-[68px] flex items-center justify-between gap-4">
+          <a href="#top" className="text-2xl font-black tracking-[-0.05em]" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-300">Card</span></a>
+          <div className="flex items-center gap-5 text-sm text-zinc-400">
+            <a href="#como" className="hidden md:inline hover:text-white transition-colors">Cómo funciona</a>
+            <a href="#precios" className="hidden md:inline hover:text-white transition-colors">Precios</a>
+            <a href="#faq" className="hidden md:inline hover:text-white transition-colors">FAQ</a>
+            <button onClick={onCheckoutStart} className="btn-press min-h-[46px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">Comprar mi NexCard</button>
+          </div>
         </div>
       </nav>
 
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-emerald-500/8 rounded-full blur-3xl translate-x-1/2 -translate-y-1/4" />
-          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-3xl -translate-x-1/3 translate-y-1/4" />
-        </div>
-        <div className="hero-content relative max-w-5xl mx-auto px-6 py-24 md:py-36 text-center">
-          <div className="inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
-            <Smartphone size={12} />
-            Tarjeta NFC · Compatible con iPhone y Android
-          </div>
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-[1.05] tracking-tight">
-            Tu tarjeta de presentación,<br />
-            <span className="text-emerald-400">que se actualiza sola</span>
-          </h1>
-          <p className="text-lg md:text-xl text-zinc-400 mb-6 max-w-3xl mx-auto leading-relaxed">
-            Comparte tu contacto completo con un solo toque. Sin apps, sin papel y con una experiencia pensada para dos líneas claras: <strong className="text-white">Perfil Profesional</strong> y <strong className="text-white">Perfil Negocio</strong>.
-          </p>
-          <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto text-left">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
-              <p className="text-sm font-black text-white mb-2">Perfil Profesional</p>
-              <p className="text-sm text-zinc-400">Para consultores, ejecutivos, freelancers y networking: guardar contacto, WhatsApp, agenda y presencia profesional.</p>
-            </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
-              <p className="text-sm font-black text-white mb-2">Perfil Negocio</p>
-              <p className="text-sm text-zinc-400">Para pymes, ventas y atención comercial: WhatsApp, llamada, sitio web y conversión más rápida.</p>
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-900/40 text-base">
-              Ver precios y packs
-              <ArrowRight size={18} />
-            </button>
-            <button onClick={() => window.location.href = '/carlos-alvarez'} className="btn-press inline-flex items-center justify-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold rounded-xl transition-colors border border-zinc-700 text-base">
-              Ver demo en vivo
-            </button>
-          </div>
-          <p className="mt-10 text-sm text-zinc-500">Despacho a todo Chile · Activación en minutos · Sin contratos</p>
-        </div>
-      </section>
-
-      <section className="border-t border-zinc-800/60 py-24 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Dos líneas, una sola plataforma</h2>
-            <p className="text-zinc-400 max-w-2xl mx-auto">NexCard se adapta tanto a relaciones profesionales de alto valor como a escenarios de venta y atención comercial donde importa responder rápido.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {FEATURES.map((f, i) => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-7 transition-colors flex gap-5 items-start">
-                <div className="w-10 h-10 bg-emerald-950 border border-emerald-900 rounded-lg flex items-center justify-center shrink-0">{f.icon}</div>
-                <div>
-                  <h3 className="font-bold mb-1.5">{f.title}</h3>
-                  <p className="text-zinc-400 text-sm leading-relaxed">{f.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-zinc-800/60 py-24 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-xl font-semibold mb-3">¿Ya eres cliente NexCard? Accede a tu perfil</h2>
-          <div className="flex items-center justify-center gap-2">
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
-              placeholder="tu-slug"
-              aria-label="Buscar perfil por slug"
-              className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-48 transition-colors min-h-[44px]"
-            />
-            <button
-              onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)}
-              className="btn-press text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 rounded-lg border border-zinc-700 transition-colors whitespace-nowrap min-h-[44px] inline-flex items-center"
-            >
-              Ver perfil →
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-zinc-800/60 py-24 px-6 bg-zinc-900/30">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Cómo funciona</h2>
-            <p className="text-zinc-400 max-w-xl mx-auto">De tu pedido a compartir tu contacto en menos de 48 horas</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-            {STEPS.map((step) => (
-              <div key={step.num}>
-                <div className="text-5xl font-black text-emerald-400/15 mb-4 leading-none">{step.num}</div>
-                <p className="font-bold mb-2 text-base">{step.title}</p>
-                <p className="text-zinc-400 text-sm leading-relaxed">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Social Proof */}
-      <section className="border-t border-zinc-800/60 py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-zinc-600 text-xs uppercase tracking-widest mb-12">Hecho para profesionales que dejaron el papel atrás</p>
-          <div className="grid grid-cols-3 gap-6 mb-14 max-w-lg mx-auto">
+      <main id="top">
+        <header className="border-b border-zinc-800 py-16 md:py-24">
+          <div className="max-w-6xl mx-auto px-5 grid gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
             <div>
-              <p className="text-3xl font-bold text-emerald-400">100%</p>
-              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">compatible iPhone y Android</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-emerald-400">5-7 días</p>
-              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">despacho a todo Chile</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-emerald-400">∞</p>
-              <p className="text-zinc-500 text-xs mt-1.5 leading-snug">actualizaciones gratuitas</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
-            {[
-              { icon: '👔', title: 'Ejecutivos y consultores', desc: 'Networking en eventos, reuniones y conferencias' },
-              { icon: '📈', title: 'Equipos de ventas', desc: 'Más conversiones con un contacto que no se pierde' },
-              { icon: '🏪', title: 'Dueños de pymes', desc: 'En la caja, en el mesón, en cada interacción' },
-              { icon: '💼', title: 'Profesionales freelance', desc: 'Imagen profesional sin imprimir cada mes' },
-            ].map((item, i) => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-                <div className="text-3xl mb-3">{item.icon}</div>
-                <p className="text-white font-bold text-sm mb-1">{item.title}</p>
-                <p className="text-zinc-400 text-xs leading-relaxed">{item.desc}</p>
+              <div className="inline-flex items-center gap-2 text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-3 py-1.5 text-xs font-black mb-5">
+                <Smartphone size={13} />
+                NFC + QR dinámico · sin apps
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============ TEAM SECTION ============ */}
-      {teamMembers.length > 0 && (
-        <section className="border-t border-zinc-800/60 py-24 px-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">Quiénes trabajan con nosotros</h2>
-              <p className="text-zinc-400">El equipo detrás de NexCard</p>
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.94] tracking-[-0.07em] mb-6 max-w-3xl">{heroTitle}</h1>
+              <p className="text-lg md:text-xl text-zinc-400 leading-relaxed mb-8 max-w-2xl">{heroLead}</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">
+                  Comprar mi NexCard
+                  <ArrowRight size={18} />
+                </button>
+                <a href="#friccion" className="inline-flex items-center justify-center min-h-[48px] px-6 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-black transition-colors">Ver la diferencia</a>
+              </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-2 mt-6 text-sm text-zinc-500">
+                <span>✓ Plataforma incluida</span>
+                <span>✓ Pago seguro</span>
+                <span>✓ iPhone, Android y QR</span>
+              </div>
             </div>
-            <div className={`grid gap-6 ${
-              teamMembers.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
-              teamMembers.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-md mx-auto' :
-              teamMembers.length === 3 ? 'grid-cols-1 sm:grid-cols-3' :
-              'grid-cols-2 lg:grid-cols-4'
-            }`}>
-              {teamMembers.map(member => <TeamMemberCard key={member.id} member={member} />)}
+            <HeroVisual />
+          </div>
+        </header>
+
+        <section id="friccion" className="border-b border-zinc-800 py-16 md:py-20">
+          <div className="max-w-6xl mx-auto px-5">
+            <SectionHead title="Menos dictar datos. Más cerrar contactos.">
+              La comparación es cotidiana: transferencia, correo, reunión y tarjeta de papel que deja de servir.
+            </SectionHead>
+            <div className="grid md:grid-cols-2 gap-4">
+              {FRICTION.map((group) => (
+                <article key={group.label} className={`rounded-[22px] border p-6 ${group.tone === 'green' ? 'border-emerald-500/40 bg-emerald-950/50' : 'border-zinc-800 bg-zinc-900'}`}>
+                  <div className="flex items-center justify-between text-zinc-500 uppercase tracking-[0.14em] text-xs font-black mb-5">
+                    <span>{group.label}</span>
+                    <span>{group.status}</span>
+                  </div>
+                  <ul className="grid gap-4">
+                    {group.items.map(([strong, rest]) => (
+                      <li key={strong} className="text-zinc-300 leading-relaxed">
+                        <span className="inline-grid place-items-center w-7 h-7 mr-2 rounded-lg bg-zinc-800 text-emerald-300 font-black">{group.tone === 'green' ? '✓' : '–'}</span>
+                        <strong className="text-white">{strong}</strong> {rest}
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
             </div>
           </div>
         </section>
-      )}
 
-      <section className="border-t border-zinc-800/60 py-24 px-6" id="precios">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Planes y precios</h2>
-            <p className="text-zinc-400 max-w-xl mx-auto">A mayor volumen, mejor precio por unidad. Elige el pack que se adapta a tu equipo.</p>
+        <section id="como" className="border-b border-zinc-800 py-16 md:py-20">
+          <div className="max-w-6xl mx-auto px-5">
+            <SectionHead title="Cómo funciona.">Sin app, sin explicación larga, sin volver a imprimir cuando cambias tus datos.</SectionHead>
+            <div className="grid md:grid-cols-3 gap-4">
+              {STEPS.map((step) => (
+                <article key={step.num} className="rounded-[22px] border border-zinc-800 bg-zinc-900 p-6 min-h-[220px]">
+                  <div className="text-6xl font-black leading-none text-emerald-300/15 mb-10">{step.num}</div>
+                  <h3 className="text-2xl font-black mb-3">{step.title}</h3>
+                  <p className="text-zinc-400 leading-relaxed">{step.desc}</p>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="pricing-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {pricing.map((plan) => (
-              <div key={plan.sku} className={`pricing-card pricing-reveal relative rounded-xl p-7 flex flex-col ${plan.highlight ? 'bg-emerald-950 border-2 border-emerald-500 shadow-lg shadow-emerald-900/30' : 'bg-zinc-900 border border-zinc-800'}`}>
-                {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">{plan.badge}</span>
-                  </div>
-                )}
-                <div className="mb-6">
-                  <h3 className="font-semibold text-lg mb-1">{plan.name}</h3>
-                  <p className="text-zinc-400 text-xs leading-relaxed">{plan.description}</p>
-                </div>
-                <div className="mb-6">
-                  <span className="text-3xl font-bold text-emerald-400">${formatPrice(plan.price)}</span>
-                  <p className="text-zinc-500 text-xs mt-1.5">${formatPrice(plan.perUnit)} por tarjeta · {plan.cards} unidades</p>
-                </div>
-                <ul className="space-y-2.5 mb-7 flex-1">
-                  {(plan.features || []).map((feat, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
-                      <CheckCircle size={14} className="text-emerald-400 shrink-0 mt-0.5" />
-                      {feat}
-                    </li>
-                  ))}
-                </ul>
-                <button onClick={onCheckoutStart} className={`btn-press w-full py-3 rounded-lg font-bold text-sm transition-colors ${plan.highlight ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'}`}>
-                  Comprar pack
-                </button>
+        </section>
+
+        <section className="border-b border-zinc-800 py-16 md:py-20">
+          <div className="max-w-6xl mx-auto px-5">
+            <SectionHead title="También para clientes actuales.">Si ya activaste tu tarjeta, entra directo a tu perfil público o inicia sesión para editarlo.</SectionHead>
+            <div className="rounded-[22px] border border-zinc-800 bg-zinc-900 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4 md:justify-between">
+              <div>
+                <p className="font-black text-lg">Busca tu perfil digital</p>
+                <p className="text-zinc-400 text-sm">Escribe tu slug público para abrirlo en este navegador.</p>
               </div>
-            ))}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
+                  placeholder="tu-slug"
+                  aria-label="Buscar perfil por slug"
+                  className="bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-44 min-h-[46px]"
+                />
+                <button onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)} className="btn-press px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-black min-h-[46px]">Ver perfil</button>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ============ FAQ ============ */}
-      <section className="border-t border-zinc-800/60 py-20 sm:py-24 px-6 bg-zinc-950">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">Preguntas frecuentes</h2>
-            <p className="text-zinc-400">Todo lo que necesitas saber antes de comprar</p>
+        <section id="precios" className="border-b border-zinc-800 py-16 md:py-20">
+          <div className="max-w-6xl mx-auto px-5">
+            <SectionHead title="Precios simples.">Oferta directa con ahorro visible para empujar packs y facilitar la decisión.</SectionHead>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {pricing.map((plan) => (
+                <PricingCard key={plan.sku} plan={plan} formatPrice={formatPrice} onCheckoutStart={onCheckoutStart} />
+              ))}
+            </div>
+            <div className="mt-4 rounded-[22px] border border-emerald-500/40 bg-emerald-950/50 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+              <div>
+                <strong className="text-lg">¿Necesitas más tarjetas para tu empresa?</strong>
+                <p className="text-zinc-400 mt-1">Diseñemos un plan a tu medida para ventas, atención o terreno.</p>
+              </div>
+              <a className="btn-press inline-flex items-center justify-center min-h-[46px] px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black" href="mailto:hola@nexcard.cl?subject=Cotizar%20Plan%20Corporativo%20NexCard">Cotizar Plan Corporativo</a>
+            </div>
           </div>
-          <div className="divide-y divide-zinc-800">
-            {[
-              { q: '¿Cómo funciona la tarjeta NFC?', a: 'La tarjeta NFC contiene un chip que, al acercarla a un smartphone con NFC activado, abre automáticamente tu perfil digital en el navegador. No necesitas instalar nada.' },
-              { q: '¿Es compatible con iPhone y Android?', a: 'Sí, funciona con todos los iPhones desde el iPhone XS (2018) en adelante con iOS 13+ y prácticamente todos los Android con NFC activado. Si el dispositivo no tiene NFC, también incluye un código QR de respaldo.' },
-              { q: '¿Necesito una app para usarla?', a: 'No. Tu cliente solo acerca su teléfono a la tarjeta y ve tu perfil al instante en su navegador. Tú tampoco necesitas app: gestionas tu perfil desde nexcard.cl en cualquier navegador.' },
-              { q: '¿Qué pasa si pierdo mi tarjeta?', a: 'Tu perfil digital sigue activo. Puedes pedir una tarjeta de reemplazo desde nexcard.cl con un descuento del 50%. Solo escríbenos a hola@nexcard.cl con tu número de orden.' },
-              { q: '¿Puedo actualizar mi información después?', a: 'Sí. Puedes editar tu perfil cuantas veces quieras desde tu cuenta NexCard. Los cambios son inmediatos — la próxima persona que toque tu tarjeta verá la información actualizada.' },
-              { q: '¿Cuánto demora el despacho?', a: 'Entre 5 y 7 días hábiles a todo Chile. Despachamos vía Starken o Chilexpress y recibirás un email con el número de seguimiento cuando salga tu pedido.' },
-              { q: '¿Hacen factura para empresas?', a: 'Sí. En el checkout puedes activar "Necesito factura" e ingresar el RUT y razón social de tu empresa. La factura electrónica te llegará por email después de la compra.' },
-              { q: '¿Qué métodos de pago aceptan?', a: 'Aceptamos pagos vía Mercado Pago: tarjetas de crédito, débito, transferencia bancaria y cuotas sin interés según promociones de tu banco. Próximamente también WebPay.' },
-              { q: '¿Tiene devolución?', a: 'Sí, tienes 10 días hábiles desde la recepción para solicitar devolución según la Ley del Consumidor 19.496. La tarjeta debe estar en buen estado y sin programar.' },
-              { q: '¿La tarjeta tiene QR de respaldo?', a: 'Sí. Cada tarjeta incluye un QR impreso al reverso que apunta al mismo perfil digital, en caso de que el smartphone del receptor no tenga NFC.' },
-            ].map((item, i) => (
-              <details key={i} className="group py-1">
-                <summary className="cursor-pointer flex items-center justify-between py-5 px-4 text-base font-semibold text-white list-none">
-                  {item.q}
-                  <ChevronDown size={18} className="text-zinc-400 shrink-0 transition-transform duration-200 group-open:rotate-180" />
-                </summary>
-                <p className="text-sm text-zinc-400 leading-relaxed pb-5 px-4 pt-0">{item.a}</p>
-              </details>
-            ))}
+        </section>
+
+        {teamMembers.length > 0 && (
+          <section className="border-b border-zinc-800 py-16 md:py-20">
+            <div className="max-w-6xl mx-auto px-5">
+              <SectionHead title="Quiénes trabajan con nosotros.">Equipo y aliados detrás de la experiencia NexCard.</SectionHead>
+              <div className={`grid gap-6 ${
+                teamMembers.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
+                teamMembers.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-md mx-auto' :
+                teamMembers.length === 3 ? 'grid-cols-1 sm:grid-cols-3' :
+                'grid-cols-2 lg:grid-cols-4'
+              }`}>
+                {teamMembers.map(member => <TeamMemberCard key={member.id} member={member} />)}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section id="faq" className="border-b border-zinc-800 py-16 md:py-20">
+          <div className="max-w-6xl mx-auto px-5 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+            <aside className="rounded-[22px] border border-zinc-800 bg-zinc-900 p-6">
+              <h2 className="text-4xl md:text-5xl font-black tracking-[-0.06em] leading-none mb-5">Antes de comprar.</h2>
+              <p className="text-zinc-400 leading-relaxed">Respuestas cortas para eliminar dudas típicas: compatibilidad, mensualidad, activación y pago.</p>
+              <div className="flex flex-wrap gap-2 mt-5">
+                {['Mercado Pago', 'Pago seguro', 'QR respaldo'].map((item) => <span key={item} className="rounded-xl border border-zinc-800 px-3 py-2 text-sm font-black text-zinc-300">{item}</span>)}
+              </div>
+            </aside>
+            <div>
+              {FAQS.map((item, i) => (
+                <details key={item.q} open={i === 0} className="group rounded-2xl border border-zinc-800 bg-zinc-900 mb-2">
+                  <summary className="cursor-pointer flex items-center justify-between gap-4 p-5 font-black list-none">
+                    {item.q}
+                    <ChevronDown size={18} className="text-emerald-300 shrink-0 transition-transform duration-200 group-open:rotate-180" />
+                  </summary>
+                  <p className="text-sm text-zinc-400 leading-relaxed px-5 pb-5 -mt-1">{item.a}</p>
+                </details>
+              ))}
+              <a href="https://wa.me/56993183021?text=Hola,%20tengo%20una%20pregunta%20sobre%20NexCard" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-emerald-300 hover:text-emerald-200 transition-colors text-sm font-black mt-5">
+                <MessageCircle size={16} />
+                ¿Tienes otra pregunta? Escríbenos por WhatsApp
+              </a>
+            </div>
           </div>
-          <div className="mt-10 text-center">
-            <a
-              href="https://wa.me/56993183021?text=Hola,%20tengo%20una%20pregunta%20sobre%20NexCard"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors text-sm font-medium"
-            >
-              <MessageCircle size={16} />
-              ¿Tienes otra pregunta? Escríbenos por WhatsApp
-            </a>
+        </section>
+
+        <section className="py-16 md:py-20">
+          <div className="max-w-6xl mx-auto px-5">
+            <div className="rounded-[28px] border border-emerald-500/35 bg-emerald-950/50 p-8 md:p-12 text-center">
+              <h2 className="text-4xl md:text-6xl font-black tracking-[-0.06em] leading-none mb-5">Crear mi NexCard.</h2>
+              <p className="max-w-2xl mx-auto text-zinc-400 leading-relaxed mb-7">Una tarjeta física premium, un perfil digital editable y una forma más rápida de compartir tus datos.</p>
+              <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">
+                Comprar mi NexCard
+                <ArrowRight size={18} />
+              </button>
+              <div className="flex flex-wrap justify-center gap-2 mt-6">
+                {['Mercado Pago', 'Compra protegida', 'Despacho a Chile'].map((item) => <span key={item} className="rounded-xl border border-emerald-500/25 px-3 py-2 text-sm font-black text-zinc-300">{item}</span>)}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      <section className="border-t border-zinc-800/60 py-24 px-6">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Elige la línea que mejor vende tu perfil</h2>
-          <p className="text-zinc-400 mb-8">Activa una NexCard para networking profesional o para conversión comercial, con la misma base tecnológica y distinta prioridad de UX.</p>
-          <button onClick={onCheckoutStart} className="btn-press inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-900/40 text-base">
-            Ver packs y precios
-            <ArrowRight size={18} />
-          </button>
-        </div>
-      </section>
-
-      <section className="border-t border-zinc-800/60 py-8 px-6">
-        <div className="max-w-4xl mx-auto flex flex-wrap justify-center gap-6 text-sm text-zinc-400">
-          {['✓ Empresa chilena','✓ Despacho a todo Chile','✓ Devolución en 10 días','✓ Pago 100% seguro'].map(item => (
-            <span key={item} className="flex items-center gap-1">{item}</span>
-          ))}
-          <a href="https://wa.me/56993183021" className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300">
-            💬 +56 9 9318 3021
-          </a>
-        </div>
-      </section>
-
-      <footer className="border-t border-zinc-800/60 py-10 px-6">
+      <footer className="border-t border-zinc-800 py-10 px-5">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <span className="text-lg font-bold" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-400">Card</span></span>
-          <div className="flex items-center gap-4 text-sm text-zinc-500">
+          <span className="text-xl font-black tracking-[-0.05em]" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-300">Card</span></span>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-zinc-500">
             <span>© 2026 NexCard</span>
-            <span>·</span>
             <a href="/terminos" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Términos</a>
-            <span>·</span>
             <a href="/privacidad" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Privacidad</a>
-            <span>·</span>
             <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Contacto</a>
           </div>
           <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">
@@ -419,12 +458,10 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         </div>
       </footer>
 
-      {/* Wheel modal */}
       {showWheel && wheelData && (
         <DiscountWheel wheel={wheelData} onClose={() => setShowWheel(false)} />
       )}
 
-      {/* Floating gift button */}
       {wheelData?.show_floating_button && !showWheel && (
         <button
           onClick={() => setShowWheel(true)}
@@ -434,7 +471,6 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           🎁
         </button>
       )}
-
     </div>
   );
 }
