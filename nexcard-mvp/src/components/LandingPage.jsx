@@ -127,7 +127,7 @@ function SectionHead({ eyebrow, title, children }) {
     <div className="grid gap-5 lg:grid-cols-[1fr_0.78fr] lg:items-end mb-8 md:mb-10">
       <div>
         {eyebrow && <p className="text-emerald-300 text-xs font-black uppercase tracking-[0.18em] mb-3">{eyebrow}</p>}
-        <h2 className="text-4xl md:text-6xl font-black tracking-[-0.06em] leading-none">{title}</h2>
+        <h2 className="text-[clamp(2.15rem,4.2vw,4rem)] font-bold tracking-[-0.06em] leading-none">{title}</h2>
       </div>
       {children && <p className="text-zinc-400 leading-relaxed">{children}</p>}
     </div>
@@ -167,13 +167,13 @@ function HeroVisual() {
 
 function PricingCard({ plan, formatPrice, onCheckoutStart }) {
   return (
-    <article className={`pricing-card relative rounded-[22px] p-6 flex flex-col min-h-[350px] ${plan.highlight ? 'bg-emerald-950/70 border border-emerald-500 shadow-2xl shadow-emerald-950/30' : 'bg-zinc-900 border border-zinc-800'}`}>
+    <article className={`pricing-card relative rounded-[22px] p-[22px] flex flex-col min-h-[350px] ${plan.highlight ? 'bg-emerald-950/70 border border-emerald-500 shadow-2xl shadow-emerald-950/30' : 'bg-zinc-900 border border-zinc-800'}`}>
       {plan.badge && <span className="absolute -top-3 left-5 bg-emerald-500 text-white rounded-full px-3 py-1 text-xs font-black">{plan.badge}</span>}
       <h3 className="text-lg font-black mb-2">{plan.name}</h3>
-      <p className="text-zinc-400 text-sm leading-relaxed min-h-[44px] mb-5">{plan.description}</p>
+      <p className="text-zinc-400 text-sm leading-relaxed min-h-[42px] mb-[18px]">{plan.description}</p>
       <div className="text-3xl font-black tracking-[-0.05em] mb-1">${formatPrice(plan.price)}</div>
       <p className="text-emerald-300 text-sm font-black min-h-[20px]">{plan.save || `$${formatPrice(plan.perUnit)} por tarjeta · ${plan.cards} unidades`}</p>
-      <ul className="grid gap-2.5 my-6 flex-1 text-sm text-zinc-300">
+      <ul className="grid gap-[10px] my-[22px] flex-1 text-sm text-zinc-300">
         {(plan.features || []).map((feat, i) => (
           <li key={i} className="flex items-start gap-2">
             <CheckCircle size={15} className="text-emerald-300 shrink-0 mt-0.5" />
@@ -262,8 +262,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
   return (
     <div className="min-h-screen bg-zinc-950 text-white antialiased">
       <nav className="sticky top-0 z-30 bg-zinc-950/90 border-b border-zinc-800 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-5 min-h-[68px] flex items-center justify-between gap-4">
-          <a href="#top" className="text-2xl font-black tracking-[-0.05em]" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-300">Card</span></a>
+        <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto min-h-[68px] flex items-center justify-between gap-4">
+          <a href="#top" className="text-[1.35rem] font-black tracking-[-0.04em]" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-300">Card</span></a>
           <div className="flex items-center gap-5 text-sm text-zinc-400">
             <a href="#como" className="hidden md:inline hover:text-white transition-colors">Cómo funciona</a>
             <a href="#precios" className="hidden md:inline hover:text-white transition-colors">Precios</a>
@@ -274,15 +274,15 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       </nav>
 
       <main id="top">
-        <header className="border-b border-zinc-800 py-16 md:py-24">
-          <div className="max-w-6xl mx-auto px-5 grid gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
+        <header className="border-b border-zinc-800 pt-[54px] pb-[72px] md:pt-[88px] md:pb-[72px]">
+          <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto grid gap-[58px] lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
             <div>
               <div className="inline-flex items-center gap-2 text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 rounded-full px-3 py-1.5 text-xs font-black mb-5">
                 <Smartphone size={13} />
                 NFC + QR dinámico · sin apps
               </div>
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.94] tracking-[-0.07em] mb-6 max-w-3xl">{heroTitle}</h1>
-              <p className="text-lg md:text-xl text-zinc-400 leading-relaxed mb-8 max-w-2xl">{heroLead}</p>
+              <h1 className="text-[3.05rem] md:text-[clamp(3rem,6.6vw,6.2rem)] font-bold leading-[0.94] tracking-[-0.07em] mb-[22px] max-w-[680px]">{heroTitle}</h1>
+              <p className="text-lg md:text-[1.18rem] text-zinc-400 leading-[1.62] mb-[30px] max-w-[650px]">{heroLead}</p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">
                   Comprar mi NexCard
@@ -300,8 +300,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
         </header>
 
-        <section id="friccion" className="border-b border-zinc-800 py-16 md:py-20">
-          <div className="max-w-6xl mx-auto px-5">
+        <section id="friccion" className="border-b border-zinc-800 py-16 md:py-[78px]">
+          <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
             <SectionHead title="Menos dictar datos. Más cerrar contactos.">
               La comparación es cotidiana: transferencia, correo, reunión y tarjeta de papel que deja de servir.
             </SectionHead>
@@ -326,8 +326,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
         </section>
 
-        <section id="como" className="border-b border-zinc-800 py-16 md:py-20">
-          <div className="max-w-6xl mx-auto px-5">
+        <section id="como" className="border-b border-zinc-800 py-16 md:py-[78px]">
+          <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
             <SectionHead title="Cómo funciona.">Sin app, sin explicación larga, sin volver a imprimir cuando cambias tus datos.</SectionHead>
             <div className="grid md:grid-cols-3 gap-4">
               {STEPS.map((step) => (
@@ -341,8 +341,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
         </section>
 
-        <section className="border-b border-zinc-800 py-16 md:py-20">
-          <div className="max-w-6xl mx-auto px-5">
+        <section className="border-b border-zinc-800 py-12 md:py-14">
+          <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
             <SectionHead title="También para clientes actuales.">Si ya activaste tu tarjeta, entra directo a tu perfil público o inicia sesión para editarlo.</SectionHead>
             <div className="rounded-[22px] border border-zinc-800 bg-zinc-900 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4 md:justify-between">
               <div>
@@ -365,8 +365,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
         </section>
 
-        <section id="precios" className="border-b border-zinc-800 py-16 md:py-20">
-          <div className="max-w-6xl mx-auto px-5">
+        <section id="precios" className="border-b border-zinc-800 py-16 md:py-[78px]">
+          <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
             <SectionHead title="Precios simples.">Oferta directa con ahorro visible para empujar packs y facilitar la decisión.</SectionHead>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {pricing.map((plan) => (
@@ -384,8 +384,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         </section>
 
         {teamMembers.length > 0 && (
-          <section className="border-b border-zinc-800 py-16 md:py-20">
-            <div className="max-w-6xl mx-auto px-5">
+          <section className="border-b border-zinc-800 py-16 md:py-[78px]">
+            <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
               <SectionHead title="Quiénes trabajan con nosotros.">Equipo y aliados detrás de la experiencia NexCard.</SectionHead>
               <div className={`grid gap-6 ${
                 teamMembers.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
@@ -399,10 +399,10 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </section>
         )}
 
-        <section id="faq" className="border-b border-zinc-800 py-16 md:py-20">
-          <div className="max-w-6xl mx-auto px-5 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+        <section id="faq" className="border-b border-zinc-800 py-16 md:py-[78px]">
+          <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto grid gap-[30px] lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
             <aside className="rounded-[22px] border border-zinc-800 bg-zinc-900 p-6">
-              <h2 className="text-4xl md:text-5xl font-black tracking-[-0.06em] leading-none mb-5">Antes de comprar.</h2>
+              <h2 className="text-[clamp(2.15rem,4.2vw,4rem)] font-bold tracking-[-0.06em] leading-none mb-5">Antes de comprar.</h2>
               <p className="text-zinc-400 leading-relaxed">Respuestas cortas para eliminar dudas típicas: compatibilidad, mensualidad, activación y pago.</p>
               <div className="flex flex-wrap gap-2 mt-5">
                 {['Mercado Pago', 'Pago seguro', 'QR respaldo'].map((item) => <span key={item} className="rounded-xl border border-zinc-800 px-3 py-2 text-sm font-black text-zinc-300">{item}</span>)}
@@ -410,12 +410,12 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             </aside>
             <div>
               {FAQS.map((item, i) => (
-                <details key={item.q} open={i === 0} className="group rounded-2xl border border-zinc-800 bg-zinc-900 mb-2">
-                  <summary className="cursor-pointer flex items-center justify-between gap-4 p-5 font-black list-none">
+                <details key={item.q} open={i === 0} className="group rounded-2xl border border-zinc-800 bg-zinc-900 mb-[10px]">
+                  <summary className="cursor-pointer flex items-center justify-between gap-4 p-[18px] font-black list-none">
                     {item.q}
                     <ChevronDown size={18} className="text-emerald-300 shrink-0 transition-transform duration-200 group-open:rotate-180" />
                   </summary>
-                  <p className="text-sm text-zinc-400 leading-relaxed px-5 pb-5 -mt-1">{item.a}</p>
+                  <p className="text-sm text-zinc-400 leading-relaxed px-[18px] pb-[18px] -mt-1">{item.a}</p>
                 </details>
               ))}
               <a href="https://wa.me/56993183021?text=Hola,%20tengo%20una%20pregunta%20sobre%20NexCard" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-emerald-300 hover:text-emerald-200 transition-colors text-sm font-black mt-5">
@@ -426,10 +426,10 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
         </section>
 
-        <section className="py-16 md:py-20">
-          <div className="max-w-6xl mx-auto px-5">
+        <section className="py-16 md:py-[78px]">
+          <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
             <div className="rounded-[28px] border border-emerald-500/35 bg-emerald-950/50 p-8 md:p-12 text-center">
-              <h2 className="text-4xl md:text-6xl font-black tracking-[-0.06em] leading-none mb-5">Crear mi NexCard.</h2>
+              <h2 className="text-[clamp(2.15rem,4.2vw,4rem)] font-bold tracking-[-0.06em] leading-none mb-5">Crear mi NexCard.</h2>
               <p className="max-w-2xl mx-auto text-zinc-400 leading-relaxed mb-7">Una tarjeta física premium, un perfil digital editable y una forma más rápida de compartir tus datos.</p>
               <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">
                 Comprar mi NexCard
@@ -444,8 +444,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       </main>
 
       <footer className="border-t border-zinc-800 py-10 px-5">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <span className="text-xl font-black tracking-[-0.05em]" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-300">Card</span></span>
+        <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+          <span className="text-[1.35rem] font-black tracking-[-0.04em]" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-300">Card</span></span>
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-zinc-500">
             <span>© 2026 NexCard</span>
             <a href="/terminos" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Términos</a>
