@@ -3,6 +3,7 @@ import { useCart } from '../store/cartStore';
 import { api, setLastOrderSnapshot } from '../services/api';
 import { ArrowLeft, ShieldCheck, AlertCircle, Tag } from 'lucide-react';
 import CardPreview from './CardPreview';
+import { PROFILE_SLUG_RULES_MESSAGE, isValidProfileSlug, slugify } from '../utils/slug';
 
 export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const { items, getTotalCents, clearCart } = useCart();
@@ -14,6 +15,15 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const [couponData, setCouponData] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState('');
+  const [desiredSlug, setDesiredSlug] = useState(() => {
+    try {
+      return sessionStorage.getItem('nx_checkout_desired_slug') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [slugStatus, setSlugStatus] = useState('idle');
+  const [slugMessage, setSlugMessage] = useState('');
 
   const [formData, setFormData] = useState(() => {
     try {
@@ -102,6 +112,43 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     } catch {}
   }, [customization]);
 
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('nx_checkout_desired_slug', desiredSlug);
+    } catch {}
+  }, [desiredSlug]);
+
+  const checkDesiredSlugAvailability = useCallback(async (slug) => {
+    const candidate = slugify(slug);
+    setSlugMessage('');
+
+    if (!isValidProfileSlug(candidate)) {
+      setSlugStatus(candidate ? 'invalid' : 'idle');
+      setSlugMessage(candidate ? PROFILE_SLUG_RULES_MESSAGE : '');
+      return false;
+    }
+
+    setSlugStatus('checking');
+    try {
+      const result = await api.checkProfileSlugAvailability(candidate);
+      setDesiredSlug(result.slug || candidate);
+      setSlugStatus(result.available ? 'available' : 'taken');
+      setSlugMessage(result.message || (result.available ? 'Usuario disponible.' : 'Ese usuario no está disponible.'));
+      return !!result.available;
+    } catch {
+      setSlugStatus('invalid');
+      setSlugMessage('No pudimos validar el usuario. Intenta nuevamente.');
+      return false;
+    }
+  }, []);
+
+  const handleDesiredSlugChange = (value) => {
+    const next = slugify(value);
+    setDesiredSlug(next);
+    setSlugStatus('idle');
+    setSlugMessage('');
+  };
+
   const handleCustomizationChange = (e) => {
     const { name, value } = e.target;
     setCustomization((prev) => ({ ...prev, [name]: value }));
@@ -184,6 +231,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
       return 'El teléfono debe tener al menos 8 dígitos';
     if (!formData.customerAddress.trim()) return 'Por favor ingresa tu dirección de despacho';
     if (formData.customerAddress.trim().length < 10) return 'La dirección parece muy corta, incluye calle y número';
+    if (!desiredSlug.trim()) return 'Reserva tu usuario público NexCard antes de pagar';
+    if (!isValidProfileSlug(desiredSlug)) return PROFILE_SLUG_RULES_MESSAGE;
     if (!formData.acceptTerms) return 'Debes aceptar los términos y condiciones para continuar';
     if (invoiceData.requiresInvoice) {
       if (!invoiceData.invoiceRut.trim()) return 'Ingresa el RUT de la empresa';
@@ -208,10 +257,28 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     setError('');
 
     try {
+      const slugAvailable = await checkDesiredSlugAvailability(desiredSlug);
+      if (!slugAvailable) {
+        setError(slugMessage || 'Ese usuario no está disponible. Prueba otro.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
       // Construir customization solo si hay algún campo llenado
       const hasCustomization = customization.full_name.trim() || customization.job_title.trim() ||
         customization.company.trim() || customization.notes.trim() ||
         customization.template !== 'minimal' || customization.primary_color !== '#10B981';
+      const cardCustomization = {
+        ...(hasCustomization ? {
+          full_name: customization.full_name.trim() || formData.customerName.trim(),
+          job_title: customization.job_title.trim(),
+          company: customization.company.trim(),
+          template: customization.template,
+          primary_color: customization.primary_color,
+          notes: customization.notes.trim(),
+        } : {}),
+        desired_slug: desiredSlug,
+      };
 
       const orderPayload = {
         customer_name: formData.customerName.trim(),
@@ -222,17 +289,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         payment_status: 'pending',
         fulfillment_status: 'new',
         amount_cents: finalTotalCents,
+        desired_profile_slug: desiredSlug,
         discount_cents: discountCents || undefined,
         coupon_code: couponData ? couponCode : undefined,
         currency: 'CLP',
-        card_customization: hasCustomization ? {
-          full_name: customization.full_name.trim() || formData.customerName.trim(),
-          job_title: customization.job_title.trim(),
-          company: customization.company.trim(),
-          template: customization.template,
-          primary_color: customization.primary_color,
-          notes: customization.notes.trim(),
-        } : null,
+        card_customization: cardCustomization,
         items: items.map((item) => ({
           product_id: item.product_id,
           product_name: item.product_name,
@@ -458,6 +519,32 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   autoComplete="street-address"
                   className={inputClass + ' resize-none'}
                 />
+              </div>
+            </div>
+
+            {/* Reserva de perfil público */}
+            <div className="bg-zinc-900 border border-emerald-900/60 rounded-xl p-5">
+              <h2 className="text-lg font-bold mb-1">Reserva tu perfil NexCard</h2>
+              <p className="text-xs text-zinc-500 mb-5">Este será tu enlace público. Lo bloqueamos durante el pago y, al confirmarse, queda reservado para tu activación.</p>
+              <label className={labelClass}>Usuario público</label>
+              <div className="flex rounded-lg border border-zinc-700 bg-zinc-800 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/30 transition-colors overflow-hidden">
+                <span className="px-3 py-3 text-zinc-500 text-sm font-bold border-r border-zinc-700">nexcard.cl/</span>
+                <input
+                  data-cy="checkout-desired-slug"
+                  type="text"
+                  value={desiredSlug}
+                  onChange={(e) => handleDesiredSlugChange(e.target.value)}
+                  onBlur={() => checkDesiredSlugAvailability(desiredSlug)}
+                  placeholder="tu-nombre-o-marca"
+                  autoComplete="off"
+                  className="flex-1 bg-transparent px-4 py-3 text-white placeholder-zinc-500 focus:outline-none text-sm font-bold"
+                />
+              </div>
+              <div className="mt-2 min-h-[18px]">
+                {slugStatus === 'checking' ? <p className="text-xs font-bold text-zinc-400">Validando disponibilidad…</p> : null}
+                {slugStatus === 'available' ? <p className="text-xs font-bold text-emerald-400">{slugMessage || 'Usuario disponible.'}</p> : null}
+                {['invalid', 'taken'].includes(slugStatus) ? <p className="text-xs font-bold text-rose-400">{slugMessage}</p> : null}
+                {slugStatus === 'idle' ? <p className="text-xs text-zinc-500">Solo letras, números y guiones. No se permiten duplicados.</p> : null}
               </div>
             </div>
 
@@ -689,7 +776,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               <div className="flex-[2] flex flex-col gap-1.5">
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || slugStatus === 'checking'}
                   className="btn-press w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
                 >
                   {loading ? (

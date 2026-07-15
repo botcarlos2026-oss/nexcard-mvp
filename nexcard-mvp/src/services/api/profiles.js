@@ -1,11 +1,4 @@
-const slugify = (value = '') => value
-  .toLowerCase()
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-z0-9\s-]/g, '')
-  .trim()
-  .replace(/\s+/g, '-')
-  .replace(/-+/g, '-');
+import { slugify } from '../../utils/slug';
 
 const normalizeAccountType = (value) => {
   if (value === 'business' || value === 'company') return 'company';
@@ -127,6 +120,16 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     return data;
   };
 
+  const checkProfileSlugAvailability = async (slug, orderId = null) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { data, error } = await supabase.rpc('check_profile_slug_availability', {
+      candidate_slug: slug,
+      current_order_id: orderId,
+    });
+    if (error) throw new Error(error.message || 'No fue posible validar el usuario');
+    return data;
+  };
+
   const updateMyProfile = async (payload) => {
     if (!hasSupabase) throw new Error('Edición deshabilitada');
     const userId = getClerkUserId();
@@ -147,21 +150,17 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
       existingProfile,
     });
 
-    if (!existingProfile) {
-      let uniquePayload = { ...profilePayload };
-      const { data: slugTaken } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('slug', uniquePayload.slug)
-        .maybeSingle();
-
-      if (slugTaken) {
-        uniquePayload.slug = `${uniquePayload.slug}-${Date.now()}`;
+    if (existingProfile?.slug !== profilePayload.slug) {
+      const availability = await checkProfileSlugAvailability(profilePayload.slug);
+      if (!availability.available && availability.reason !== 'reserved') {
+        throw new Error(availability.message || 'Ese usuario no está disponible.');
       }
+    }
 
+    if (!existingProfile) {
       const { data, error } = await supabase
         .from('profiles')
-        .insert(uniquePayload)
+        .insert(profilePayload)
         .select()
         .single();
       if (error) throw new Error(error.message);
@@ -249,6 +248,7 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     getPublicProfile,
     getMyProfile,
     updateMyProfile,
+    checkProfileSlugAvailability,
     getProfileSlugForOrder,
     getAdminProfiles,
     archiveProfile,

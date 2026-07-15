@@ -47,8 +47,14 @@ serve(async (req) => {
 
     const { data: order } = await admin
       .from('orders')
-      .select('id, folio, customer_name, customer_email, payment_status, fulfillment_status, amount_cents, created_at')
+      .select('id, folio, customer_name, customer_email, payment_status, fulfillment_status, amount_cents, card_customization, created_at')
       .eq('id', claim.order_id)
+      .maybeSingle();
+
+    const { data: slugReservation } = await admin
+      .from('profile_slug_reservations')
+      .select('slug, status, expires_at, profile_id')
+      .eq('order_id', claim.order_id)
       .maybeSingle();
 
     if (action === 'preview') {
@@ -59,6 +65,8 @@ serve(async (req) => {
           already_claimed: claim.status === 'claimed',
         },
         order,
+        reserved_slug: slugReservation?.status === 'reserved' ? slugReservation.slug : order?.card_customization?.desired_slug || null,
+        slug_reservation: slugReservation || null,
       }), {
         status: 200,
         headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -113,6 +121,21 @@ serve(async (req) => {
 
     await admin.from('profile_claims').update(updatePayload).eq('id', claim.id);
 
+    if (profile?.id && slugReservation?.status === 'reserved' && slugReservation.slug === profile.slug) {
+      await admin
+        .from('profile_slug_reservations')
+        .update({
+          status: 'consumed',
+          profile_id: profile.id,
+          reserved_by_user_id: user.id,
+          consumed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('order_id', claim.order_id)
+        .eq('slug', profile.slug)
+        .eq('status', 'reserved');
+    }
+
     const { data: ensureCardsResult, error: ensureCardsError } = await admin.rpc('ensure_order_pending_cards', {
       target_order_id: claim.order_id,
     });
@@ -151,6 +174,8 @@ serve(async (req) => {
         claimed_profile_id: profile?.id || null,
       },
       order,
+      reserved_slug: slugReservation?.status === 'reserved' ? slugReservation.slug : order?.card_customization?.desired_slug || null,
+      slug_reservation: slugReservation || null,
       profile: profile || null,
     }), {
       status: 200,
