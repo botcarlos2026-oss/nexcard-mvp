@@ -23,7 +23,7 @@ function App() {
   const [ordersAdminData, setOrdersAdminData] = useState([]);
   const [error, setError] = useState('');
   const [pendingClaimToken, setPendingClaimTokenState] = useState(() => getPendingClaimToken());
-  const { getTotalItems } = useCart();
+  const { getTotalItems, startNewCheckout } = useCart();
   const {
     checkoutStep,
     currentOrder,
@@ -144,7 +144,10 @@ function App() {
       handleLogout={handleLogout}
       handleClaimAuthRequired={handleClaimAuthRequired}
       handleContinueSetup={handleContinueSetup}
-      handleCheckoutStart={handleCheckoutStart}
+      handleCheckoutStart={() => {
+        startNewCheckout();
+        handleCheckoutStart();
+      }}
       navigate={navigate}
     />
   );
