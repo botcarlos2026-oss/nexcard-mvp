@@ -111,7 +111,7 @@ export default function AppRouteRenderer({
 
   if (path === '/setup') {
     return <SetupWizard onComplete={async (wizardData) => {
-      await handleSave({ ...data, ...wizardData });
+      await handleSave(wizardData);
       navigate('/edit');
     }} />;
   }

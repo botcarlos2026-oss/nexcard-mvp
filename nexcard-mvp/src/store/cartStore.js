@@ -47,7 +47,9 @@ export const useCart = create(
           ),
         })),
 
-      clearCart: () => set({ items: [] }),
+      clearCart: () => set({ items: [], checkoutData: null }),
+
+      startNewCheckout: () => set({ items: [], checkoutData: null }),
 
       getTotalCents: () => {
         const { items } = get();
