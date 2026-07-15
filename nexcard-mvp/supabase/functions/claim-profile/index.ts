@@ -113,15 +113,33 @@ serve(async (req) => {
 
     await admin.from('profile_claims').update(updatePayload).eq('id', claim.id);
 
+    const { data: ensureCardsResult, error: ensureCardsError } = await admin.rpc('ensure_order_pending_cards', {
+      target_order_id: claim.order_id,
+    });
+
+    if (ensureCardsError) {
+      log('warn', 'ensure_order_pending_cards_failed', { order_id: claim.order_id, error: ensureCardsError.message });
+    }
+
     if (profile?.id) {
       await admin
         .from('cards')
-        .update({ profile_id: profile.id, updated_at: new Date().toISOString() })
+        .update({
+          profile_id: profile.id,
+          activation_status: 'assigned',
+          assigned_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
         .eq('order_id', claim.order_id)
         .is('profile_id', null);
     }
 
-    log('info', 'claim_consumed', { claim_id: claim.id, user_id: user.id, profile_id: profile?.id || null });
+    log('info', 'claim_consumed', {
+      claim_id: claim.id,
+      user_id: user.id,
+      profile_id: profile?.id || null,
+      ensure_cards: ensureCardsResult || null,
+    });
 
     return new Response(JSON.stringify({
       success: true,
