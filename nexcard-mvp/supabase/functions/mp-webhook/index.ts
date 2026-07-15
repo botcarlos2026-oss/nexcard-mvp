@@ -206,6 +206,16 @@ async function applyOrderPaymentOutcome(
 }
 
 async function ensureProfileActivationFlow(supabase: ReturnType<typeof createClient>, supabaseUrl: string, serviceRoleKey: string, orderId: string, payerEmail?: string) {
+  await supabase
+    .from('profile_slug_reservations')
+    .update({
+      status: 'reserved',
+      expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('order_id', orderId)
+    .eq('status', 'reserved');
+
   const { data: existingClaim } = await supabase
     .from('profile_claims')
     .select('id, claim_token, status')

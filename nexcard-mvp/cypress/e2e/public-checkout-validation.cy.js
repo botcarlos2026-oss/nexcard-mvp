@@ -21,6 +21,8 @@ describe('Public checkout validation', () => {
     cy.get('input[name="customerPhone"]').type('56912345678');
     cy.get('input[name="customerEmail"]').type('qa.checkout@nexcard.cl');
     cy.get('textarea[name="customerAddress"]').type('Av. Apoquindo 1234, Las Condes, Santiago');
+    cy.get('[data-cy="checkout-desired-slug"]').type(`qa-checkout-${Date.now()}`).blur();
+    cy.contains(/usuario disponible/i, { timeout: 10000 }).should('exist');
     cy.get('input[name="acceptTerms"]').check({ force: true });
     cy.get('input[name="requiresInvoice"]').check({ force: true });
 

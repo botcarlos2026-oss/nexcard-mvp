@@ -73,6 +73,9 @@ function App() {
         await api.claimProfile(claimToken);
         setPendingClaimToken(null);
         setPendingClaimTokenState(null);
+        try {
+          sessionStorage.removeItem('nx_pending_profile_slug');
+        } catch {}
       } catch (_) {
         // no bloquear guardado del perfil
       }

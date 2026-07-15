@@ -199,6 +199,8 @@ export const api = {
 
   updateMyProfile: async (payload) => profilesApi.updateMyProfile(payload),
 
+  checkProfileSlugAvailability: async (slug, orderId = null) => profilesApi.checkProfileSlugAvailability(slug, orderId),
+
   getAdminDashboard: async () => adminDashboardApi.getAdminDashboard(),
 
   getProducts: async () => productsApi.getProducts(),

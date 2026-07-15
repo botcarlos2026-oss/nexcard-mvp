@@ -36,6 +36,11 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
     try {
       const result = await api.claimProfile(token);
       setClaimData(result);
+      if (result.reserved_slug) {
+        try {
+          sessionStorage.setItem('nx_pending_profile_slug', result.reserved_slug);
+        } catch {}
+      }
       if (result.requires_profile_setup) {
         onContinueSetup?.(token);
       }

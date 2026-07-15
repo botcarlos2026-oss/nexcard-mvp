@@ -147,6 +147,7 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId }) {
       customer_address: payload.customer_address?.trim() || null,
       payment_method: payload.payment_method,
       amount_cents: payload.amount_cents,
+      desired_profile_slug: payload.desired_profile_slug,
       coupon_code: payload.coupon_code || null,
       currency: payload.currency || 'CLP',
       card_customization: payload.card_customization || null,
