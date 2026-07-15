@@ -11,8 +11,7 @@ import {
   ChevronRight,
   Settings,
   TrendingUp,
-  Loader2,
-  LayoutTemplate
+  Loader2
 } from 'lucide-react';
 import { uploadAvatar, uploadCover } from '../utils/imageEngine';
 import { getClerkUserId } from '../services/supabaseClient';
@@ -80,7 +79,6 @@ const UserEditor = ({ data, onSave, onLogout }) => {
     { id: 'design', label: 'Diseño', icon: Palette },
     { id: 'links', label: 'Enlaces', icon: LinkChainIcon },
     { id: 'bank', label: 'Pago', icon: CreditCard },
-    { id: 'content', label: 'Landing', icon: LayoutTemplate },
   ];
 
   return (
@@ -154,12 +152,6 @@ const UserEditor = ({ data, onSave, onLogout }) => {
                 </div>
               </div>
 
-              <div className="p-6 bg-zinc-950 rounded-[24px] text-white">
-                <p className="text-xs font-bold opacity-50 mb-4">NexCard Insights</p>
-                <p className="text-sm font-medium leading-relaxed">
-                  Perfil ya conectado a una capa de API. Siguiente salto de valor: checkout real, roles persistentes y activación de pedidos.
-                </p>
-              </div>
             </div>
           )}
 
@@ -343,24 +335,6 @@ const UserEditor = ({ data, onSave, onLogout }) => {
             </div>
           )}
 
-          {activeTab === 'content' && (
-            <div className="space-y-6">
-              <div className="p-5 bg-zinc-50 rounded-2xl border border-zinc-100">
-                <p className="text-sm font-bold text-zinc-950">Estado del CMS</p>
-                <p className="text-sm text-zinc-500 mt-2">La base ya quedó lista para manejar contenido editable de landing vía API. El siguiente paso es exponer este bloque desde un panel admin separado con permisos por rol.</p>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="p-5 rounded-2xl bg-zinc-950 text-white">
-                  <p className="text-xs uppercase tracking-widest text-zinc-500 font-black mb-2">Ahora</p>
-                  <p className="font-bold">Perfil editable del cliente</p>
-                </div>
-                <div className="p-5 rounded-2xl bg-white border border-zinc-100">
-                  <p className="text-xs uppercase tracking-widest text-zinc-400 font-black mb-2">Siguiente fase</p>
-                  <p className="font-bold text-zinc-950">Landing comercial editable desde admin</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="mt-8 text-center">
