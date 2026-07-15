@@ -234,9 +234,9 @@ export const matchesOperationalFilter = (order, filter = 'all') => {
   return true;
 };
 
-export const getKanbanLaneKey = (order) => {
+export const getKanbanLaneKey = (order, now = new Date()) => {
   const hasAlerts = (order?.observability_alerts || []).length > 0;
-  const hasSlaAlert = !!deriveOrderSlaAlert(order);
+  const hasSlaAlert = !!deriveOrderSlaAlert(order, now);
   const deliveredWithoutActivation = order?.fulfillment_status === 'delivered' && !order?.activation_completed;
   if (hasAlerts || hasSlaAlert || deliveredWithoutActivation) return 'alerts';
   if (order?.payment_status === 'paid' && order?.fulfillment_status === 'new') return 'paid_new';
@@ -275,10 +275,11 @@ export const isOrderReadyForDispatch = (order) => {
   );
 };
 
-export const buildOrdersKanbanGroups = (orders = []) => {
+export const buildOrdersKanbanGroups = (orders = [], options = {}) => {
+  const now = options.now || new Date();
   const groups = KANBAN_LANES.reduce((acc, lane) => ({ ...acc, [lane.key]: [] }), {});
   orders.forEach((order) => {
-    const laneKey = getKanbanLaneKey(order);
+    const laneKey = getKanbanLaneKey(order, now);
     if (laneKey && groups[laneKey]) groups[laneKey].push(order);
   });
   return groups;

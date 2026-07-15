@@ -163,7 +163,7 @@ describe('orders utils', () => {
       { id: 'observability-alert', created_at: now.toISOString(), payment_status: 'paid', fulfillment_status: 'in_production', observability_alerts: ['drift'] },
     ];
 
-    const groups = buildOrdersKanbanGroups(orders);
+    const groups = buildOrdersKanbanGroups(orders, { now });
     expect(groups.paid_new.map((order) => order.id)).toEqual(['paid-new']);
     expect(groups.in_production.map((order) => order.id)).toEqual(['in-production']);
     expect(groups.ready_to_ship.map((order) => order.id)).toEqual(['ready']);
