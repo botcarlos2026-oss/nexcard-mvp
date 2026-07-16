@@ -91,6 +91,10 @@ const FAQS = [
   { q: '¿La tarjeta tiene QR de respaldo?', a: 'Sí. Cada tarjeta puede incluir QR dinámico al reverso para que el contacto funcione incluso si el teléfono no lee NFC.' },
 ];
 
+const BRAND_LOGO_STYLE = {
+  fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+};
+
 function TeamMemberCard({ member }) {
   const [imgError, setImgError] = useState(false);
   const initials = member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
@@ -263,7 +267,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     <div className="min-h-screen bg-zinc-950 text-white antialiased">
       <nav className="sticky top-0 z-30 bg-zinc-950/90 border-b border-zinc-800 backdrop-blur-xl">
         <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto min-h-[68px] flex items-center justify-between gap-4">
-          <a href="#top" className="text-[1.35rem] font-black tracking-[-0.04em]" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-300">Card</span></a>
+          <a href="#top" className="text-[1.35rem] font-black tracking-[-0.04em] leading-none" style={BRAND_LOGO_STYLE}>Nex<span className="text-emerald-300">Card</span></a>
           <div className="flex items-center gap-5 text-sm text-zinc-400">
             <a href="#como" className="hidden md:inline hover:text-white transition-colors">Cómo funciona</a>
             <a href="#precios" className="hidden md:inline hover:text-white transition-colors">Precios</a>
@@ -445,7 +449,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
       <footer className="border-t border-zinc-800 py-10 px-5">
         <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <span className="text-[1.35rem] font-black tracking-[-0.04em]" style={{ fontFamily: 'var(--font-logo)' }}>Nex<span className="text-emerald-300">Card</span></span>
+          <span className="text-[1.35rem] font-black tracking-[-0.04em] leading-none" style={BRAND_LOGO_STYLE}>Nex<span className="text-emerald-300">Card</span></span>
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-zinc-500">
             <span>© 2026 NexCard</span>
             <a href="/terminos" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Términos</a>
