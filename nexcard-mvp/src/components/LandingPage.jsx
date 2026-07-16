@@ -285,7 +285,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 <Smartphone size={13} />
                 NFC + QR dinámico · sin apps
               </div>
-              <h1 className="text-[3.05rem] md:text-[clamp(3rem,6.6vw,6.2rem)] font-bold leading-[0.94] tracking-[-0.07em] mb-[22px] max-w-[680px]">{heroTitle}</h1>
+              <h1 className="text-[3.05rem] md:text-[clamp(3rem,5.6vw,6.2rem)] font-bold leading-[0.94] tracking-[-0.07em] mb-[22px] max-w-[680px]">{heroTitle}</h1>
               <p className="text-lg md:text-[1.18rem] text-zinc-400 leading-[1.62] mb-[30px] max-w-[650px]">{heroLead}</p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">
