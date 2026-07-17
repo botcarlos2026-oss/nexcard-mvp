@@ -25,10 +25,30 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '2mb' }));
 
+function buildMinimalSeed() {
+  return {
+    users: [],
+    profiles: [],
+    products: [],
+    orders: [],
+    inventory: [],
+    cards: [],
+    card_events: [],
+    card_scans: [],
+    content: {
+      landing: {},
+    },
+  };
+}
+
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(DB_FILE)) {
-    fs.copyFileSync(SEED_FILE, DB_FILE);
+    if (fs.existsSync(SEED_FILE)) {
+      fs.copyFileSync(SEED_FILE, DB_FILE);
+    } else {
+      fs.writeFileSync(DB_FILE, JSON.stringify(buildMinimalSeed(), null, 2));
+    }
   }
 }
 

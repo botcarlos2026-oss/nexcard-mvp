@@ -28,7 +28,8 @@ export default function ProductCatalog({ onProceedToCart }) {
       try {
         setLoading(true);
         setError('');
-        const data = await api.getProducts();
+        const includeTestProducts = new URLSearchParams(window.location.search).get('mp_test') === '1';
+        const data = await api.getProducts({ includeTestProducts });
         setProducts(data);
       } catch (err) {
         setError(err.message || 'No fue posible cargar el catálogo');
