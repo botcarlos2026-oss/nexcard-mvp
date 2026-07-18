@@ -203,10 +203,11 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [teamMembers, setTeamMembers] = useState([]);
   const [showWheel, setShowWheel] = useState(false);
   const [wheelData, setWheelData] = useState(null);
+  const includeTestProducts = new URLSearchParams(window.location.search).get('mp_test') === '1';
   const formatPrice = (n) => Number(n || 0).toLocaleString('es-CL');
 
   useEffect(() => {
-    api.getProducts().then((products) => {
+    api.getProducts({ includeTestProducts }).then((products) => {
       if (!products?.length) return;
       const sorted = [...products].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
       const merged = sorted.map((dbProduct) => {
@@ -228,7 +229,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       });
       setPricing(merged);
     }).catch(() => { /* mantener fallback */ });
-  }, []);
+  }, [includeTestProducts]);
 
   useEffect(() => {
     api.getTeamMembers().then(({ members }) => setTeamMembers(members || [])).catch(() => {});

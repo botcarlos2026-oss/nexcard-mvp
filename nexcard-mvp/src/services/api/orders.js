@@ -215,6 +215,7 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId }) {
     const { data, error } = await supabase
       .from('orders')
       .select('*, order_items(*), payments(*)')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
 
