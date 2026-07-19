@@ -1,9 +1,73 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
+
+const textEncoder = new TextEncoder();
+
+function timingSafeEqual(a: string, b: string) {
+  const left = textEncoder.encode(a);
+  const right = textEncoder.encode(b);
+  if (left.length !== right.length) return false;
+  let diff = 0;
+  for (let i = 0; i < left.length; i += 1) diff |= left[i] ^ right[i];
+  return diff === 0;
+}
+
+function parseSignatureHeader(signature: string | null) {
+  return Object.fromEntries(String(signature || '').split(',').map((part) => {
+    const [key, value] = part.split('=', 2).map((item) => item?.trim());
+    return [key, value];
+  }).filter(([key, value]) => key && value));
+}
+
+async function hmacSha256Hex(secret: string, payload: string) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    textEncoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const digest = await crypto.subtle.sign('HMAC', key, textEncoder.encode(payload));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function verifyMercadoPagoSignature(req: Request, dataId: string, secret: string) {
+  const requestId = req.headers.get('x-request-id');
+  const parts = parseSignatureHeader(req.headers.get('x-signature'));
+  const ts = parts.ts;
+  const v1 = parts.v1;
+  if (!requestId || !ts || !v1 || !dataId) return false;
+
+  const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+  const expected = await hmacSha256Hex(secret, manifest);
+  return timingSafeEqual(expected, v1);
+}
+
+async function triggerOrderConfirmation(supabaseUrl: string, serviceRoleKey: string, orderId: string) {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-order-confirmation`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey': serviceRoleKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ order_id: orderId }),
+    });
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok || responseData?.success === false) {
+      log('warn', 'order_confirmation_trigger_failed', { order_id: orderId, status: response.status, response: responseData });
+      return;
+    }
+    log('info', 'order_confirmation_triggered', { order_id: orderId, resend_id: responseData?.resend?.id || null });
+  } catch (error) {
+    log('warn', 'order_confirmation_trigger_failed', { order_id: orderId, error: error.message });
+  }
+}
 
 async function mpGetJson(path: string, token: string) {
   const response = await fetch(`https://api.mercadopago.com${path}`, {
@@ -294,13 +358,15 @@ async function ensureProfileActivationFlow(supabase: ReturnType<typeof createCli
 serve(async (req) => {
   try {
     const MP_ACCESS_TOKEN = Deno.env.get('MP_ACCESS_TOKEN');
+    const MP_WEBHOOK_SECRET = Deno.env.get('MP_WEBHOOK_SECRET');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!MP_ACCESS_TOKEN || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!MP_ACCESS_TOKEN || !SUPABASE_SERVICE_ROLE_KEY || !MP_WEBHOOK_SECRET) {
       log('error', 'missing_env_vars', {
         has_mp_token: !!MP_ACCESS_TOKEN,
         has_service_role: !!SUPABASE_SERVICE_ROLE_KEY,
+        has_mp_webhook_secret: !!MP_WEBHOOK_SECRET,
       });
       return new Response('error', { status: 500 });
     }
@@ -326,6 +392,12 @@ serve(async (req) => {
     if (!bodyId || (topic !== 'payment' && topic !== 'merchant_order')) {
       log('warn', 'webhook_ignored', { bodyId, topic });
       return new Response('ok', { status: 200 });
+    }
+
+    const signatureOk = await verifyMercadoPagoSignature(req, String(bodyId), MP_WEBHOOK_SECRET);
+    if (!signatureOk) {
+      log('warn', 'invalid_mp_webhook_signature', { topic, id: bodyId });
+      return new Response('invalid signature', { status: 401 });
     }
 
     const payment = await resolvePaymentFromWebhook(topic, String(bodyId), MP_ACCESS_TOKEN);
@@ -393,6 +465,9 @@ serve(async (req) => {
 
     if (mappedStatus === 'paid') {
       await ensureProfileActivationFlow(supabase, SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId, payment.payer?.email);
+      if (currentOrder.payment_status !== 'paid' && transition.nextPaymentStatus === 'paid') {
+        await triggerOrderConfirmation(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, orderId);
+      }
     }
 
     return new Response('ok', { status: 200 });
