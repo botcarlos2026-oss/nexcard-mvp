@@ -178,28 +178,9 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId }) {
 
     if (fetchError || !createdOrder) throw new Error('Orden creada pero no se pudo recuperar');
 
-    const { data: storedItems } = await supabase
-      .from('order_items')
-      .select('product_id, quantity, unit_price_cents')
-      .eq('order_id', orderId);
-
-    const productNameMap = Object.fromEntries(
-      (payload.items || []).map((item) => [item.product_id, item.product_name || item.product_id])
-    );
-
     try {
-      const emailPayload = {
-        order: createdOrder,
-        card_customization: payload.card_customization || null,
-        items: (storedItems?.length ? storedItems : payload.items).map((item) => ({
-          product_id: item.product_id,
-          product_name: productNameMap[item.product_id] || item.product_id,
-          quantity: item.quantity,
-          unit_price_cents: item.unit_price_cents,
-        })),
-      };
       await supabase.functions.invoke('send-order-confirmation', {
-        body: JSON.stringify(emailPayload),
+        body: JSON.stringify({ order_id: createdOrder.id }),
         headers: { 'Content-Type': 'application/json' },
       });
     } catch {

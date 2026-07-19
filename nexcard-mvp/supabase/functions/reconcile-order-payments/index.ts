@@ -2,16 +2,42 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Origin': 'null',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ops-secret',
 };
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
 
+function safeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ba = enc.encode(a);
+  const bb = enc.encode(b);
+  if (ba.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ba.length; i += 1) diff |= ba[i] ^ bb[i];
+  return diff === 0;
+}
+
+function requireOpsSecret(req: Request): Response | null {
+  const expected = Deno.env.get('OPS_SHARED_SECRET') || '';
+  const provided = req.headers.get('x-ops-secret') || '';
+  if (!expected || !safeEqual(provided, expected)) {
+    log('warn', 'unauthorized_ops_call', { path: new URL(req.url).pathname });
+    return new Response(JSON.stringify({ success: false, error: 'No autorizado' }), {
+      status: 401,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  const unauthorized = requireOpsSecret(req);
+  if (unauthorized) return unauthorized;
 
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;

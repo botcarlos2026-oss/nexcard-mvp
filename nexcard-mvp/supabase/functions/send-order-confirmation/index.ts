@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +8,22 @@ const corsHeaders = {
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
+};
+
+const escapeHtml = (value: unknown): string => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const moneyCLP = (value: unknown): string => Number(value || 0).toLocaleString('es-CL');
+
+const buildSubject = (order: any): string => {
+  const folio = order?.folio || null;
+  return folio
+    ? `✅ Orden confirmada ${folio}`
+    : `✅ Orden confirmada #${String(order?.id || '').slice(0, 8).toUpperCase()}`;
 };
 
 serve(async (req) => {
@@ -21,25 +38,73 @@ serve(async (req) => {
       throw new Error('Body vacío');
     }
 
-    const { order, items, card_customization } = JSON.parse(text);
-    const folio = order?.folio || null;
+    const { order_id } = JSON.parse(text);
+    if (!order_id) throw new Error('order_id requerido');
 
-    log('info', 'request_received', { order_id: order?.id });
-
-    if (!order || !order.customer_email) {
-      throw new Error('Datos de orden incompletos');
-    }
+    log('info', 'request_received', { order_id });
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY no configurada');
 
-    const itemsHTML = (items || []).map((item: any) => `
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase env faltante');
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, folio, customer_name, customer_email, amount_cents, payment_method, payment_status, card_customization')
+      .eq('id', order_id)
+      .single();
+
+    if (orderError || !order) throw new Error('Orden no encontrada');
+
+    if (order.payment_status !== 'paid') {
+      log('warn', 'order_confirmation_skipped_unpaid', { order_id, payment_status: order.payment_status });
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: 'order_not_paid' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!order.customer_email) throw new Error('Orden sin customer_email');
+
+    const { data: items, error: itemsError } = await supabase
+      .from('order_items')
+      .select('product_id, quantity, unit_price_cents')
+      .eq('order_id', order_id);
+
+    if (itemsError) throw new Error(`No se pudieron leer items de orden: ${itemsError.message}`);
+
+    const productIds = [...new Set((items || []).map((item: any) => item.product_id).filter(Boolean))];
+    const { data: products } = productIds.length > 0
+      ? await supabase.from('products').select('id, name, sku').in('id', productIds)
+      : { data: [] } as any;
+    const productMap = Object.fromEntries((products || []).map((product: any) => [product.id, product]));
+
+    const itemsHTML = (items || []).map((item: any) => {
+      const product = productMap[item.product_id] || {};
+      const productName = product.name || product.sku || item.product_id || 'Producto';
+      const quantity = Number(item.quantity || 1);
+      const subtotal = Number(item.unit_price_cents || 0) * quantity;
+      return `
       <tr>
-        <td style="padding:8px 0;border-bottom:1px solid #f0f0f0">${item.product_name || item.product_id || 'Producto'}</td>
-        <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;text-align:center">${item.quantity || 1}</td>
-        <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;text-align:right">$${((item.unit_price_cents || 0) * (item.quantity || 1)).toLocaleString('es-CL')}</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f0f0f0">${escapeHtml(productName)}</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;text-align:center">${escapeHtml(quantity)}</td>
+        <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;text-align:right">$${moneyCLP(subtotal)}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
+
+    const folio = order.folio || null;
+    const cardCustomization = order.card_customization || null;
+    const customerName = order.customer_name || 'Cliente';
+    const subject = buildSubject(order);
 
     const emailHTML = `
 <!DOCTYPE html>
@@ -52,12 +117,12 @@ serve(async (req) => {
     </div>
     <div style="padding:32px">
       <h2 style="color:#09090B;font-size:22px;margin:0 0 8px">¡Orden confirmada! 🎉</h2>
-      <p style="color:#6b7280;margin:0 0 24px">Hola ${order.customer_name || 'Cliente'}, recibimos tu pedido correctamente.</p>
+      <p style="color:#6b7280;margin:0 0 24px">Hola ${escapeHtml(customerName)}, recibimos tu pago correctamente.</p>
       <div style="background:#f9fafb;border-radius:12px;padding:20px;margin-bottom:24px">
         ${folio ? `<p style="margin:0 0 2px;font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase">Folio de producción</p>
-        <p style="margin:0 0 12px;font-size:20px;font-weight:900;color:#09090B">${folio}</p>` : ''}
+        <p style="margin:0 0 12px;font-size:20px;font-weight:900;color:#09090B">${escapeHtml(folio)}</p>` : ''}
         <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;font-weight:700;text-transform:uppercase">Número de orden</p>
-        <p style="margin:0;font-size:12px;font-weight:700;color:#6b7280;font-family:monospace">${order.id}</p>
+        <p style="margin:0;font-size:12px;font-weight:700;color:#6b7280;font-family:monospace">${escapeHtml(order.id)}</p>
       </div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
         <thead>
@@ -71,7 +136,7 @@ serve(async (req) => {
       </table>
       <div style="border-top:2px solid #09090B;padding-top:16px">
         <span style="font-weight:900;font-size:18px">Total: </span>
-        <span style="font-weight:900;font-size:24px;color:#10B981">$${(order.amount_cents || 0).toLocaleString('es-CL')}</span>
+        <span style="font-weight:900;font-size:24px;color:#10B981">$${moneyCLP(order.amount_cents)}</span>
       </div>
       <div style="margin-top:24px;padding:16px;background:#ecfdf5;border-radius:12px;border:1px solid #a7f3d0">
         <p style="margin:0;color:#065f46;font-size:14px">
@@ -81,16 +146,16 @@ serve(async (req) => {
           <a href="https://wa.me/56993183021" style="color:#10B981">WhatsApp</a>.
         </p>
       </div>
-      ${(card_customization || order.card_customization) ? (() => {
-        const c = card_customization || order.card_customization;
+      ${cardCustomization ? (() => {
+        const c = cardCustomization;
         const templateNames: Record<string, string> = { minimal: 'Minimalista', dark: 'Dark premium', corporate: 'Corporativo', colorful: 'Colorido' };
         const rows = [
-          c.full_name ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Nombre</td><td style="padding:4px 0;font-size:13px;font-weight:600">${c.full_name}</td></tr>` : '',
-          c.job_title ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Cargo</td><td style="padding:4px 0;font-size:13px;font-weight:600">${c.job_title}</td></tr>` : '',
-          c.company ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Empresa</td><td style="padding:4px 0;font-size:13px;font-weight:600">${c.company}</td></tr>` : '',
-          c.template ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Plantilla</td><td style="padding:4px 0;font-size:13px;font-weight:600">${templateNames[c.template] || c.template}</td></tr>` : '',
-          c.primary_color ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Color</td><td style="padding:4px 0;font-size:13px;font-weight:600"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c.primary_color};vertical-align:middle;margin-right:6px"></span>${c.primary_color}</td></tr>` : '',
-          c.notes ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap;vertical-align:top">Notas</td><td style="padding:4px 0;font-size:13px;font-weight:600">${c.notes}</td></tr>` : '',
+          c.full_name ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Nombre</td><td style="padding:4px 0;font-size:13px;font-weight:600">${escapeHtml(c.full_name)}</td></tr>` : '',
+          c.job_title ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Cargo</td><td style="padding:4px 0;font-size:13px;font-weight:600">${escapeHtml(c.job_title)}</td></tr>` : '',
+          c.company ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Empresa</td><td style="padding:4px 0;font-size:13px;font-weight:600">${escapeHtml(c.company)}</td></tr>` : '',
+          c.template ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Plantilla</td><td style="padding:4px 0;font-size:13px;font-weight:600">${escapeHtml(templateNames[c.template] || c.template)}</td></tr>` : '',
+          c.primary_color ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap">Color</td><td style="padding:4px 0;font-size:13px;font-weight:600"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${escapeHtml(c.primary_color)};vertical-align:middle;margin-right:6px"></span>${escapeHtml(c.primary_color)}</td></tr>` : '',
+          c.notes ? `<tr><td style="padding:4px 8px 4px 0;color:#6b7280;font-size:13px;white-space:nowrap;vertical-align:top">Notas</td><td style="padding:4px 0;font-size:13px;font-weight:600">${escapeHtml(c.notes)}</td></tr>` : '',
         ].join('');
         return `<div style="margin-top:24px;padding:16px;background:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0">
           <p style="margin:0 0 12px;color:#065f46;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">Tu tarjeta será personalizada con:</p>
@@ -114,7 +179,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'NexCard <hola@nexcard.cl>',
         to: [order.customer_email],
-        subject: folio ? `✅ Orden confirmada ${folio}` : `✅ Orden confirmada #${order.id?.slice(0, 8).toUpperCase()}`,
+        subject,
         html: emailHTML,
       }),
     });
@@ -125,37 +190,31 @@ serve(async (req) => {
       log('error', 'resend_customer_email_failed', { order_id: order.id, status: resendResponse.status, resend_error: resendData });
       return new Response(
         JSON.stringify({ success: false, error: resendData }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     log('info', 'customer_email_sent', { order_id: order.id, resend_id: resendData?.id });
 
     try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        await supabase.rpc('log_email_event', {
-          p_recipient_email: order.customer_email,
-          p_email_type: 'order_confirmation',
-          p_order_id: order.id,
-          p_subject: folio ? `✅ Orden confirmada ${folio}` : `✅ Orden confirmada #${order.id?.slice(0, 8).toUpperCase()}`,
-          p_status: 'sent',
-          p_provider: 'resend',
-          p_provider_message_id: resendData?.id || null,
-          p_metadata: {
-            audience: 'customer',
-            items_count: Array.isArray(items) ? items.length : 0,
-          },
-        });
-      }
+      await supabase.rpc('log_email_event', {
+        p_recipient_email: order.customer_email,
+        p_email_type: 'order_confirmation',
+        p_order_id: order.id,
+        p_subject: subject,
+        p_status: 'sent',
+        p_provider: 'resend',
+        p_provider_message_id: resendData?.id || null,
+        p_metadata: {
+          audience: 'customer',
+          items_count: Array.isArray(items) ? items.length : 0,
+        },
+      });
     } catch (logErr) {
       log('warn', 'customer_email_log_failed', { order_id: order.id, error: logErr.message });
     }
 
-    // Notificación interna
+    const internalSubject = `🛒 Nueva orden pagada — ${customerName} $${moneyCLP(order.amount_cents)}`;
     const internalResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -165,8 +224,8 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'NexCard <hola@nexcard.cl>',
         to: ['carlos.alvarez.contreras@gmail.com'],
-        subject: `🛒 Nueva orden — ${order.customer_name} $${(order.amount_cents || 0).toLocaleString('es-CL')}`,
-        html: `<p><strong>${order.customer_name}</strong> — ${order.customer_email}</p><p>Total: $${(order.amount_cents || 0).toLocaleString('es-CL')} CLP</p><p>Método: ${order.payment_method}</p><a href="https://nexcard.cl/admin/orders">Ver en admin →</a>`,
+        subject: internalSubject,
+        html: `<p><strong>${escapeHtml(customerName)}</strong> — ${escapeHtml(order.customer_email)}</p><p>Total: $${moneyCLP(order.amount_cents)} CLP</p><p>Método: ${escapeHtml(order.payment_method)}</p><a href="https://nexcard.cl/admin/orders">Ver en admin →</a>`,
       }),
     });
 
@@ -177,25 +236,19 @@ serve(async (req) => {
     } else {
       log('info', 'internal_notification_sent', { order_id: order.id, resend_id: internalData?.id });
       try {
-        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-        const supabaseUrl = Deno.env.get('SUPABASE_URL');
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-        if (supabaseUrl && supabaseKey) {
-          const supabase = createClient(supabaseUrl, supabaseKey);
-          await supabase.rpc('log_email_event', {
-            p_recipient_email: 'carlos.alvarez.contreras@gmail.com',
-            p_email_type: 'internal_notification',
-            p_order_id: order.id,
-            p_subject: `🛒 Nueva orden — ${order.customer_name} $${(order.amount_cents || 0).toLocaleString('es-CL')}`,
-            p_status: 'sent',
-            p_provider: 'resend',
-            p_provider_message_id: internalData?.id || null,
-            p_metadata: {
-              audience: 'internal',
-              notification_kind: 'new_order',
-            },
-          });
-        }
+        await supabase.rpc('log_email_event', {
+          p_recipient_email: 'carlos.alvarez.contreras@gmail.com',
+          p_email_type: 'internal_notification',
+          p_order_id: order.id,
+          p_subject: internalSubject,
+          p_status: 'sent',
+          p_provider: 'resend',
+          p_provider_message_id: internalData?.id || null,
+          p_metadata: {
+            audience: 'internal',
+            notification_kind: 'new_paid_order',
+          },
+        });
       } catch (logErr) {
         log('warn', 'internal_email_log_failed', { order_id: order.id, error: logErr.message });
       }
@@ -203,31 +256,27 @@ serve(async (req) => {
 
     // Emitir boleta/factura Bsale (NO-OP hasta configurar BSALE_ACCESS_TOKEN)
     try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (supabaseUrl && supabaseKey) {
-        await fetch(`${supabaseUrl}/functions/v1/emit-bsale-document`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ orderId: order.id, order }),
-        });
-      }
+      await fetch(`${SUPABASE_URL}/functions/v1/emit-bsale-document`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId: order.id }),
+      });
     } catch (bsaleErr) {
       log('warn', 'bsale_emission_skipped', { order_id: order.id, reason: bsaleErr.message });
     }
 
     return new Response(
-      JSON.stringify({ success: true, resend: resendData }),
+      JSON.stringify({ success: true, resend: { id: resendData?.id || null } }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     log('error', 'send_confirmation_exception', { message: error.message });
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ success: false, error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
