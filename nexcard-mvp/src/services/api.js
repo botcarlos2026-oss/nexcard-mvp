@@ -381,6 +381,10 @@ export const api = {
 
   recordWheelSpin: async (spin) => wheelApi.recordWheelSpin(spin),
 
+  spinWheel: async (wheelId, visitorId) => wheelApi.spinWheel(wheelId, visitorId),
+
+  updateWheelSpinEmail: async (spinId, visitorId, email) => wheelApi.updateWheelSpinEmail(spinId, visitorId, email),
+
   validateWheelCoupon: async (code) => wheelApi.validateWheelCoupon(code),
 
   redeemWheelCoupon: async (spinId, orderId) => wheelApi.redeemWheelCoupon(spinId, orderId),
