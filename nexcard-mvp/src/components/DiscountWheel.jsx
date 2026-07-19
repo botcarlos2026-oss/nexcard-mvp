@@ -27,16 +27,6 @@ function getLabelTransform(index, total, cx = 150, cy = 150, r = 135) {
   };
 }
 
-function pickWinner(prizes) {
-  const total = prizes.reduce((s, p) => s + (p.weight || 10), 0);
-  let rnd = Math.random() * total;
-  for (let i = 0; i < prizes.length; i++) {
-    rnd -= prizes[i].weight || 10;
-    if (rnd <= 0) return i;
-  }
-  return prizes.length - 1;
-}
-
 function ConfettiParticles() {
   const particles = useMemo(() => {
     const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#EF4444'];
@@ -86,6 +76,7 @@ export default function DiscountWheel({ wheel, onClose }) {
   const [email, setEmail] = useState('');
   const [copied, setCopied] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [spinError, setSpinError] = useState('');
   const [showConfetti, setShowConfetti] = useState(false);
   const spinRef = useRef(false);
 
@@ -95,36 +86,43 @@ export default function DiscountWheel({ wheel, onClose }) {
     return id;
   };
 
-  const handleSpin = () => {
+  const handleSpin = async () => {
     if (spinning || winner || prizes.length === 0) return;
     spinRef.current = true;
     setSpinning(true);
+    setSpinError('');
 
-    const winnerIdx = pickWinner(prizes);
-    const segAngle = 360 / prizes.length;
-    const winnerAngle = (360 - ((winnerIdx + 0.5) * segAngle)) % 360;
-    const currentMod = rotation % 360;
-    const delta = (winnerAngle - currentMod + 360) % 360;
-    const newRotation = rotation + delta + 5 * 360;
+    try {
+      const spin = await api.spinWheel(wheel.id, getVisitorId());
+      const winnerIdx = prizes.findIndex((prize) => prize.id === spin?.prize_id);
+      if (winnerIdx < 0) throw new Error('Premio no disponible');
+      const selectedPrize = prizes[winnerIdx];
+      const serverWinner = {
+        ...selectedPrize,
+        coupon_code: spin?.coupon_code || null,
+        spin_id: spin?.spin_id || null,
+        label: spin?.prize_label || selectedPrize?.label,
+      };
+      const segAngle = 360 / prizes.length;
+      const winnerAngle = (360 - ((winnerIdx + 0.5) * segAngle)) % 360;
+      const currentMod = rotation % 360;
+      const delta = (winnerAngle - currentMod + 360) % 360;
+      const newRotation = rotation + delta + 5 * 360;
 
-    setRotation(newRotation);
+      setRotation(newRotation);
 
-    setTimeout(async () => {
+      setTimeout(() => {
+        setSpinning(false);
+        setShowConfetti(true);
+        setWinner(serverWinner);
+        localStorage.setItem('nx_wheel_spun', 'true');
+        setTimeout(() => setShowConfetti(false), 2000);
+      }, SPIN_DURATION + 200);
+    } catch (error) {
+      spinRef.current = false;
       setSpinning(false);
-      setShowConfetti(true);
-      setWinner(prizes[winnerIdx]);
-      localStorage.setItem('nx_wheel_spun', 'true');
-
-      try {
-        await api.recordWheelSpin({
-          wheel_id: wheel.id,
-          prize_id: prizes[winnerIdx].id,
-          visitor_id: getVisitorId(),
-        });
-      } catch { /* silencioso */ }
-
-      setTimeout(() => setShowConfetti(false), 2000);
-    }, SPIN_DURATION + 200);
+      setSpinError(error?.message || 'No pudimos girar la ruleta. Intenta nuevamente.');
+    }
   };
 
   const handleCopyCoupon = () => {
@@ -138,10 +136,7 @@ export default function DiscountWheel({ wheel, onClose }) {
     if (!email.includes('@')) return;
     setSubmitted(true);
     try {
-      const { data: spins } = await import('../services/supabaseClient').then(m => m.supabase.from('wheel_spins').select('id').eq('visitor_id', getVisitorId()).eq('prize_id', winner.id).limit(1).maybeSingle());
-      if (spins?.id) {
-        await import('../services/supabaseClient').then(m => m.supabase.from('wheel_spins').update({ email }).eq('id', spins.id));
-      }
+      await api.updateWheelSpinEmail(winner.spin_id, getVisitorId(), email);
     } catch { /* silencioso */ }
   };
 
@@ -227,13 +222,16 @@ export default function DiscountWheel({ wheel, onClose }) {
 
             {/* Spin action */}
             {!winner && (
-              <button
-                onClick={handleSpin}
-                disabled={spinning}
-                className="mt-5 w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors disabled:opacity-60 text-base"
-              >
-                {spinning ? '¡Girando…!' : '🎰 ¡Girar ahora!'}
-              </button>
+              <>
+                <button
+                  onClick={handleSpin}
+                  disabled={spinning}
+                  className="mt-5 w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors disabled:opacity-60 text-base"
+                >
+                  {spinning ? '¡Girando…!' : '🎰 ¡Girar ahora!'}
+                </button>
+                {spinError && <p className="text-red-300 text-sm mt-3 text-center">{spinError}</p>}
+              </>
             )}
 
             {/* Winner reveal */}
