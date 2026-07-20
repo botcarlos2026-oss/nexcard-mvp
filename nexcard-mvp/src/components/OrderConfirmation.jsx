@@ -12,11 +12,13 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
 
   const paymentStatusLabel = {
     paid: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
-    success: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
+    verifying: { text: 'Confirmando pago', color: 'text-amber-400', dot: 'bg-amber-400' },
+    success: { text: 'Confirmando pago', color: 'text-amber-400', dot: 'bg-amber-400' },
     pending: { text: 'Pendiente de confirmación', color: 'text-amber-400', dot: 'bg-amber-400' },
     failure: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
     failed: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
   }[order.payment_status] || { text: 'Pendiente', color: 'text-amber-400', dot: 'bg-amber-400' };
+  const isPaid = order.payment_status === 'paid';
 
   const orderDate = new Date(order.created_at).toLocaleDateString('es-CL', {
     year: 'numeric',
@@ -33,7 +35,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
       <div className="max-w-2xl mx-auto">
         {/* Icono y título según estado de pago */}
         <div className="text-center mb-8">
-          {order.payment_status === 'paid' || order.payment_status === 'success' ? (
+          {isPaid ? (
             <>
               <CheckCircle size={80} className="mx-auto text-emerald-400 mb-4" />
               <h1 className="text-4xl font-black mb-2">¡Orden Confirmada!</h1>
@@ -92,7 +94,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
               <p className="text-zinc-400 text-sm mb-2">Estado de Pago</p>
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${
-                  order.payment_status === 'paid' || order.payment_status === 'success'
+                  isPaid
                     ? 'bg-emerald-500'
                     : order.payment_status === 'failure' || order.payment_status === 'failed'
                     ? 'bg-red-500'
@@ -102,6 +104,9 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
                   {paymentStatusLabel.text}
                 </span>
               </div>
+              {order.payment_verification_message && (
+                <p className="mt-3 text-sm text-zinc-400">{order.payment_verification_message}</p>
+              )}
             </div>
 
             <div>
@@ -117,7 +122,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
         {/* Monto */}
         <div className="bg-emerald-900 border border-emerald-700 rounded-lg p-6 mb-8">
           <div className="flex justify-between items-center">
-            <span className="text-xl font-semibold">Total Pagado</span>
+            <span className="text-xl font-semibold">{isPaid ? 'Total Pagado' : 'Total de la orden'}</span>
             <span className="text-3xl font-black text-emerald-400">${totalCLP}</span>
           </div>
         </div>

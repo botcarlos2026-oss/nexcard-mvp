@@ -50,6 +50,14 @@ serve(async (req) => {
       );
     }
 
+    if (!['pending', 'failed'].includes(order.payment_status)) {
+      log('warn', 'order_not_payable', { order_id: orderId, payment_status: order.payment_status });
+      return new Response(
+        JSON.stringify({ error: 'La orden no está disponible para generar un nuevo link de pago' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { data: orderItems, error: itemsError } = await supabase
       .from('order_items')
       .select('product_id, quantity, unit_price_cents')
