@@ -131,9 +131,10 @@ export default function AppRouteRenderer({
     return <DeliveryConfirmation orderId={parts[0]} token={parts[1]} />;
   }
 
-  if (path === '/') return <ComingSoon />;
-  if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
-  if (path === '/coming-soon') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
+  if (path === '/' || path === '/preview') {
+    return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
+  }
+  if (path === '/coming-soon') return <ComingSoon />;
   if (path === '/privacidad') return <PrivacyPolicy />;
   if (path === '/terminos') return <TermsAndConditions />;
 
