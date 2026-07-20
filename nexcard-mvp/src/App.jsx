@@ -75,7 +75,9 @@ function App() {
         setPendingClaimTokenState(null);
         try {
           sessionStorage.removeItem('nx_pending_profile_slug');
-        } catch {}
+        } catch (_) {
+          // sessionStorage puede estar bloqueado en modo privado.
+        }
       } catch (_) {
         // no bloquear guardado del perfil
       }

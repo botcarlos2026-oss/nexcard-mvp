@@ -128,7 +128,7 @@ function writeDb(db) {
 
 function sanitizeUser(user) {
   if (!user) return null;
-  const { password, ...safeUser } = user;
+  const { password: _password, ...safeUser } = user;
   return safeUser;
 }
 
