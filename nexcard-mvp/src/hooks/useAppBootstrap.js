@@ -36,9 +36,7 @@ export function useAppBootstrap({
       }
 
       try {
-        if (path === '/') return;
-
-        if (path === '/preview') {
+        if (path === '/' || path === '/preview') {
           setLoading(false);
           Promise.race([
             api.getLandingContent(),
