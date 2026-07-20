@@ -10,6 +10,13 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
 
+const escapeHtml = (value: unknown) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 async function requireActivationAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
   const authHeader = req.headers.get('Authorization') || '';
   const apikey = req.headers.get('apikey') || '';
@@ -92,10 +99,15 @@ serve(async (req) => {
       });
     }
 
-    const activationUrl = `${APP_URL}/activar/${claim.claim_token}`;
+    const activationUrl = `${APP_URL}/activar/${encodeURIComponent(claim.claim_token)}`;
     const folio = order.folio || '#' + String(order.id).slice(0, 8).toUpperCase();
+    const safeCustomerName = escapeHtml(order.customer_name || 'cliente');
+    const safeFolio = escapeHtml(folio);
+    const safeCustomerEmail = escapeHtml(claim.customer_email);
+    const safeQuantity = escapeHtml(claim.quantity);
+    const safeActivationUrl = escapeHtml(activationUrl);
 
-    const html = `<!DOCTYPE html><html lang="es"><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><div style="max-width:560px;margin:32px auto;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)"><div style="background:#09090b;padding:32px 40px;text-align:center"><p style="margin:0;color:#10B981;font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase">NexCard</p><h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:900">Activa tu perfil digital</h1></div><div style="padding:32px 40px"><p style="color:#52525b;font-size:15px;line-height:1.6">Hola <strong style="color:#09090b">${order.customer_name || 'cliente'}</strong>, tu pago para <strong style="color:#09090b">${folio}</strong> fue confirmado.</p><p style="color:#52525b;font-size:15px;line-height:1.6">Ahora activa tu NexCard para completar tu perfil digital y dejar lista la tarjeta para asignación/uso.</p><div style="background:#f4f4f5;border-radius:16px;padding:20px 24px;margin:24px 0"><p style="margin:0 0 6px;color:#71717a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Email comprador</p><p style="margin:0;color:#09090b;font-size:14px;font-weight:800">${claim.customer_email}</p><p style="margin:16px 0 6px;color:#71717a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Tarjetas en esta activación</p><p style="margin:0;color:#09090b;font-size:14px;font-weight:800">${claim.quantity}</p></div><div style="text-align:center;margin:28px 0"><a href="${activationUrl}" style="display:inline-block;background:#10B981;color:#fff;font-size:14px;font-weight:900;text-decoration:none;padding:14px 32px;border-radius:100px">Activar mi NexCard →</a></div><p style="color:#71717a;font-size:12px;line-height:1.6">Si tú no hiciste esta compra, responde este correo o escríbenos por WhatsApp antes de activar.</p></div><div style="padding:20px 40px;border-top:1px solid #f4f4f5;text-align:center"><p style="margin:0;color:#a1a1aa;font-size:11px">NexCard · nexcard.cl · hola@nexcard.cl</p></div></div></body></html>`;
+    const html = `<!DOCTYPE html><html lang="es"><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><div style="max-width:560px;margin:32px auto;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)"><div style="background:#09090b;padding:32px 40px;text-align:center"><p style="margin:0;color:#10B981;font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase">NexCard</p><h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:900">Activa tu perfil digital</h1></div><div style="padding:32px 40px"><p style="color:#52525b;font-size:15px;line-height:1.6">Hola <strong style="color:#09090b">${safeCustomerName}</strong>, tu pago para <strong style="color:#09090b">${safeFolio}</strong> fue confirmado.</p><p style="color:#52525b;font-size:15px;line-height:1.6">Ahora activa tu NexCard para completar tu perfil digital y dejar lista la tarjeta para asignación/uso.</p><div style="background:#f4f4f5;border-radius:16px;padding:20px 24px;margin:24px 0"><p style="margin:0 0 6px;color:#71717a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Email comprador</p><p style="margin:0;color:#09090b;font-size:14px;font-weight:800">${safeCustomerEmail}</p><p style="margin:16px 0 6px;color:#71717a;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Tarjetas en esta activación</p><p style="margin:0;color:#09090b;font-size:14px;font-weight:800">${safeQuantity}</p></div><div style="text-align:center;margin:28px 0"><a href="${safeActivationUrl}" style="display:inline-block;background:#10B981;color:#fff;font-size:14px;font-weight:900;text-decoration:none;padding:14px 32px;border-radius:100px">Activar mi NexCard →</a></div><p style="color:#71717a;font-size:12px;line-height:1.6">Si tú no hiciste esta compra, responde este correo o escríbenos por WhatsApp antes de activar.</p></div><div style="padding:20px 40px;border-top:1px solid #f4f4f5;text-align:center"><p style="margin:0;color:#a1a1aa;font-size:11px">NexCard · nexcard.cl · hola@nexcard.cl</p></div></div></body></html>`;
 
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
