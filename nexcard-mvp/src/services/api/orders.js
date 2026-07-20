@@ -178,14 +178,6 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId }) {
 
     if (fetchError || !createdOrder) throw new Error('Orden creada pero no se pudo recuperar');
 
-    try {
-      await supabase.functions.invoke('send-order-confirmation', {
-        body: JSON.stringify({ order_id: createdOrder.id }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-    } catch {
-      // Email no crítico, continuar sin bloquear
-    }
 
     return createdOrder;
   };

@@ -1,10 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ops-secret',
 };
+
+const encoder = new TextEncoder();
+function timingSafeEqual(a: string, b: string) {
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+  if (left.length !== right.length) return false;
+  let diff = 0;
+  for (let i = 0; i < left.length; i += 1) diff |= left[i] ^ right[i];
+  return diff === 0;
+}
+
+function requireOpsAccess(req: Request, opsSecret: string | undefined) {
+  const provided = req.headers.get('x-ops-secret') || '';
+  if (!opsSecret || !provided || !timingSafeEqual(provided, opsSecret)) {
+    return new Response(JSON.stringify({ success: false, error: 'No autorizado' }), {
+      status: 401,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+  return null;
+}
 
 const DEFAULTS = {
   wow: {
@@ -106,6 +127,10 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const OPS_SHARED_SECRET = Deno.env.get('OPS_SHARED_SECRET');
+    const authError = requireOpsAccess(req, OPS_SHARED_SECRET);
+    if (authError) return authError;
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body = await req.json().catch(() => ({}));
     const triggerSource = body?.trigger || 'manual';

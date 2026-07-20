@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@clerk/react": "^6.4.2",
     "@supabase/supabase-js": "^2.104.0",
     "autoprefixer": "^10.4.16",
     "cors": "^2.8.5",

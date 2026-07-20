@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +9,53 @@ const CORS = {
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
+
+const escapeHtml = (value: unknown): string => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+async function requireShippingAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+  const authHeader = req.headers.get('Authorization') || '';
+  const apikey = req.headers.get('apikey') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+
+  if (bearer && (bearer === serviceRoleKey || apikey === serviceRoleKey)) {
+    return { mode: 'service_role' as const };
+  }
+
+  if (!bearer) {
+    return { error: new Response(JSON.stringify({ error: 'Authorization requerida' }), {
+      status: 401,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+  const { data: authData, error: authError } = await admin.auth.getUser(bearer);
+  if (authError || !authData?.user) {
+    return { error: new Response(JSON.stringify({ error: 'Sesión inválida o expirada' }), {
+      status: 401,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const caller = createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  });
+  const { data: isAdmin, error: roleError } = await caller.rpc('has_role', { required_role: 'admin' });
+  if (roleError || !isAdmin) {
+    return { error: new Response(JSON.stringify({ error: 'Solo admins pueden enviar notificaciones de despacho' }), {
+      status: 403,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  return { mode: 'admin' as const, userId: authData.user.id };
+}
 
 const CARRIER_NAMES: Record<string, string> = {
   blueexpress: 'BlueExpress',
@@ -27,7 +74,11 @@ serve(async (req) => {
     const RESEND_API_KEY           = Deno.env.get('RESEND_API_KEY');
     const SUPABASE_URL             = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SUPABASE_ANON_KEY         = Deno.env.get('SUPABASE_ANON_KEY')!;
     const APP_URL                  = Deno.env.get('APP_URL') || 'https://nexcard.cl';
+
+    const access = await requireShippingAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    if (access.error) return access.error;
 
     if (!RESEND_API_KEY) {
       log('error', 'missing_resend_key', {});
@@ -91,31 +142,31 @@ serve(async (req) => {
 
     <div style="padding:32px 40px">
       <p style="color:#52525b;font-size:15px;line-height:1.6">
-        Hola <strong style="color:#09090b">${order.customer_name}</strong>,<br>
-        tu pedido <strong style="color:#09090b">${folio || '#' + shortOrderId}</strong> ya fue despachado y está en camino contigo.
+        Hola <strong style="color:#09090b">${escapeHtml(order.customer_name)}</strong>,<br>
+        tu pedido <strong style="color:#09090b">${escapeHtml(folio || '#' + shortOrderId)}</strong> ya fue despachado y está en camino contigo.
       </p>
 
       <div style="background:#f4f4f5;border-radius:16px;padding:20px 24px;margin:24px 0">
         <table style="width:100%;border-collapse:collapse">
           <tr>
             <td style="padding:6px 0;color:#71717a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Courier</td>
-            <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right">${carrierName}</td>
+            <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right">${escapeHtml(carrierName)}</td>
           </tr>
           ${order.tracking_code ? `
           <tr>
             <td style="padding:6px 0;color:#71717a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Código</td>
-            <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right;font-family:monospace">${order.tracking_code}</td>
+            <td style="padding:6px 0;color:#09090b;font-size:14px;font-weight:900;text-align:right;font-family:monospace">${escapeHtml(order.tracking_code)}</td>
           </tr>` : ''}
           ${order.customer_address ? `
           <tr>
             <td style="padding:6px 0;color:#71717a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Dirección</td>
-            <td style="padding:6px 0;color:#09090b;font-size:13px;font-weight:600;text-align:right">${order.customer_address}</td>
+            <td style="padding:6px 0;color:#09090b;font-size:13px;font-weight:600;text-align:right">${escapeHtml(order.customer_address)}</td>
           </tr>` : ''}
         </table>
       </div>
 
       <div style="text-align:center;margin:28px 0">
-        <a href="${trackingUrl}" style="display:inline-block;background:#10B981;color:#fff;font-size:14px;font-weight:900;text-decoration:none;padding:14px 32px;border-radius:100px">
+        <a href="${escapeHtml(trackingUrl)}" style="display:inline-block;background:#10B981;color:#fff;font-size:14px;font-weight:900;text-decoration:none;padding:14px 32px;border-radius:100px">
           Seguir mi pedido →
         </a>
       </div>
@@ -125,7 +176,7 @@ serve(async (req) => {
         <p style="margin:0 0 12px;color:#71717a;font-size:13px;line-height:1.5">
           Una vez que la recibas, confírmanos la entrega para completar la activación de tu tarjeta NexCard.
         </p>
-        <a href="${confirmUrl}" style="color:#10B981;font-size:13px;font-weight:900;text-decoration:none">
+        <a href="${escapeHtml(confirmUrl)}" style="color:#10B981;font-size:13px;font-weight:900;text-decoration:none">
           Confirmar que la recibí ✓
         </a>
       </div>
@@ -141,7 +192,7 @@ serve(async (req) => {
     const resendPayload = {
       from: 'NexCard <hola@nexcard.cl>',
       to: [order.customer_email],
-      subject: `Tu tarjeta NexCard está en camino — ${folio || '#' + shortOrderId} · ${carrierName}`,
+      subject: `Tu tarjeta NexCard está en camino — ${escapeHtml(folio || '#' + shortOrderId)} · ${escapeHtml(carrierName)}`,
       html,
     };
 
@@ -171,7 +222,7 @@ serve(async (req) => {
         p_recipient_email: order.customer_email,
         p_email_type: 'shipping',
         p_order_id: orderId,
-        p_subject: `Tu tarjeta NexCard está en camino — ${folio || '#' + shortOrderId} · ${carrierName}`,
+        p_subject: `Tu tarjeta NexCard está en camino — ${escapeHtml(folio || '#' + shortOrderId)} · ${escapeHtml(carrierName)}`,
         p_status: 'sent',
         p_provider: 'resend',
         p_provider_message_id: resendData?.id || null,

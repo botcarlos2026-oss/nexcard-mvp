@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +18,46 @@ const escapeHtml = (value: unknown): string => String(value ?? '')
   .replace(/'/g, '&#39;');
 
 const moneyCLP = (value: unknown): string => Number(value || 0).toLocaleString('es-CL');
+
+async function requireOrderConfirmationAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+  const authHeader = req.headers.get('Authorization') || '';
+  const apikey = req.headers.get('apikey') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+
+  if (bearer && (bearer === serviceRoleKey || apikey === serviceRoleKey)) {
+    return { mode: 'service_role' as const };
+  }
+
+  if (!bearer) {
+    return { error: new Response(JSON.stringify({ success: false, error: 'Authorization requerida' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+  const { data: authData, error: authError } = await admin.auth.getUser(bearer);
+  if (authError || !authData?.user) {
+    return { error: new Response(JSON.stringify({ success: false, error: 'Sesión inválida o expirada' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  const caller = createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  });
+  const { data: isAdmin, error: roleError } = await caller.rpc('has_role', { required_role: 'admin' });
+  if (roleError || !isAdmin) {
+    return { error: new Response(JSON.stringify({ success: false, error: 'Solo admins pueden enviar confirmaciones de orden' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }) };
+  }
+
+  return { mode: 'admin' as const, userId: authData.user.id };
+}
 
 const buildSubject = (order: any): string => {
   const folio = order?.folio || null;
@@ -48,9 +88,13 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
       throw new Error('Supabase env faltante');
     }
+
+    const access = await requireOrderConfirmationAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    if (access.error) return access.error;
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
