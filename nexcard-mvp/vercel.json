@@ -1,9 +1,13 @@
 {
+  "outputDirectory": "dist",
   "crons": [
     {
       "path": "/api/cron/abandoned-carts",
       "schedule": "0 * * * *"
     }
+  ],
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

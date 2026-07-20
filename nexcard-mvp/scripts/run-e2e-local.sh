@@ -56,6 +56,7 @@ trap 'FAILED=$?; cleanup; exit $FAILED' EXIT
 
 # Kill stale local dev processes that commonly block the runner.
 pkill -f "react-scripts start" >/dev/null 2>&1 || true
+pkill -f "vite --host" >/dev/null 2>&1 || true
 pkill -f "node server/index.js" >/dev/null 2>&1 || true
 lsof -ti tcp:"${FRONTEND_PORT}" | xargs kill >/dev/null 2>&1 || true
 lsof -ti tcp:"${BACKEND_PORT}" | xargs kill >/dev/null 2>&1 || true
