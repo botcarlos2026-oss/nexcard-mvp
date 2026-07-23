@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useCart } from '../store/cartStore';
 import { ShoppingCart, Package, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { buildPricingPlan } from '../config/pricingCopy';
 
 // Skeleton card para mostrar mientras carga
 function ProductSkeleton() {
@@ -30,7 +31,7 @@ export default function ProductCatalog({ onProceedToCart }) {
         setError('');
         const includeTestProducts = new URLSearchParams(window.location.search).get('mp_test') === '1';
         const data = await api.getProducts({ includeTestProducts });
-        setProducts(data);
+        setProducts((data || []).map((product) => buildPricingPlan(product)));
       } catch (err) {
         setError(err.message || 'No fue posible cargar el catálogo');
       } finally {
@@ -95,7 +96,7 @@ export default function ProductCatalog({ onProceedToCart }) {
                     key={product.id}
                     className="bg-zinc-900 border border-zinc-800 hover:border-emerald-500/60 rounded-xl p-6 flex flex-col transition-all duration-200 hover:shadow-lg hover:shadow-emerald-900/20"
                   >
-                    <h3 className="text-lg font-bold mb-2 leading-tight">{product.name}</h3>
+                    <h3 className="text-lg font-bold mb-2 leading-tight">{product.catalogName || product.name}</h3>
                     <p className="text-zinc-400 text-sm mb-4 flex-1 leading-relaxed">
                       {product.description}
                     </p>

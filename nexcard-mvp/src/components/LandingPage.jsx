@@ -2,55 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, CheckCircle, ChevronDown, Mail, MessageCircle, Smartphone } from 'lucide-react';
 import { api } from '../services/api';
 import DiscountWheel from './DiscountWheel';
-
-// Metadata estático por SKU — precios vienen de Supabase (price_cents)
-// SKUs activos: NEXCARD-1, BASIC-5, PREMIUM-10, PREMIUM-20
-const PRICING_META = {
-  'NEXCARD-1': {
-    name: 'Individual',
-    cards: 1,
-    description: '1 tarjeta NexCard para empezar a compartir contacto sin fricción.',
-    highlight: false,
-    save: 'Pago único',
-    cta: 'Comprar Individual',
-    features: ['Tarjeta NFC', 'Perfil digital editable', 'Datos de banco y redes', 'QR dinámico'],
-  },
-  'BASIC-5': {
-    name: 'Pack Emprendedor',
-    cards: 5,
-    description: 'Para socios, primeras ventas o un equipo pequeño.',
-    highlight: false,
-    save: 'Ideal para equipo inicial',
-    cta: 'Comprar pack',
-    features: ['5 tarjetas NFC', '5 perfiles editables', 'Activación guiada', 'Sin mensualidad'],
-  },
-  'PREMIUM-10': {
-    name: 'Pack Socios',
-    cards: 10,
-    description: 'Para equipo fundador, ventas o atención comercial.',
-    highlight: true,
-    badge: 'Recomendado',
-    save: 'Mejor equilibrio',
-    cta: 'Comprar Pack Socios',
-    features: ['10 tarjetas premium', 'Perfil por persona', 'Datos actualizables', 'Ideal para reuniones'],
-  },
-  'PREMIUM-20': {
-    name: 'Pack Equipo',
-    cards: 20,
-    description: 'Para equipos comerciales que necesitan presencia consistente.',
-    highlight: false,
-    save: 'Mejor precio por unidad',
-    cta: 'Comprar Equipo',
-    features: ['20 tarjetas NFC + QR', 'Onboarding simple', 'Imagen consistente', 'Soporte dedicado'],
-  },
-};
+import { PRICING_COPY_BY_SKU, buildPricingPlan } from '../config/pricingCopy';
 
 // Fallback si Supabase no responde
 const PRICING_FALLBACK = [
-  { sku: 'NEXCARD-1', price: 19990 },
-  { sku: 'BASIC-5', price: 79990 },
-  { sku: 'PREMIUM-10', price: 149990 },
-  { sku: 'PREMIUM-20', price: 269990 },
+  { sku: 'NEXCARD-1', price: 14990 },
+  { sku: 'BASIC-5', price: 39990 },
+  { sku: 'PREMIUM-10', price: 59990 },
+  { sku: 'PREMIUM-20', price: 74990 },
 ];
 
 const FRICTION = [
@@ -198,7 +157,7 @@ function PricingCard({ plan, formatPrice, onCheckoutStart }) {
 export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
   const [pricing, setPricing] = useState(() =>
-    PRICING_FALLBACK.map((p) => ({ ...p, ...PRICING_META[p.sku], perUnit: Math.round(p.price / (PRICING_META[p.sku]?.cards || 1)) }))
+    PRICING_FALLBACK.map((p) => buildPricingPlan({ ...p, price_cents: p.price }, { fallbackCards: PRICING_COPY_BY_SKU[p.sku]?.cards || 1 }))
   );
   const [teamMembers, setTeamMembers] = useState([]);
   const [showWheel, setShowWheel] = useState(false);
@@ -211,18 +170,12 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
       if (!products?.length) return;
       const sorted = [...products].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
       const merged = sorted.map((dbProduct) => {
-        const meta = PRICING_META[dbProduct.sku] || {};
+        const meta = PRICING_COPY_BY_SKU[dbProduct.sku] || {};
         const isPopular = dbProduct.popular ?? meta.highlight ?? false;
-        const cards = meta.cards || Number(dbProduct.cards) || 1;
+        const plan = buildPricingPlan(dbProduct);
         return {
+          ...plan,
           sku: dbProduct.sku,
-          price: dbProduct.price_cents,
-          name: meta.name || dbProduct.name || 'NexCard',
-          description: meta.description || dbProduct.description || 'Tarjeta NFC con perfil digital editable.',
-          cards,
-          features: meta.features || dbProduct.features || [],
-          perUnit: Math.round((dbProduct.price_cents || 0) / cards),
-          ...meta,
           highlight: isPopular,
           badge: isPopular ? (meta.badge || 'Recomendado') : undefined,
         };
