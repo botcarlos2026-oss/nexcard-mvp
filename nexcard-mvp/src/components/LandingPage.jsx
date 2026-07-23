@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, CheckCircle, ChevronDown, Mail, MessageCircle, Smartphone } from 'lucide-react';
 import { api } from '../services/api';
 import DiscountWheel from './DiscountWheel';
+import { CORPORATE_QUOTE_WHATSAPP_URL } from '../config/contactLinks';
 import { PRICING_COPY_BY_SKU, buildPricingPlan } from '../config/pricingCopy';
 
 // Fallback si Supabase no responde
@@ -336,7 +337,17 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 <strong className="text-lg">¿Necesitas más tarjetas para tu empresa?</strong>
                 <p className="text-zinc-400 mt-1">Diseñemos un plan a tu medida para ventas, atención o terreno.</p>
               </div>
-              <a className="btn-press inline-flex items-center justify-center min-h-[46px] px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black" href="mailto:hola@nexcard.cl?subject=Cotizar%20Plan%20Corporativo%20NexCard">Cotizar Plan Corporativo</a>
+              <a
+                className="btn-press inline-flex items-center justify-center min-h-[46px] px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black"
+                href={CORPORATE_QUOTE_WHATSAPP_URL}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Cotizar plan corporativo por WhatsApp"
+                data-analytics-event="corporate_quote_click"
+                data-analytics-destination="whatsapp"
+              >
+                Cotizar por WhatsApp
+              </a>
             </div>
           </div>
         </section>
