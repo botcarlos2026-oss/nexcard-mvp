@@ -81,9 +81,20 @@ const card2Svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 856 540" 
   <text x="50" y="510" font-family="sans-serif" font-size="10" fill="#aaa">Fargo DTC1500 — Calibración / Color</text>
 </svg>`;
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function printCard(svgContent, title) {
   const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
+  const safeTitle = escapeHtml(title);
+
+  win.document.write(`<!DOCTYPE html><html><head><title>${safeTitle}</title><style>
     @page{size:85.6mm 54mm;margin:0;bleed:1mm;}
     body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     .safe-area{display:block;}
@@ -105,16 +116,25 @@ function downloadSvg(svgContent, filename) {
   URL.revokeObjectURL(url);
 }
 
+function svgToDataUri(svgContent) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+}
+
 function CardPreviewPanel({ title, description, svgContent, filename }) {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
       <h3 className="font-bold text-lg text-white mb-1">{title}</h3>
       <p className="text-zinc-400 text-sm mb-4">{description}</p>
       <div
-        className="overflow-hidden rounded-xl border border-zinc-700 mb-4"
+        className="overflow-hidden rounded-xl border border-zinc-700 mb-4 bg-white"
         style={{ width: '100%', aspectRatio: '856/540' }}
-        dangerouslySetInnerHTML={{ __html: svgContent }}
-      />
+      >
+        <img
+          src={svgToDataUri(svgContent)}
+          alt={`Previsualización ${title}`}
+          className="block h-full w-full object-contain"
+        />
+      </div>
       <div className="flex gap-3">
         <button
           onClick={() => printCard(svgContent, title)}
