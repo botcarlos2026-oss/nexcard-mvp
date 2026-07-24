@@ -210,8 +210,31 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
   };
 
   const getAdminProfiles = async () => {
-    if (!hasSupabase) return { profiles: [] };
-    return fetchAdminProfiles();
+    const storedAuth = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('nexcard_auth') || 'null');
+      } catch {
+        return null;
+      }
+    })();
+    const useLocalAdminFallback = Boolean(storedAuth?.user && (storedAuth.user.role === 'admin' || /admin/i.test(storedAuth.user.email || '')));
+
+    if (useLocalAdminFallback) {
+      const response = await request('/admin/cards');
+      return { profiles: response?.profiles || [] };
+    }
+
+    if (hasSupabase) {
+      try {
+        const result = await fetchAdminProfiles();
+        if (result?.profiles?.length) return result;
+      } catch {
+        // fallback to local admin API below
+      }
+    }
+
+    const response = await request('/admin/cards');
+    return { profiles: response?.profiles || [] };
   };
 
   const archiveProfile = async (profileId) => {
