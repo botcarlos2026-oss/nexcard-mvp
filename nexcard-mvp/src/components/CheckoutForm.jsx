@@ -203,7 +203,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         <p className="text-zinc-400 mb-6 text-sm">No puedes iniciar un checkout sin productos</p>
         <button
           onClick={onBack}
-          className="btn-press flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
+          className="btn-base btn-press flex items-center gap-2 px-6 py-3 btn-primary"
         >
           <ArrowLeft size={18} />
           Volver al carrito
@@ -367,7 +367,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           <button
             onClick={onBack}
             disabled={loading}
-            className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm disabled:opacity-50 min-h-[44px] px-2"
+            className="btn-base btn-press flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm disabled:opacity-50 min-h-[44px] px-2"
           >
             <ArrowLeft size={16} />
             Volver
@@ -385,11 +385,17 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           ].map(({ label, step }, i) => {
             const current = step === 2;
             const done = step < 2;
+            const pillClass = current
+              ? 'bg-emerald-500 text-emerald-950 border border-emerald-300/60'
+              : done
+              ? 'text-emerald-400'
+              : 'text-zinc-600';
+            const circleBorderColor = current ? '#052e23' : '#52525b';
             return (
               <React.Fragment key={step}>
                 {i > 0 && <div className="h-px w-6 shrink-0 bg-zinc-700" />}
-                <div className={`flex items-center gap-1.5 shrink-0 text-xs font-bold px-2 py-1 rounded-full ${current ? 'bg-emerald-600 text-white' : done ? 'text-emerald-400' : 'text-zinc-600'}`}>
-                  {done ? '✓' : <span className="w-4 h-4 rounded-full border flex items-center justify-center text-[10px]" style={{ borderColor: current ? 'white' : '#52525b' }}>{step + 1}</span>}
+                <div className={`flex items-center gap-1.5 shrink-0 text-xs font-bold px-2 py-1 rounded-full ${pillClass}`}>
+                  {done ? '✓' : <span className="w-4 h-4 rounded-full border flex items-center justify-center text-[10px]" style={{ borderColor: circleBorderColor }}>{step + 1}</span>}
                   {label}
                 </div>
               </React.Fragment>
@@ -769,7 +775,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 type="button"
                 onClick={onBack}
                 disabled={loading}
-                className="btn-press flex-1 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-colors text-sm"
+                className="btn-base btn-press flex-1 btn-secondary disabled:opacity-50 text-white py-3.5 rounded-xl text-sm"
               >
                 ← Volver
               </button>
@@ -777,7 +783,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 <button
                   type="submit"
                   disabled={loading || slugStatus === 'checking'}
-                  className="btn-press w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
+                  className="btn-base btn-press btn-loading w-full btn-primary disabled:opacity-60 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
                 >
                   {loading ? (
                     <>

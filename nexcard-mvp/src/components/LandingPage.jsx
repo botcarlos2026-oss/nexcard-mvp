@@ -146,8 +146,8 @@ function PricingCard({ plan, formatPrice, onCheckoutStart }) {
         ))}
       </ul>
       <button
-        onClick={onCheckoutStart}
-        className={`btn-press w-full min-h-[46px] rounded-xl font-black transition-colors ${plan.highlight ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700'}`}
+      onClick={onCheckoutStart}
+      className={`btn-base btn-press w-full min-h-[48px] rounded-xl font-black ${plan.highlight ? 'btn-primary' : 'btn-secondary'}`}
       >
         {plan.cta || 'Comprar pack'}
       </button>
@@ -227,7 +227,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <a href="#como" className="hidden md:inline hover:text-white transition-colors">Cómo funciona</a>
             <a href="#precios" className="hidden md:inline hover:text-white transition-colors">Precios</a>
             <a href="#faq" className="hidden md:inline hover:text-white transition-colors">FAQ</a>
-            <button onClick={onCheckoutStart} className="btn-press min-h-[46px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">Comprar mi NexCard</button>
+            <button onClick={onCheckoutStart} className="btn-base btn-press min-h-[48px] px-4 rounded-xl btn-primary">Comprar mi NexCard</button>
           </div>
         </div>
       </nav>
@@ -243,7 +243,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               <h1 className="text-[3.05rem] md:text-[clamp(3rem,5.6vw,6.2rem)] font-bold leading-[0.94] tracking-[-0.07em] mb-[22px] max-w-[680px]">{heroTitle}</h1>
               <p className="text-lg md:text-[1.18rem] text-zinc-400 leading-[1.62] mb-[30px] max-w-[650px]">{heroLead}</p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">
+                <button onClick={onCheckoutStart} className="btn-base btn-press inline-flex items-center justify-center gap-2 min-h-[50px] px-6 rounded-xl btn-primary">
                   Comprar mi NexCard
                   <ArrowRight size={18} />
                 </button>
@@ -400,7 +400,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <div className="rounded-[28px] border border-emerald-500/35 bg-emerald-950/50 p-8 md:p-12 text-center">
               <h2 className="text-[clamp(2.15rem,4.2vw,4rem)] font-bold tracking-[-0.06em] leading-none mb-5">Crear mi NexCard.</h2>
               <p className="max-w-2xl mx-auto text-zinc-400 leading-relaxed mb-7">Una tarjeta física premium, un perfil digital editable y una forma más rápida de compartir tus datos.</p>
-              <button onClick={onCheckoutStart} className="btn-press inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition-colors">
+                <button onClick={onCheckoutStart} className="btn-base btn-press inline-flex items-center justify-center gap-2 min-h-[50px] px-6 rounded-xl btn-primary">
                 Comprar mi NexCard
                 <ArrowRight size={18} />
               </button>

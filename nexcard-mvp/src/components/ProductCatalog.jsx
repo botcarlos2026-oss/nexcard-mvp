@@ -64,7 +64,7 @@ export default function ProductCatalog({ onProceedToCart }) {
         <p className="text-zinc-400 mb-6 text-sm max-w-xs">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
+          className="btn-base btn-press w-full min-h-[46px] rounded-lg btn-secondary"
         >
           Reintentar
         </button>
@@ -111,10 +111,10 @@ export default function ProductCatalog({ onProceedToCart }) {
                     <button
                       onClick={() => handleAddToCart(product)}
                       disabled={isAdded}
-                      className={`w-full py-3 rounded-lg font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
+                      className={`btn-base btn-press w-full min-h-[48px] rounded-xl font-bold flex items-center justify-center gap-2 ${
                         isAdded
-                          ? 'bg-emerald-700 text-white cursor-default'
-                          : 'bg-zinc-800 hover:bg-emerald-600 active:bg-emerald-700 text-white'
+                          ? 'btn-primary opacity-60 cursor-default'
+                          : 'btn-secondary hover:border-emerald-500/35'
                       }`}
                     >
                       {isAdded ? (
@@ -141,7 +141,7 @@ export default function ProductCatalog({ onProceedToCart }) {
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-sm">
             <button
               onClick={onProceedToCart}
-              className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-4 px-6 rounded-2xl shadow-2xl shadow-emerald-900/50 transition-all"
+              className="btn-base btn-press w-full flex items-center justify-between btn-primary"
             >
               <span className="flex items-center gap-2">
                 <ShoppingCart size={20} />
