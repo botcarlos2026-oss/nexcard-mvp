@@ -102,7 +102,7 @@ async function request(path, options = {}) {
 }
 
 const productsApi = createProductsApi({ supabase, hasSupabase });
-const ordersApi = createOrdersApi({ supabase, hasSupabase, getClerkUserId });
+const ordersApi = createOrdersApi({ supabase, hasSupabase, getClerkUserId, request });
 const fetchOrders = ordersApi.getOrders;
 const paymentsApi = createPaymentsApi({ supabase, hasSupabase, fetchOrders });
 const profilesApi = createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCurrentUserEmail, request });

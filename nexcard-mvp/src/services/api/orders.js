@@ -130,7 +130,7 @@ const deriveOrderObservability = ({ order, claim, relatedCards }) => {
   };
 };
 
-export function createOrdersApi({ supabase, hasSupabase, getClerkUserId }) {
+export function createOrdersApi({ supabase, hasSupabase, getClerkUserId, request }) {
   const createOrder = async (payload) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
     if (!payload.customer_name?.trim()) throw new Error('Nombre del cliente requerido');
@@ -183,17 +183,27 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId }) {
   };
 
   const getOrders = async () => {
-    if (!hasSupabase) return { orders: [] };
+    const storedAuth = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('nexcard_auth') || 'null');
+      } catch {
+        return null;
+      }
+    })();
+    const useLocalAdminFallback = Boolean(storedAuth?.user && (storedAuth.user.role === 'admin' || /admin/i.test(storedAuth.user.email || '')));
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, order_items(*), payments(*)')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
+    if (!hasSupabase || useLocalAdminFallback) return request('/admin/orders');
 
-    const orders = data || [];
-    if (orders.length === 0) return { orders: [] };
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*), payments(*)')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+
+      const orders = data || [];
+      if (orders.length === 0) return { orders: [] };
 
     const [cardsRes, orderCardsRes, claimsRes, profilesRes] = await Promise.all([
       supabase
@@ -262,7 +272,10 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId }) {
       };
     });
 
-    return { orders: enrichedOrders };
+      return { orders: enrichedOrders };
+    } catch {
+      return request('/admin/orders');
+    }
   };
 
   return {

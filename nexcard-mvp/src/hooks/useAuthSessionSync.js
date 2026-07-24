@@ -50,8 +50,13 @@ export function useAuthSessionSync() {
         setUser(session.user);
         setStoredAuth({ user: session.user });
       } else {
-        setUser(null);
-        setStoredAuth(null);
+        const storedAuth = getStoredAuth();
+        if (storedAuth?.user) {
+          setUser(storedAuth.user);
+        } else {
+          setUser(null);
+          setStoredAuth(null);
+        }
       }
       if (!cancelled) {
         setSessionReady(true);
