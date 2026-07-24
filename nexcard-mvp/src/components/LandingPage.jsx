@@ -145,6 +145,7 @@ function PricingCard({ plan, formatPrice, onCheckoutStart }) {
           </li>
         ))}
       </ul>
+      <p className="text-zinc-600 text-xs uppercase tracking-[0.18em] text-center mt-1 mb-4">SKU: {plan.displaySku || plan.sku}</p>
       <button
       onClick={onCheckoutStart}
       className={`btn-base btn-press w-full min-h-[48px] rounded-xl font-black ${plan.highlight ? 'btn-primary' : 'btn-secondary'}`}

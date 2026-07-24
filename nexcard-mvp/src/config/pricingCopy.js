@@ -2,6 +2,7 @@ export const PRICING_COPY_BY_SKU = {
   'NEXCARD-1': {
     homeName: 'Individual',
     catalogName: '1 Tarjeta',
+    displaySku: 'NEXCARD-1',
     cards: 1,
     description: '1 tarjeta NexCard para empezar a compartir contacto sin fricción.',
     highlight: false,
@@ -12,6 +13,7 @@ export const PRICING_COPY_BY_SKU = {
   'BASIC-5': {
     homeName: 'Pack Emprendedor',
     catalogName: '3 Tarjetas',
+    displaySku: 'NEXCARD-3',
     cards: 3,
     description: 'Para socios, primeras ventas o un equipo pequeño.',
     highlight: false,
@@ -22,6 +24,7 @@ export const PRICING_COPY_BY_SKU = {
   'PREMIUM-10': {
     homeName: 'Pack Socios',
     catalogName: '5 Tarjetas',
+    displaySku: 'NEXCARD-5',
     cards: 5,
     description: 'Para equipo fundador, ventas o atención comercial.',
     highlight: true,
@@ -33,6 +36,7 @@ export const PRICING_COPY_BY_SKU = {
   'PREMIUM-20': {
     homeName: 'Pack Equipo',
     catalogName: '7 Tarjetas',
+    displaySku: 'NEXCARD-7',
     cards: 7,
     description: 'Para equipos comerciales que necesitan presencia consistente.',
     highlight: false,
@@ -40,6 +44,13 @@ export const PRICING_COPY_BY_SKU = {
     cta: 'Comprar Equipo',
     features: ['7 tarjetas NFC + QR', 'Onboarding simple', 'Imagen consistente', 'Soporte dedicado'],
   },
+};
+
+export const PRICING_DISPLAY_SKU_BY_COUNT = {
+  1: 'NEXCARD-1',
+  3: 'NEXCARD-3',
+  5: 'NEXCARD-5',
+  7: 'NEXCARD-7',
 };
 
 export const PRICING_SKU_ORDER = ['NEXCARD-1', 'BASIC-5', 'PREMIUM-10', 'PREMIUM-20'];
@@ -52,11 +63,13 @@ export const getPricingCopy = (productOrSku) => {
 export const buildPricingPlan = (product = {}, { fallbackCards = 1 } = {}) => {
   const copy = getPricingCopy(product.sku) || {};
   const cards = copy.cards || Number(product.cards) || fallbackCards;
+  const displaySku = copy.displaySku || PRICING_DISPLAY_SKU_BY_COUNT[cards] || product.sku;
 
   return {
     ...product,
     ...copy,
     cards,
+    displaySku,
     price: product.price_cents,
     perUnit: cards ? Math.round((product.price_cents || 0) / cards) : 0,
     features: copy.features || product.features || [],

@@ -130,7 +130,7 @@ export default function ProductCatalog({ onProceedToCart }) {
                       )}
                     </button>
 
-                    <p className="text-zinc-600 text-xs mt-3 text-center">SKU: {product.sku}</p>
+                    <p className="text-zinc-600 text-xs mt-3 text-center">SKU: {product.displaySku || product.sku}</p>
                   </div>
                 );
               })}
