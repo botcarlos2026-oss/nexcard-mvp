@@ -92,24 +92,32 @@ function SectionHead({ eyebrow, title, children }) {
   );
 }
 
-function HowItWorksCard({ step, badge, title, desc, children }) {
+function HowItWorksCard({ step, badge, title, desc, icon: Icon, chips = [] }) {
   return (
-    <article className="relative overflow-hidden rounded-[30px] border border-zinc-800 bg-[linear-gradient(180deg,#161618_0%,#111113_100%)] p-6 md:p-7 shadow-[0_26px_80px_rgba(0,0,0,0.34)]">
-      <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/25 to-transparent" />
+    <article className="relative rounded-[22px] border border-zinc-800 bg-zinc-900 p-6 flex flex-col min-h-[340px] transition-colors hover:border-zinc-700">
       <div className="flex items-center justify-between gap-3 mb-6">
-        <span className="inline-flex items-center rounded-full border border-emerald-400/45 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-emerald-300">
+        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-emerald-300">
           Paso {step}
         </span>
         <span className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500">{badge}</span>
       </div>
 
-      <div className="relative flex h-[220px] items-center justify-center overflow-hidden rounded-[26px] border border-white/5 bg-[radial-gradient(circle_at_top,#1f2937_0%,#111113_48%,#0b0b0d_100%)]">
-        {children}
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-950/50 text-emerald-300 shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
+          <Icon size={24} />
+        </div>
+        <div className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-950/50 px-4 py-3">
+          <div className="grid gap-2">
+            {chips.map((chip, i) => (
+              <div key={chip} className={`h-2 rounded-full ${i === 0 ? 'bg-zinc-700 w-5/6' : i === 1 ? 'bg-zinc-700/80 w-2/3' : 'bg-emerald-400/50 w-1/2'}`} />
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="pt-6">
-        <h3 className="text-[1.65rem] font-black tracking-[-0.05em] leading-[1.02] mb-3">{title}</h3>
-        <p className="max-w-[30ch] text-[1.02rem] leading-[1.65] text-zinc-400">{desc}</p>
+      <div className="mt-auto">
+        <h3 className="text-2xl font-black tracking-[-0.05em] mb-3">{title}</h3>
+        <p className="text-zinc-400 leading-relaxed">{desc}</p>
       </div>
     </article>
   );
@@ -303,79 +311,34 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
         </section>
 
-        <section id="como" className="relative border-b border-zinc-800 py-16 md:py-[84px] overflow-hidden">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/18 to-transparent" />
-          <div className="pointer-events-none absolute -top-24 left-1/2 h-56 w-[42rem] -translate-x-1/2 rounded-full bg-emerald-500/6 blur-3xl" />
+        <section id="como" className="border-b border-zinc-800 py-16 md:py-[78px]">
           <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
             <SectionHead title="Cómo funciona.">Sin app, sin explicación larga, sin volver a imprimir cuando cambias tus datos.</SectionHead>
-            <div className="grid gap-5 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               <HowItWorksCard
                 step="01"
                 badge="NFC"
                 title="Acerca"
                 desc="Toca el teléfono de tu cliente con tu NexCard o muestra el QR de respaldo."
-              >
-                <div className="absolute inset-x-12 top-10 h-20 rounded-full bg-emerald-400/10 blur-3xl" />
-                <div className="absolute left-10 top-14 h-24 w-14 -rotate-12 rounded-[24px] border border-emerald-300/30 bg-gradient-to-b from-emerald-300/25 to-emerald-900/10 shadow-[0_20px_50px_rgba(0,0,0,0.35)]" />
-                <div className="absolute right-16 top-10 h-24 w-24 rotate-12 rounded-[24px] border border-white/10 bg-zinc-100/90 shadow-[0_24px_60px_rgba(0,0,0,0.35)]" />
-                <div className="absolute bottom-10 left-14 h-6 w-24 rounded-full bg-emerald-400/25 blur-xl" />
-                <div className="relative z-10 flex h-28 w-28 items-center justify-center rounded-[32px] border border-emerald-400/28 bg-zinc-950/85 shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
-                  <Smartphone size={36} className="text-emerald-300" />
-                </div>
-                <div className="absolute bottom-11 right-16 text-[11px] font-black uppercase tracking-[0.24em] text-emerald-300">NFC</div>
-              </HowItWorksCard>
-
+                icon={Smartphone}
+                chips={['NFC listo', 'QR respaldo', 'Sin fricción']}
+              />
               <HowItWorksCard
                 step="02"
                 badge="LINK"
                 title="Conecta"
                 desc="Tu perfil digital personalizado se abre al instante, sin instalar aplicaciones."
-              >
-                <div className="absolute inset-x-14 top-8 h-16 rounded-full bg-emerald-400/10 blur-2xl" />
-                <div className="absolute left-14 top-12 flex h-[72px] w-[72px] items-center justify-center rounded-full border border-white/10 bg-zinc-100/90 text-zinc-900 shadow-[0_20px_50px_rgba(0,0,0,0.32)]">
-                  <Clock3 size={30} />
-                </div>
-                <div className="absolute right-14 top-12 flex h-20 w-20 -rotate-12 items-center justify-center rounded-[24px] border border-emerald-400/25 bg-emerald-300/12 shadow-[0_20px_50px_rgba(0,0,0,0.32)]">
-                  <BadgeCheck size={34} className="text-emerald-300" />
-                </div>
-                <div className="absolute bottom-10 left-14 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-zinc-800/70 text-white/70 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
-                  <CheckCircle size={20} />
-                </div>
-                <div className="relative z-10 flex h-28 w-28 items-center justify-center rounded-[30px] border border-emerald-400/30 bg-zinc-950/86 shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
-                  <ArrowRight size={36} className="text-emerald-300" />
-                </div>
-              </HowItWorksCard>
-
+                icon={Clock3}
+                chips={['Carga rápida', 'Perfil activo', 'Sin app']}
+              />
               <HowItWorksCard
                 step="03"
                 badge="EDIT"
                 title="Actualiza"
                 desc="Modifica banco, links, teléfono o redes desde nexcard.cl en tiempo real."
-              >
-                <div className="absolute inset-x-10 top-6 h-20 rounded-full bg-emerald-400/10 blur-3xl" />
-                <div className="absolute left-10 top-10 h-[132px] w-[96px] rounded-[26px] border border-white/10 bg-zinc-100/92 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.35)]">
-                  <div className="mx-auto mb-3 h-5 w-5 rounded-full bg-zinc-500/70" />
-                  <div className="grid gap-1.5">
-                    <span className="h-1.5 rounded-full bg-zinc-300" />
-                    <span className="h-1.5 rounded-full bg-zinc-300/90 w-11/12" />
-                    <span className="h-1.5 rounded-full bg-zinc-300/80 w-3/4" />
-                    <span className="h-1.5 rounded-full bg-emerald-300/80 w-1/2" />
-                  </div>
-                </div>
-                <div className="absolute right-12 top-12 flex h-[72px] w-[72px] items-center justify-center rounded-[22px] border border-emerald-400/20 bg-emerald-400/12 shadow-[0_20px_50px_rgba(0,0,0,0.32)]">
-                  <BadgeCheck size={30} className="text-emerald-300" />
-                </div>
-                <div className="absolute bottom-10 right-14 flex h-16 w-16 items-center justify-center rounded-[18px] border border-emerald-400/20 bg-zinc-950/85 p-2 shadow-[0_18px_40px_rgba(0,0,0,0.3)]">
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {Array.from({ length: 9 }).map((_, i) => (
-                      <span key={i} className="h-1.5 w-1.5 rounded-[2px] bg-emerald-300/90" />
-                    ))}
-                  </div>
-                </div>
-                <div className="relative z-10 flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/20 bg-gradient-to-b from-zinc-100 to-zinc-300 shadow-[0_25px_60px_rgba(0,0,0,0.42)]">
-                  <ScanLine size={34} className="text-zinc-900" />
-                </div>
-              </HowItWorksCard>
+                icon={ScanLine}
+                chips={['Editar online', 'Cambios en vivo', 'Siempre vigente']}
+              />
             </div>
           </div>
         </section>
