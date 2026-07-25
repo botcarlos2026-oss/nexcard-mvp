@@ -783,7 +783,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                 <button
                   type="submit"
                   disabled={loading || slugStatus === 'checking'}
-                  className="btn-base btn-press btn-loading w-full btn-primary disabled:opacity-60 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30"
+                  className={`btn-base btn-press w-full btn-primary disabled:opacity-60 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 ${loading ? 'btn-loading' : ''}`}
                 >
                   {loading ? (
                     <>
