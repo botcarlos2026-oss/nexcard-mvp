@@ -1,5 +1,32 @@
 import { slugify } from '../../utils/slug';
 
+const ACTIVATION_AUTH_ERROR = 'Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.';
+const ACTIVATION_GENERIC_ERROR = 'No fue posible activar tu NexCard. Intenta nuevamente o contáctanos en hola@nexcard.cl.';
+
+const getFunctionStatus = (error) => error?.context?.status || error?.status || error?.response?.status || null;
+
+const mapActivationFunctionError = (error, fallback = ACTIVATION_GENERIC_ERROR) => {
+  const status = getFunctionStatus(error);
+  const message = error?.message || String(error || '');
+
+  if (status === 401 || status === 403) return ACTIVATION_AUTH_ERROR;
+  if (message.includes('JWT') || message.includes('Sesión inválida') || message.includes('expirada')) return ACTIVATION_AUTH_ERROR;
+  if (message.includes('Edge Function returned a non-2xx status code')) return fallback;
+  return message || fallback;
+};
+
+const createAuthRequiredError = () => {
+  const error = new Error(ACTIVATION_AUTH_ERROR);
+  error.code = 'AUTH_REQUIRED';
+  return error;
+};
+
+const normalizeActivationError = (error, fallback) => {
+  const mapped = mapActivationFunctionError(error, fallback);
+  const authError = mapped === ACTIVATION_AUTH_ERROR ? createAuthRequiredError() : new Error(mapped);
+  return authError;
+};
+
 const normalizeAccountType = (value) => {
   if (value === 'business' || value === 'company') return 'company';
   return 'individual';
@@ -84,19 +111,33 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
       body: JSON.stringify({ action: 'preview', token }),
       headers: { 'Content-Type': 'application/json' },
     });
-    if (error) throw new Error(error.message || 'No fue posible validar tu activación');
-    if (data?.error) throw new Error(data.error);
+    if (error) throw normalizeActivationError(error, 'No fue posible validar tu activación');
+    if (data?.error) throw normalizeActivationError(data.error, data.error);
     return data;
+  };
+
+  const getActivationAccessToken = async () => {
+    if (!hasSupabase || !supabase) return null;
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data?.session?.access_token) return null;
+    return data.session.access_token;
   };
 
   const claimProfile = async (token) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
+
+    const accessToken = await getActivationAccessToken();
+    if (!accessToken) throw createAuthRequiredError();
+
     const { data, error } = await supabase.functions.invoke('claim-profile', {
       body: JSON.stringify({ action: 'claim', token }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
-    if (error) throw new Error(error.message || 'No fue posible activar tu perfil');
-    if (data?.error) throw new Error(data.error);
+    if (error) throw normalizeActivationError(error);
+    if (data?.error) throw normalizeActivationError(data.error, data.error);
     return data;
   };
 
