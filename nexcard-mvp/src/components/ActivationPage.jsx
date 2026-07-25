@@ -45,6 +45,10 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
         onContinueSetup?.(token);
       }
     } catch (err) {
+      if (err.code === 'AUTH_REQUIRED') {
+        onAuthRequired?.(token);
+        return;
+      }
       setError(err.message || 'No fue posible activar tu NexCard');
     } finally {
       setBusy(false);
