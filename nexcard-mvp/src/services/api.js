@@ -141,12 +141,16 @@ export const api = {
 
   register: async (payload) => {
     if (hasSupabase) {
+      const redirectTo = typeof window !== 'undefined'
+        ? `${window.location.origin}/login`
+        : undefined;
       const { data, error } = await supabase.auth.signUp({
         email: payload.email,
         password: payload.password,
+        options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
       });
       if (error) throw new Error(error.message);
-      return { user: data.user, session: data.session };
+      return { user: data.user, session: data.session, needsEmailConfirmation: !data.session };
     }
     return request('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
   },
@@ -161,6 +165,26 @@ export const api = {
       return { user: data.user, session: data.session };
     }
     return request('/auth/login', { method: 'POST', body: JSON.stringify(payload) });
+  },
+
+  requestPasswordReset: async ({ email, redirectTo }) => {
+    if (!hasSupabase) {
+      throw new Error('Recuperación de contraseña disponible solo con Supabase Auth.');
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  updatePassword: async ({ password }) => {
+    if (!hasSupabase) {
+      throw new Error('Cambio de contraseña disponible solo con Supabase Auth.');
+    }
+    const { data, error } = await supabase.auth.updateUser({ password });
+    if (error) throw new Error(error.message);
+    return { user: data.user };
   },
 
   logout: async () => {
@@ -199,11 +223,9 @@ export const api = {
 
   updateMyProfile: async (payload) => profilesApi.updateMyProfile(payload),
 
-  checkProfileSlugAvailability: async (slug, orderId = null) => profilesApi.checkProfileSlugAvailability(slug, orderId),
-
   getAdminDashboard: async () => adminDashboardApi.getAdminDashboard(),
 
-  getProducts: async (options = {}) => productsApi.getProducts(options),
+  getProducts: async () => productsApi.getProducts(),
   createOrder: async (payload) => ordersApi.createOrder(payload),
 
   getInventory: async () => inventoryApi.getInventory(),
@@ -380,10 +402,6 @@ export const api = {
   deleteWheelPrize: async (id) => wheelApi.deleteWheelPrize(id),
 
   recordWheelSpin: async (spin) => wheelApi.recordWheelSpin(spin),
-
-  spinWheel: async (wheelId, visitorId) => wheelApi.spinWheel(wheelId, visitorId),
-
-  updateWheelSpinEmail: async (spinId, visitorId, email) => wheelApi.updateWheelSpinEmail(spinId, visitorId, email),
 
   validateWheelCoupon: async (code) => wheelApi.validateWheelCoupon(code),
 
