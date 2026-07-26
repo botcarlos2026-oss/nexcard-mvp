@@ -6,28 +6,103 @@ import {
   ArrowRight,
   Loader2,
   ShieldCheck,
-  ChevronLeft
+  ChevronLeft,
+  KeyRound,
 } from 'lucide-react';
 import { api } from '../services/api';
+import {
+  AUTH_MODES,
+  buildPasswordResetRedirectTo,
+  getInitialAuthMode,
+  normalizeAuthEmail,
+  validatePasswordResetForm,
+} from '../utils/authFlow';
+
+const getCopy = (mode) => {
+  if (mode === AUTH_MODES.REGISTER) {
+    return {
+      title: 'Crea tu NexCard.',
+      description: 'Registro habilitado con Supabase. Te enviaremos un correo para confirmar la cuenta.',
+      submit: 'Registrarme',
+    };
+  }
+  if (mode === AUTH_MODES.REQUEST_RESET) {
+    return {
+      title: 'Restablece tu contraseña.',
+      description: 'Ingresa tu correo y te enviaremos un link seguro para crear una contraseña nueva.',
+      submit: 'Enviar link de recuperación',
+    };
+  }
+  if (mode === AUTH_MODES.RESET_PASSWORD) {
+    return {
+      title: 'Crea una contraseña nueva.',
+      description: 'Estás usando un link seguro de recuperación. Define tu nueva contraseña para volver a entrar.',
+      submit: 'Actualizar contraseña',
+    };
+  }
+  return {
+    title: 'Bienvenido de nuevo.',
+    description: 'Accede a tu panel y administra tu perfil, pedidos y operación.',
+    submit: 'Entrar',
+  };
+};
 
 const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState(() => getInitialAuthMode(window.location.search));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    confirmPassword: '',
   });
+
+  const switchMode = (nextMode) => {
+    setMode(nextMode);
+    setError('');
+    setNotice('');
+    setFormData((current) => ({ ...current, password: '', confirmPassword: '' }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setNotice('');
 
     try {
-      const authPayload = mode === 'register'
-        ? await api.register(formData)
-        : await api.login(formData);
+      if (mode === AUTH_MODES.REQUEST_RESET) {
+        await api.requestPasswordReset({
+          email: normalizeAuthEmail(formData.email),
+          redirectTo: buildPasswordResetRedirectTo(window.location.href),
+        });
+        setNotice('Si el correo existe en NexCard, te enviaremos un link para restablecer tu contraseña. Revisa también spam/promociones.');
+        return;
+      }
+
+      if (mode === AUTH_MODES.RESET_PASSWORD) {
+        const validationError = validatePasswordResetForm(formData.password, formData.confirmPassword);
+        if (validationError) {
+          setError(validationError);
+          return;
+        }
+        await api.updatePassword({ password: formData.password });
+        switchMode(AUTH_MODES.LOGIN);
+        setNotice('Contraseña actualizada. Ya puedes iniciar sesión con tu nueva clave.');
+        return;
+      }
+
+      const authPayload = mode === AUTH_MODES.REGISTER
+        ? await api.register({ ...formData, email: normalizeAuthEmail(formData.email) })
+        : await api.login({ ...formData, email: normalizeAuthEmail(formData.email) });
+
+      if (mode === AUTH_MODES.REGISTER && authPayload.needsEmailConfirmation) {
+        switchMode(AUTH_MODES.LOGIN);
+        setNotice('Cuenta creada. Te enviamos un correo de confirmación; confirma tu cuenta antes de iniciar sesión.');
+        return;
+      }
+
       onAuthSuccess(authPayload);
     } catch (err) {
       setError(err.message || 'No fue posible iniciar sesión/registro');
@@ -35,6 +110,11 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
       setLoading(false);
     }
   };
+
+  const copy = getCopy(mode);
+  const needsPassword = mode !== AUTH_MODES.REQUEST_RESET;
+  const needsConfirmPassword = mode === AUTH_MODES.RESET_PASSWORD;
+  const isPasswordRecovery = mode === AUTH_MODES.REQUEST_RESET || mode === AUTH_MODES.RESET_PASSWORD;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white font-sans flex items-center justify-center p-6 relative overflow-hidden">
@@ -44,56 +124,82 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
       <div className="max-w-md w-full relative z-10">
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-emerald-500/20">
-            <Zap size={32} fill="currentColor" />
+            {isPasswordRecovery ? <KeyRound size={32} /> : <Zap size={32} fill="currentColor" />}
           </div>
           <h1 className="text-4xl font-black tracking-tighter leading-tight">
-            {mode === 'login' ? 'Bienvenido de nuevo.' : 'Crea tu NexCard.'}
+            {copy.title}
           </h1>
           <p className="mt-3 text-zinc-400 font-medium">
-            {mode === 'login'
-              ? 'Accede a tu panel y administra tu perfil, pedidos y operación.'
-              : 'Registro habilitado con Supabase.'}
+            {copy.description}
             {pendingClaimToken ? ' Estás entrando para activar una NexCard comprada.' : ''}
           </p>
         </div>
 
         <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-8 rounded-[32px] shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="auth-email" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Correo Electrónico</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-                <input
-                  id="auth-email"
-                  data-cy="auth-email"
-                  type="email"
-                  required
-                  placeholder="ejemplo@correo.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full bg-zinc-800/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 font-bold focus:border-emerald-500 outline-none transition-all"
-                />
+            {mode !== AUTH_MODES.RESET_PASSWORD && (
+              <div>
+                <label htmlFor="auth-email" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Correo Electrónico</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                  <input
+                    id="auth-email"
+                    data-cy="auth-email"
+                    type="email"
+                    required
+                    placeholder="ejemplo@correo.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full bg-zinc-800/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 font-bold focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label htmlFor="auth-password" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Contraseña</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-                <input
-                  id="auth-password"
-                  data-cy="auth-password"
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full bg-zinc-800/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 font-bold focus:border-emerald-500 outline-none transition-all"
-                />
+            {needsPassword && (
+              <div>
+                <label htmlFor="auth-password" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">
+                  {mode === AUTH_MODES.RESET_PASSWORD ? 'Nueva contraseña' : 'Contraseña'}
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                  <input
+                    id="auth-password"
+                    data-cy="auth-password"
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full bg-zinc-800/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 font-bold focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {error && <p className="text-sm font-bold text-rose-400">{error}</p>}
+            {needsConfirmPassword && (
+              <div>
+                <label htmlFor="auth-confirm-password" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Confirmar nueva contraseña</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                  <input
+                    id="auth-confirm-password"
+                    data-cy="auth-confirm-password"
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="••••••••"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    className="w-full bg-zinc-800/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 font-bold focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+            )}
+
+            {error && <p className="text-sm font-bold text-rose-400" data-cy="auth-error">{error}</p>}
+            {notice && <p className="text-sm font-bold text-emerald-300" data-cy="auth-notice">{notice}</p>}
 
             <button
               type="submit"
@@ -101,17 +207,28 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
               disabled={loading}
               className="w-full bg-white text-zinc-950 p-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              {loading ? <Loader2 className="animate-spin" /> : mode === 'login' ? 'Entrar' : 'Registrarme'}
+              {loading ? <Loader2 className="animate-spin" /> : copy.submit}
               {!loading && <ArrowRight size={24} />}
             </button>
           </form>
 
-          <div className="mt-8 pt-8 border-t border-white/5 text-center">
+          <div className="mt-8 pt-8 border-t border-white/5 text-center space-y-4">
+            {mode === AUTH_MODES.LOGIN && (
+              <button
+                type="button"
+                data-cy="auth-forgot-password"
+                onClick={() => switchMode(AUTH_MODES.REQUEST_RESET)}
+                className="block mx-auto text-sm font-bold text-emerald-300 hover:text-emerald-200 transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
             <button
-              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+              type="button"
+              onClick={() => switchMode(mode === AUTH_MODES.LOGIN ? AUTH_MODES.REGISTER : AUTH_MODES.LOGIN)}
               className="text-sm font-bold text-zinc-400 hover:text-white transition-colors"
             >
-              {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+              {mode === AUTH_MODES.LOGIN ? '¿No tienes cuenta? Regístrate' : 'Volver a iniciar sesión'}
             </button>
           </div>
         </div>
