@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
+import SafeErrorState from './common/SafeErrorState';
 
 const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
   const [loading, setLoading] = useState(true);
@@ -15,15 +16,19 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
         if (!mounted) return;
         setClaimData(data);
       })
-      .catch((err) => {
+      .catch(() => {
         if (!mounted) return;
-        setError(err.message || 'No fue posible validar el link de activación');
+        setError(activationHelpMessage);
       })
       .finally(() => {
         if (mounted) setLoading(false);
       });
     return () => { mounted = false; };
   }, [token]);
+
+  const activationErrorTitle = 'Link de activación inválido o expirado';
+  const activationErrorMessage = error || 'Revisa el enlace o solicita uno nuevo al equipo NexCard.';
+  const activationHelpMessage = 'Revisa el enlace o solicita uno nuevo al equipo NexCard.';
 
   const handleActivate = async () => {
     if (!user) {
@@ -36,20 +41,11 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
     try {
       const result = await api.claimProfile(token);
       setClaimData(result);
-      if (result.reserved_slug) {
-        try {
-          sessionStorage.setItem('nx_pending_profile_slug', result.reserved_slug);
-        } catch {}
-      }
       if (result.requires_profile_setup) {
         onContinueSetup?.(token);
       }
     } catch (err) {
-      if (err.code === 'AUTH_REQUIRED') {
-        onAuthRequired?.(token);
-        return;
-      }
-      setError(err.message || 'No fue posible activar tu NexCard');
+      setError(activationHelpMessage);
     } finally {
       setBusy(false);
     }
@@ -60,7 +56,15 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
   }
 
   if (error) {
-    return <div className="min-h-screen bg-zinc-950 text-white grid place-items-center p-8 text-center"><div><p className="text-2xl font-black mb-3">No pudimos activar tu NexCard</p><p className="text-zinc-400">{error}</p></div></div>;
+    return (
+      <SafeErrorState
+        eyebrow="Activación NexCard"
+        title={activationErrorTitle}
+        message={activationErrorMessage}
+        actionLabel="Volver al inicio"
+        actionHref="/preview"
+      />
+    );
   }
 
   const order = claimData?.order;

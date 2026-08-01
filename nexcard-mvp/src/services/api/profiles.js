@@ -1,31 +1,11 @@
-import { slugify } from '../../utils/slug';
-
-const ACTIVATION_AUTH_ERROR = 'Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.';
-const ACTIVATION_GENERIC_ERROR = 'No fue posible activar tu NexCard. Intenta nuevamente o contáctanos en hola@nexcard.cl.';
-
-const getFunctionStatus = (error) => error?.context?.status || error?.status || error?.response?.status || null;
-
-const mapActivationFunctionError = (error, fallback = ACTIVATION_GENERIC_ERROR) => {
-  const status = getFunctionStatus(error);
-  const message = error?.message || String(error || '');
-
-  if (status === 401 || status === 403) return ACTIVATION_AUTH_ERROR;
-  if (message.includes('JWT') || message.includes('Sesión inválida') || message.includes('expirada')) return ACTIVATION_AUTH_ERROR;
-  if (message.includes('Edge Function returned a non-2xx status code')) return fallback;
-  return message || fallback;
-};
-
-const createAuthRequiredError = () => {
-  const error = new Error(ACTIVATION_AUTH_ERROR);
-  error.code = 'AUTH_REQUIRED';
-  return error;
-};
-
-const normalizeActivationError = (error, fallback) => {
-  const mapped = mapActivationFunctionError(error, fallback);
-  const authError = mapped === ACTIVATION_AUTH_ERROR ? createAuthRequiredError() : new Error(mapped);
-  return authError;
-};
+const slugify = (value = '') => value
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9\s-]/g, '')
+  .trim()
+  .replace(/\s+/g, '-')
+  .replace(/-+/g, '-');
 
 const normalizeAccountType = (value) => {
   if (value === 'business' || value === 'company') return 'company';
@@ -111,33 +91,36 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
       body: JSON.stringify({ action: 'preview', token }),
       headers: { 'Content-Type': 'application/json' },
     });
-    if (error) throw normalizeActivationError(error, 'No fue posible validar tu activación');
-    if (data?.error) throw normalizeActivationError(data.error, data.error);
+    if (error) throw new Error(error.message || 'No fue posible validar tu activación');
+    if (data?.error) throw new Error(data.error);
     return data;
-  };
-
-  const getActivationAccessToken = async () => {
-    if (!hasSupabase || !supabase) return null;
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data?.session?.access_token) return null;
-    return data.session.access_token;
   };
 
   const claimProfile = async (token) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
-
-    const accessToken = await getActivationAccessToken();
-    if (!accessToken) throw createAuthRequiredError();
+    const sessionResult = await supabase.auth?.getSession?.();
+    const session = sessionResult?.data?.session || null;
+    if (!session?.access_token) {
+      const authError = new Error('Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.');
+      authError.code = 'AUTH_REQUIRED';
+      throw authError;
+    }
 
     const { data, error } = await supabase.functions.invoke('claim-profile', {
       body: JSON.stringify({ action: 'claim', token }),
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${session.access_token}`,
       },
     });
-    if (error) throw normalizeActivationError(error);
-    if (data?.error) throw normalizeActivationError(data.error, data.error);
+    if (error) {
+      const status = error?.context?.status;
+      if (status === 401) {
+        throw new Error('Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.');
+      }
+      throw new Error(error.message || 'No fue posible activar tu perfil');
+    }
+    if (data?.error) throw new Error(data.error);
     return data;
   };
 
@@ -145,36 +128,38 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     if (hasSupabase) {
       const { data, error } = await supabase
         .from('profiles').select('*')
-        .eq('slug', slug).eq('status', 'active').is('deleted_at', null).single();
-      if (!error && data) return data;
+        .eq('slug', slug).eq('status', 'active').is('deleted_at', null).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (data) return data;
+      return null;
     }
     return request(`/public/profiles/${slug}`);
   };
 
   const getMyProfile = async () => {
-    if (!hasSupabase) throw new Error('Perfil privado deshabilitado');
     const userId = getClerkUserId();
     if (!userId) throw new Error('No hay sesión activa');
+
+    if (!hasSupabase) {
+      return request('/me/profile');
+    }
+
     const { data, error } = await supabase
       .from('profiles').select('*').eq('user_id', userId).is('deleted_at', null).maybeSingle();
     if (error) throw new Error(error.message);
     return data;
   };
 
-  const checkProfileSlugAvailability = async (slug, orderId = null) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
-    const { data, error } = await supabase.rpc('check_profile_slug_availability', {
-      candidate_slug: slug,
-      current_order_id: orderId,
-    });
-    if (error) throw new Error(error.message || 'No fue posible validar el usuario');
-    return data;
-  };
-
   const updateMyProfile = async (payload) => {
-    if (!hasSupabase) throw new Error('Edición deshabilitada');
     const userId = getClerkUserId();
     if (!userId) throw new Error('No hay sesión activa');
+
+    if (!hasSupabase) {
+      return request('/me/profile', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    }
 
     const { data: existingProfile, error: existingError } = await supabase
       .from('profiles')
@@ -191,17 +176,23 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
       existingProfile,
     });
 
-    if (existingProfile?.slug !== profilePayload.slug) {
-      const availability = await checkProfileSlugAvailability(profilePayload.slug);
-      if (!availability.available && availability.reason !== 'reserved') {
-        throw new Error(availability.message || 'Ese usuario no está disponible.');
-      }
+    const { data: slugTaken, error: slugError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('slug', profilePayload.slug)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (slugError) throw new Error(slugError.message);
+    if (slugTaken && slugTaken.id !== existingProfile?.id) {
+      throw new Error('Ese usuario ya está ocupado. Prueba otro.');
     }
 
     if (!existingProfile) {
+      let uniquePayload = { ...profilePayload };
       const { data, error } = await supabase
         .from('profiles')
-        .insert(profilePayload)
+        .insert(uniquePayload)
         .select()
         .single();
       if (error) throw new Error(error.message);
@@ -251,20 +242,6 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
   };
 
   const getAdminProfiles = async () => {
-    const storedAuth = (() => {
-      try {
-        return JSON.parse(localStorage.getItem('nexcard_auth') || 'null');
-      } catch {
-        return null;
-      }
-    })();
-    const useLocalAdminFallback = Boolean(storedAuth?.user && (storedAuth.user.role === 'admin' || /admin/i.test(storedAuth.user.email || '')));
-
-    if (useLocalAdminFallback) {
-      const response = await request('/admin/cards');
-      return { profiles: response?.profiles || [] };
-    }
-
     if (hasSupabase) {
       try {
         const result = await fetchAdminProfiles();
@@ -273,9 +250,7 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
         // fallback to local admin API below
       }
     }
-
-    const response = await request('/admin/cards');
-    return { profiles: response?.profiles || [] };
+    return request('/admin/profiles');
   };
 
   const archiveProfile = async (profileId) => {
@@ -312,7 +287,6 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     getPublicProfile,
     getMyProfile,
     updateMyProfile,
-    checkProfileSlugAvailability,
     getProfileSlugForOrder,
     getAdminProfiles,
     archiveProfile,
