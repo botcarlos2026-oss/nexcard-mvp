@@ -90,9 +90,15 @@ function App() {
     navigate('/login');
   };
 
-  const handleContinueSetup = (token) => {
+  const handleContinueSetup = ({ token, reservedSlug }) => {
     setPendingClaimToken(token);
     setPendingClaimTokenState(token);
+    try {
+      if (reservedSlug) sessionStorage.setItem('nx_pending_profile_slug', reservedSlug);
+      else sessionStorage.removeItem('nx_pending_profile_slug');
+    } catch (_) {
+      // sessionStorage puede estar bloqueado en modo privado.
+    }
     navigate('/setup');
   };
 

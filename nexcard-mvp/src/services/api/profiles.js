@@ -96,6 +96,28 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     return data;
   };
 
+  const checkProfileSlugAvailability = async (slug, currentOrderId = null) => {
+    if (!hasSupabase) {
+      const { data, error } = await request('/profile-slugs/availability', {
+        method: 'POST',
+        body: JSON.stringify({
+          candidate_slug: slug,
+          current_order_id: currentOrderId,
+        }),
+      });
+      if (error) throw new Error(error.message || 'No fue posible validar el usuario');
+      return data;
+    }
+
+    const { data, error } = await supabase.rpc('check_profile_slug_availability', {
+      candidate_slug: slug,
+      current_order_id: currentOrderId,
+    });
+
+    if (error) throw new Error(error.message || 'No fue posible validar el usuario');
+    return data;
+  };
+
   const claimProfile = async (token) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
     const sessionResult = await supabase.auth?.getSession?.();
@@ -103,6 +125,7 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     if (!session?.access_token) {
       const authError = new Error('Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.');
       authError.code = 'AUTH_REQUIRED';
+      authError.status = 401;
       throw authError;
     }
 
@@ -115,8 +138,11 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     });
     if (error) {
       const status = error?.context?.status;
-      if (status === 401) {
-        throw new Error('Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.');
+      if (status === 401 || status === 403) {
+        const authError = new Error('Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.');
+        authError.code = 'AUTH_REQUIRED';
+        authError.status = status;
+        throw authError;
       }
       throw new Error(error.message || 'No fue posible activar tu perfil');
     }
@@ -283,6 +309,7 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
 
   return {
     previewProfileClaim,
+    checkProfileSlugAvailability,
     claimProfile,
     getPublicProfile,
     getMyProfile,

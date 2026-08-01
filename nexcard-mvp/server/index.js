@@ -29,6 +29,8 @@ function buildMinimalSeed() {
   return {
     users: [],
     profiles: [],
+    profile_claims: [],
+    profile_slug_reservations: [],
     products: [],
     orders: [],
     inventory: [],
@@ -113,10 +115,64 @@ function ensureLifecycleFixtures(db) {
   return changed;
 }
 
+function ensureSmokeFixtures(db) {
+  let changed = false;
+  db.users = db.users || [];
+  db.profiles = db.profiles || [];
+  db.profile_claims = db.profile_claims || [];
+  db.profile_slug_reservations = db.profile_slug_reservations || [];
+  db.content = db.content || { landing: {} };
+  db.content.landing = db.content.landing || {};
+
+  const adminUser = {
+    id: 'user-admin-e2e-local',
+    email: 'admin@nexcard.local',
+    password: 'nexcard-local-admin',
+    role: 'admin',
+  };
+
+  if (!db.users.some((user) => user.email === adminUser.email)) {
+    db.users.push(adminUser);
+    changed = true;
+  }
+
+  const smokeProfile = {
+    id: 'profile-qa-smoke',
+    user_id: 'user-qa-smoke',
+    slug: 'qa-smoke-profile',
+    full_name: 'QA Smoke Profile',
+    profession: 'Perfil público determinístico para smoke',
+    bio: 'Fixture local estable para verificar rutas públicas de NexCard.',
+    company: 'NexCard QA',
+    contact_email: 'qa-smoke@nexcard.local',
+    whatsapp: '56911112222',
+    whatsapp_enabled: true,
+    website: 'https://nexcard.cl',
+    website_enabled: true,
+    vcard_enabled: true,
+    theme_color: '#10B981',
+    is_dark_mode: true,
+    account_type: 'company',
+    status: 'active',
+    deleted_at: null,
+    view_count: 0,
+  };
+
+  if (!db.profiles.some((profile) => profile.slug === smokeProfile.slug && profile.deleted_at == null)) {
+    db.profiles.push(smokeProfile);
+    changed = true;
+  }
+
+  return changed;
+}
+
 function readDb() {
   ensureDb();
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   if (ensureLifecycleFixtures(db)) {
+    writeDb(db);
+  }
+  if (ensureSmokeFixtures(db)) {
     writeDb(db);
   }
   return db;
@@ -163,6 +219,62 @@ app.get('/api/public/profiles/:slug', (req, res) => {
   profile.view_count = (profile.view_count || 0) + 1;
   writeDb(db);
   return res.json(profile);
+});
+
+app.post('/api/profile-slugs/availability', (req, res) => {
+  const candidateSlug = String(req.body?.candidate_slug || '').trim().toLowerCase();
+  const currentOrderId = req.body?.current_order_id || null;
+  const db = readDb();
+  const normalized = candidateSlug
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
+  if (!/^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/.test(normalized)) {
+    return res.json({
+      available: false,
+      slug: normalized,
+      reason: 'invalid_format',
+      message: 'Usa 3-40 caracteres: letras, números y guiones.',
+    });
+  }
+
+  const existingProfile = db.profiles.find((profile) => profile.slug === normalized && profile.deleted_at == null);
+  if (existingProfile) {
+    return res.json({
+      available: false,
+      slug: normalized,
+      reason: 'profile_exists',
+      message: 'Ese usuario ya está ocupado. Prueba otro.',
+    });
+  }
+
+  const activeReservation = (db.profile_slug_reservations || []).find((reservation) => {
+    if (reservation.slug !== normalized) return false;
+    if (reservation.status !== 'reserved') return false;
+    if (!reservation.expires_at || new Date(reservation.expires_at).getTime() <= Date.now()) return false;
+    if (!currentOrderId) return true;
+    return reservation.order_id !== currentOrderId;
+  });
+
+  if (activeReservation) {
+    return res.json({
+      available: false,
+      slug: normalized,
+      reason: 'reserved',
+      message: 'Ese usuario está reservado por otra compra. Prueba otro.',
+    });
+  }
+
+  return res.json({
+    available: true,
+    slug: normalized,
+    reason: 'available',
+    message: 'Usuario disponible.',
+  });
 });
 
 app.get('/c/:publicToken', async (req, res) => {

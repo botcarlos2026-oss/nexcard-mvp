@@ -42,9 +42,13 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
       const result = await api.claimProfile(token);
       setClaimData(result);
       if (result.requires_profile_setup) {
-        onContinueSetup?.(token);
+        onContinueSetup?.({ token, reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '' });
       }
     } catch (err) {
+      if (err?.code === 'AUTH_REQUIRED' || err?.status === 401 || err?.status === 403) {
+        onAuthRequired?.(token);
+        return;
+      }
       setError(activationHelpMessage);
     } finally {
       setBusy(false);
