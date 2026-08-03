@@ -77,6 +77,7 @@
   },
   "overrides": {
     "@tootallnate/once": "^3.0.1",
+    "brace-expansion": "^1.1.17",
     "qs": "^6.15.3",
     "serialize-javascript": "^7.0.7",
     "underscore": "^1.13.8",

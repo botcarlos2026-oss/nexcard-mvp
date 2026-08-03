@@ -3,7 +3,7 @@ import { createProfilesApi } from './profiles';
 
 const AUTH_MESSAGE = 'Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.';
 
-const createApi = ({ session = null, invokeResult = { data: { success: true }, error: null } } = {}) => {
+const createApi = ({ session = null, invokeResult = { data: { success: true }, error: null }, rpcResult = { data: { available: true, slug: 'qa-smoke-profile', reason: 'available', message: 'Usuario disponible.' }, error: null } } = {}) => {
   const supabase = {
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session }, error: null }),
@@ -11,6 +11,7 @@ const createApi = ({ session = null, invokeResult = { data: { success: true }, e
     functions: {
       invoke: vi.fn().mockResolvedValue(invokeResult),
     },
+    rpc: vi.fn().mockResolvedValue(rpcResult),
   };
 
   return {
@@ -50,7 +51,44 @@ describe('createProfilesApi activation claim auth', () => {
       },
     });
 
-    await expect(api.claimProfile('claim-token')).rejects.toThrow(AUTH_MESSAGE);
+    await expect(api.claimProfile('claim-token')).rejects.toMatchObject({
+      code: 'AUTH_REQUIRED',
+      status: 401,
+      message: AUTH_MESSAGE,
+    });
+  });
+
+  it('traduce 403 de Edge Function a flujo AUTH_REQUIRED', async () => {
+    const { api } = createApi({
+      session: { access_token: 'valid-jwt' },
+      invokeResult: {
+        data: null,
+        error: {
+          message: 'Edge Function returned a non-2xx status code',
+          context: { status: 403 },
+        },
+      },
+    });
+
+    await expect(api.claimProfile('claim-token')).rejects.toMatchObject({
+      code: 'AUTH_REQUIRED',
+      status: 403,
+      message: AUTH_MESSAGE,
+    });
+  });
+
+  it('consulta la RPC de disponibilidad de slug con el currentOrderId', async () => {
+    const { api, supabase } = createApi();
+
+    await expect(api.checkProfileSlugAvailability('QA Smoke Profile', 'order-123')).resolves.toMatchObject({
+      available: true,
+      slug: 'qa-smoke-profile',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('check_profile_slug_availability', {
+      candidate_slug: 'QA Smoke Profile',
+      current_order_id: 'order-123',
+    });
   });
 
   it('envía el JWT vigente al claim-profile cuando hay sesión válida', async () => {

@@ -120,6 +120,11 @@ export function useAppBootstrap({
         if (slug) {
           const profile = await api.getPublicProfile(slug);
           if (isStale()) return;
+          if (!profile) {
+            setData(null);
+            setError('Perfil no encontrado');
+            return;
+          }
           setData(profile);
         }
       } catch (err) {

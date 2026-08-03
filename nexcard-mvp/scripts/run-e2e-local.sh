@@ -73,7 +73,17 @@ if [[ "$MODE" == "cards-lifecycle" ]]; then
   unset SUPABASE_URL
   unset SUPABASE_ANON_KEY
 else
-  unset REACT_APP_DISABLE_SUPABASE
+  if [[ "${E2E_USE_REAL_SUPABASE:-false}" == "true" || "${RUNNER_MODE:-local}" == "real" ]]; then
+    echo "[e2e] local smoke mode: real Supabase enabled by explicit flag"
+    unset REACT_APP_DISABLE_SUPABASE
+  else
+    echo "[e2e] local smoke mode: using deterministic local fixtures"
+    export REACT_APP_DISABLE_SUPABASE="true"
+    unset REACT_APP_SUPABASE_URL
+    unset REACT_APP_SUPABASE_ANON_KEY
+    unset SUPABASE_URL
+    unset SUPABASE_ANON_KEY
+  fi
 fi
 
 echo "[e2e] Starting frontend on http://localhost:${FRONTEND_PORT}"

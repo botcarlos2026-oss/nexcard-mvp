@@ -33,7 +33,7 @@ describe('NexCard smoke flow', () => {
   });
 
   it('public profile route renders a contact profile', () => {
-    const slug = Cypress.env('public_profile_slug') || 'carlos-alvarez';
+    const slug = 'qa-smoke-profile';
     cy.visit(`/${slug}`);
     cy.contains(/guardar contacto|whatsapp|llamar|sitio web/i, { timeout: 10000 }).should('exist');
   });

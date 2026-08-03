@@ -1,36 +1,45 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import LandingPage from './LandingPage';
 import ComingSoon from './ComingSoon';
 import PrivacyPolicy from './PrivacyPolicy';
 import TermsAndConditions from './TermsAndConditions';
 import NexCardProfile from './NexCardProfile';
-import AdminDashboard from './AdminDashboard';
-import InventoryDashboard from './InventoryDashboard';
-import AdminCardsDashboard from './AdminCardsDashboard';
-import AdminProfilesDashboard from './AdminProfilesDashboard';
-import OrdersDashboard from './OrdersDashboard';
-import QAOrdersDashboard from './QAOrdersDashboard';
-import CRMDashboard from './CRMDashboard';
-import NexReviewDashboard from './NexReviewDashboard';
-import ReviewCardsDashboard from './ReviewCardsDashboard';
-import ReviewCardRedirect from './ReviewCardRedirect';
-import EmailDashboard from './EmailDashboard';
-import ProductsDashboard from './ProductsDashboard';
-import TeamDashboard from './TeamDashboard';
-import WheelDashboard from './WheelDashboard';
-import PrintTestGenerator from './PrintTestGenerator';
-import KpiDashboard from './KpiDashboard';
-import UnsubscribePage from './UnsubscribePage';
-import TrackingPage from './TrackingPage';
-import DeliveryConfirmation from './DeliveryConfirmation';
-import ActivationPage from './ActivationPage';
-import UserEditor from './UserEditor';
-import SetupWizard from './SetupWizard';
-import AuthPage from './AuthPage';
-import ProductCatalog from './ProductCatalog';
-import Cart from './Cart';
-import CheckoutForm from './CheckoutForm';
-import OrderConfirmation from './OrderConfirmation';
+import SafeErrorState from './common/SafeErrorState';
+const AdminDashboard = React.lazy(() => import('./AdminDashboard'));
+const InventoryDashboard = React.lazy(() => import('./InventoryDashboard'));
+const AdminCardsDashboard = React.lazy(() => import('./AdminCardsDashboard'));
+const AdminProfilesDashboard = React.lazy(() => import('./AdminProfilesDashboard'));
+const OrdersDashboard = React.lazy(() => import('./OrdersDashboard'));
+const QAOrdersDashboard = React.lazy(() => import('./QAOrdersDashboard'));
+const CRMDashboard = React.lazy(() => import('./CRMDashboard'));
+const NexReviewDashboard = React.lazy(() => import('./NexReviewDashboard'));
+const ReviewCardsDashboard = React.lazy(() => import('./ReviewCardsDashboard'));
+const ReviewCardRedirect = React.lazy(() => import('./ReviewCardRedirect'));
+const EmailDashboard = React.lazy(() => import('./EmailDashboard'));
+const ProductsDashboard = React.lazy(() => import('./ProductsDashboard'));
+const TeamDashboard = React.lazy(() => import('./TeamDashboard'));
+const WheelDashboard = React.lazy(() => import('./WheelDashboard'));
+const PrintTestGenerator = React.lazy(() => import('./PrintTestGenerator'));
+const KpiDashboard = React.lazy(() => import('./KpiDashboard'));
+const UnsubscribePage = React.lazy(() => import('./UnsubscribePage'));
+const TrackingPage = React.lazy(() => import('./TrackingPage'));
+const DeliveryConfirmation = React.lazy(() => import('./DeliveryConfirmation'));
+const ActivationPage = React.lazy(() => import('./ActivationPage'));
+const UserEditor = React.lazy(() => import('./UserEditor'));
+const SetupWizard = React.lazy(() => import('./SetupWizard'));
+const AuthPage = React.lazy(() => import('./AuthPage'));
+const ProductCatalog = React.lazy(() => import('./ProductCatalog'));
+const Cart = React.lazy(() => import('./Cart'));
+const CheckoutForm = React.lazy(() => import('./CheckoutForm'));
+const OrderConfirmation = React.lazy(() => import('./OrderConfirmation'));
+
+const routeFallback = (
+  <div className="min-h-screen bg-zinc-950 text-white grid place-items-center px-6">
+    <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-5 text-sm text-zinc-300">Cargando módulo…</div>
+  </div>
+);
+
+const withSuspense = (element) => <Suspense fallback={routeFallback}>{element}</Suspense>;
 
 export default function AppRouteRenderer({
   loading,
@@ -65,81 +74,91 @@ export default function AppRouteRenderer({
   }
 
   if (checkoutStep === 'catalog') {
-    return <ProductCatalog onProceedToCart={handleProceedToCart} />;
+    return withSuspense(<ProductCatalog onProceedToCart={handleProceedToCart} />);
   }
 
   if (checkoutStep === 'cart') {
-    return <Cart onProceedCheckout={handleProceedToCheckout} onBack={handleBackToShop} />;
+    return withSuspense(<Cart onProceedCheckout={handleProceedToCheckout} onBack={handleBackToShop} />);
   }
 
   if (checkoutStep === 'checkout') {
-    return <CheckoutForm onOrderSuccess={handleOrderSuccess} onBack={handleBackToCart} />;
+    return withSuspense(<CheckoutForm onOrderSuccess={handleOrderSuccess} onBack={handleBackToCart} />);
   }
 
   if (checkoutStep === 'confirmation') {
-    return <OrderConfirmation order={currentOrder} onContinueShopping={handleBackToShop} />;
+    return withSuspense(<OrderConfirmation order={currentOrder} onContinueShopping={handleBackToShop} />);
   }
 
-  if (path === '/login') return <AuthPage onAuthSuccess={handleAuthSuccess} pendingClaimToken={pendingClaimToken} />;
+  if (path === '/login') return withSuspense(<AuthPage onAuthSuccess={handleAuthSuccess} pendingClaimToken={pendingClaimToken} />);
 
-  if (path === '/admin') return <AdminDashboard dashboard={adminData} />;
-  if (path === '/admin/inventory') return <InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />;
-  if (path === '/admin/cards') return <AdminCardsDashboard cards={cardsData.cards} profiles={cardsData.profiles} />;
-  if (path === '/admin/profiles') return <AdminProfilesDashboard profiles={profilesAdminData} />;
-  if (path === '/admin/nexreview') return <NexReviewDashboard profiles={profilesAdminData} />;
-  if (path === '/admin/orders') return <OrdersDashboard orders={ordersAdminData} />;
-  if (path === '/admin/orders/qa') return <QAOrdersDashboard orders={ordersAdminData} />;
-  if (path === '/admin/emails') return <EmailDashboard />;
-  if (path === '/admin/review-cards') return <ReviewCardsDashboard />;
-  if (path === '/admin/products') return <ProductsDashboard />;
-  if (path === '/admin/team') return <TeamDashboard />;
-  if (path === '/admin/wheel') return <WheelDashboard />;
-  if (path === '/admin/print-test') return <PrintTestGenerator />;
-  if (path === '/admin/kpis') return <KpiDashboard />;
+  if (path === '/admin') return withSuspense(<AdminDashboard dashboard={adminData} />);
+  if (path === '/admin/inventory') return withSuspense(<InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />);
+  if (path === '/admin/cards') return withSuspense(<AdminCardsDashboard cards={cardsData.cards} profiles={cardsData.profiles} />);
+  if (path === '/admin/profiles') return withSuspense(<AdminProfilesDashboard profiles={profilesAdminData} />);
+  if (path === '/admin/nexreview') return withSuspense(<NexReviewDashboard profiles={profilesAdminData} />);
+  if (path === '/admin/orders') return withSuspense(<OrdersDashboard orders={ordersAdminData} />);
+  if (path === '/admin/orders/qa') return withSuspense(<QAOrdersDashboard orders={ordersAdminData} />);
+  if (path === '/admin/emails') return withSuspense(<EmailDashboard />);
+  if (path === '/admin/review-cards') return withSuspense(<ReviewCardsDashboard />);
+  if (path === '/admin/products') return withSuspense(<ProductsDashboard />);
+  if (path === '/admin/team') return withSuspense(<TeamDashboard />);
+  if (path === '/admin/wheel') return withSuspense(<WheelDashboard />);
+  if (path === '/admin/print-test') return withSuspense(<PrintTestGenerator />);
+  if (path === '/admin/kpis') return withSuspense(<KpiDashboard />);
 
   if (path.startsWith('/r/')) {
-    return <ReviewCardRedirect slug={path.replace('/r/', '').replace(/\/$/, '')} />;
+    return withSuspense(<ReviewCardRedirect slug={path.replace('/r/', '').replace(/\/$/, '')} />);
   }
-  if (path === '/baja') return <UnsubscribePage />;
+  if (path === '/baja') return withSuspense(<UnsubscribePage />);
 
-  if (path === '/admin/crm') return <CRMDashboard />;
+  if (path === '/admin/crm') return withSuspense(<CRMDashboard />);
 
   if (path === '/edit') {
     if (!user) return null;
-    return <UserEditor data={data} onSave={handleSave} onLogout={handleLogout} />;
+    return withSuspense(<UserEditor data={data} onSave={handleSave} onLogout={handleLogout} />);
   }
 
   if (path === '/setup') {
-    return <SetupWizard onComplete={async (wizardData) => {
-      await handleSave(wizardData);
+    return withSuspense(<SetupWizard onComplete={async (wizardData) => {
+      await handleSave({ ...data, ...wizardData });
       navigate('/edit');
-    }} />;
+    }} />);
   }
 
   if (path.startsWith('/activar/')) {
     const token = path.replace('/activar/', '').replace(/\/$/, '');
-    return <ActivationPage token={token} user={user} onAuthRequired={handleClaimAuthRequired} onContinueSetup={handleContinueSetup} />;
+    return withSuspense(<ActivationPage token={token} user={user} onAuthRequired={handleClaimAuthRequired} onContinueSetup={handleContinueSetup} />);
   }
 
   if (path.startsWith('/seguimiento/')) {
     const [orderId, token] = path.replace('/seguimiento/', '').replace(/\/$/, '').split('/');
-    return <TrackingPage orderId={orderId} token={token} />;
+    return withSuspense(<TrackingPage orderId={orderId} token={token} />);
   }
 
   if (path.startsWith('/confirmar/')) {
     const parts = path.replace('/confirmar/', '').split('/');
-    return <DeliveryConfirmation orderId={parts[0]} token={parts[1]} />;
+    return withSuspense(<DeliveryConfirmation orderId={parts[0]} token={parts[1]} />);
   }
 
-  if (path === '/' || path === '/preview') {
-    return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
-  }
-  if (path === '/coming-soon') return <ComingSoon />;
+  if (path === '/') return <ComingSoon />;
+  if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
+  if (path === '/coming-soon') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
   if (path === '/privacidad') return <PrivacyPolicy />;
   if (path === '/terminos') return <TermsAndConditions />;
 
   if (error) {
-    return <div className="min-h-screen bg-zinc-950 text-white grid place-items-center p-8 text-center"><div><p className="font-black text-2xl mb-3">NexCard no pudo cargar el perfil</p><p className="text-zinc-400">{error}</p></div></div>;
+    const isActivationError = path.startsWith('/activar/');
+    return (
+      <SafeErrorState
+        eyebrow={isActivationError ? 'Activación NexCard' : 'Perfil público'}
+        title={isActivationError ? 'Link de activación inválido o expirado' : 'Perfil no encontrado'}
+        message={isActivationError
+          ? (error || 'Revisa el enlace o solicita uno nuevo al equipo NexCard.')
+          : 'Este perfil no existe, fue desactivado o el enlace no es correcto.'}
+        actionLabel={isActivationError ? 'Volver al inicio' : 'Ir a NexCard'}
+        actionHref="/preview"
+      />
+    );
   }
 
   return <NexCardProfile data={data} />;

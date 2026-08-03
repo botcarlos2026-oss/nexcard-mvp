@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /edit
+Disallow: /login
+Disallow: /setup
+Disallow: /api/
+
+Sitemap: https://nexcard.cl/sitemap.xml

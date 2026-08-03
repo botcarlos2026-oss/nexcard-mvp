@@ -217,6 +217,8 @@ export const api = {
     return request('/content/landing');
   },
 
+  checkProfileSlugAvailability: async (slug, currentOrderId = null) => profilesApi.checkProfileSlugAvailability(slug, currentOrderId),
+
   getPublicProfile: async (slug) => profilesApi.getPublicProfile(slug),
 
   getMyProfile: async () => profilesApi.getMyProfile(),
