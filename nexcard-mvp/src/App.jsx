@@ -46,6 +46,55 @@ function App() {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
+  useEffect(() => {
+    const routes = {
+      '/': {
+        title: 'NexCard — Tarjeta Digital NFC',
+        description: 'NexCard — Tarjeta de negocio NFC inteligente. Comparte tu contacto completo con un solo toque. Compatible con iPhone y Android.',
+        canonical: 'https://nexcard.cl/',
+      },
+      '/preview': {
+        title: 'NexCard Preview — Tarjeta Digital NFC',
+        description: 'Previsualización pública de NexCard: comparte tu contacto con un toque y valida la experiencia antes del cierre comercial.',
+        canonical: 'https://nexcard.cl/preview',
+      },
+      '/coming-soon': {
+        title: 'NexCard — Próximamente',
+        description: 'NexCard en modo anticipado: conoce la tarjeta NFC que comparte tu contacto completo con un solo toque.',
+        canonical: 'https://nexcard.cl/coming-soon',
+      },
+    };
+
+    const seo = routes[path] || {
+      title: 'NexCard — Perfil público NFC',
+      description: 'Perfil público de NexCard con tarjeta NFC inteligente y enlaces de contacto directos.',
+      canonical: `https://nexcard.cl${path}`,
+    };
+
+    document.title = seo.title;
+
+    const upsertMeta = (selector, attributes) => {
+      let el = document.head.querySelector(selector);
+      if (!el) {
+        el = document.createElement('meta');
+        document.head.appendChild(el);
+      }
+      Object.entries(attributes).forEach(([key, value]) => el.setAttribute(key, value));
+      return el;
+    };
+
+    upsertMeta('meta[name="description"]', { name: 'description', content: seo.description });
+    upsertMeta('meta[name="robots"]', { name: 'robots', content: 'index,follow' });
+
+    let canonical = document.head.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute('href', seo.canonical);
+  }, [path]);
+
   useAppBootstrap({
     path,
     user,
