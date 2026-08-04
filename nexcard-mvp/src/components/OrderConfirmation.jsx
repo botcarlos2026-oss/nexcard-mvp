@@ -20,15 +20,17 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
   }[order.payment_status] || { text: 'Pendiente', color: 'text-amber-400', dot: 'bg-amber-400' };
   const isPaid = order.payment_status === 'paid';
 
-  const orderDate = new Date(order.created_at).toLocaleDateString('es-CL', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const orderDate = order.created_at
+    ? new Date(order.created_at).toLocaleDateString('es-CL', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    : 'En verificación';
 
-  const totalCLP = (order.amount_cents).toLocaleString('es-CL');
+  const totalCLP = Number(order.amount_cents || 0).toLocaleString('es-CL');
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">

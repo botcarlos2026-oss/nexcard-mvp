@@ -76,39 +76,47 @@ function TeamMemberCard({ member }) {
   );
 }
 
+export const normalizePricingProduct = (dbProduct = {}) => {
+  const meta = PRICING_META[dbProduct.sku] || {};
+  const rawPrice = Number(dbProduct.price_cents ?? dbProduct.price ?? 0);
+  const price = Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : 0;
+  const cards = Number(meta.cards || dbProduct.cards || 1) || 1;
+  const isPopular = dbProduct.popular ?? meta.highlight ?? false;
+
+  return {
+    sku: dbProduct.sku,
+    price,
+    name: meta.name || dbProduct.name || dbProduct.sku || 'NexCard',
+    description: meta.description || dbProduct.description || '',
+    cards,
+    features: meta.features || dbProduct.features || [],
+    perUnit: Math.round(price / cards),
+    ...meta,
+    highlight: isPopular,
+    badge: isPopular ? (meta.badge || 'Más popular') : undefined,
+  };
+};
+
+const formatPrice = (n) => Number(n || 0).toLocaleString('es-CL');
+
 export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
   const [pricing, setPricing] = useState(() =>
-    PRICING_FALLBACK.map((p) => ({ ...p, ...PRICING_META[p.sku], perUnit: Math.round(p.price / (PRICING_META[p.sku]?.cards || 1)) }))
+    PRICING_FALLBACK.map((p) => normalizePricingProduct(p))
   );
   const [teamMembers, setTeamMembers] = useState([]);
   const [showWheel, setShowWheel] = useState(false);
   const [wheelData, setWheelData] = useState(null);
-  const formatPrice = (n) => n.toLocaleString('es-CL');
 
   useEffect(() => {
     const cancel = scheduleIdleTask(() => {
       api.getProducts().then((products) => {
         if (!products?.length) return;
         const sorted = [...products].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
-        const merged = sorted.map((dbProduct) => {
-          const meta = PRICING_META[dbProduct.sku] || {};
-          const isPopular = dbProduct.popular ?? meta.highlight ?? false;
-          const cards = meta.cards || 1;
-          return {
-            sku: dbProduct.sku,
-            price: dbProduct.price_cents,
-            name: meta.name || dbProduct.name,
-            description: meta.description || dbProduct.description || '',
-            cards,
-            features: meta.features || dbProduct.features || [],
-            perUnit: Math.round(dbProduct.price_cents / cards),
-            ...meta,
-            highlight: isPopular,
-            badge: isPopular ? (meta.badge || 'Más popular') : undefined,
-          };
-        });
-        setPricing(merged);
+        const merged = sorted
+          .map((dbProduct) => normalizePricingProduct(dbProduct))
+          .filter((product) => product.price > 0);
+        if (merged.length) setPricing(merged);
       }).catch(() => { /* mantener fallback */ });
     });
     return cancel;
