@@ -12,6 +12,12 @@ describe('authFlow helpers', () => {
     expect(getInitialAuthMode('?type=recovery')).toBe(AUTH_MODES.RESET_PASSWORD);
   });
 
+  it('opens register mode for first-access claim flows', () => {
+    expect(getInitialAuthMode('?mode=register&claim=1')).toBe(AUTH_MODES.REGISTER);
+    expect(getInitialAuthMode('', { hasPendingClaim: true })).toBe(AUTH_MODES.REGISTER);
+    expect(getInitialAuthMode('?mode=reset-password', { hasPendingClaim: true })).toBe(AUTH_MODES.RESET_PASSWORD);
+  });
+
   it('normalizes reset email before requesting the recovery email', () => {
     expect(normalizeAuthEmail('  Cliente@NexCard.CL  ')).toBe('cliente@nexcard.cl');
   });

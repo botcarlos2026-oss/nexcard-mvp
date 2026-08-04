@@ -31,8 +31,9 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
   const activationHelpMessage = 'Revisa el enlace o solicita uno nuevo al equipo NexCard.';
 
   const handleActivate = async () => {
+    const buyerEmail = claimData?.claim?.customer_email || '';
     if (!user) {
-      onAuthRequired?.(token);
+      onAuthRequired?.(token, buyerEmail);
       return;
     }
 
@@ -121,11 +122,11 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
             disabled={disableActivate}
             className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-white p-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all"
           >
-            {busy ? <Loader2 className="animate-spin" /> : alreadyClaimed && user ? 'Continuar activación' : 'Activar mi NexCard'}
+            {busy ? <Loader2 className="animate-spin" /> : !user ? 'Crear acceso y activar NexCard' : alreadyClaimed && user ? 'Continuar activación' : 'Activar mi NexCard'}
             {!busy ? <ArrowRight size={20} /> : null}
           </button>
 
-          {!user ? <p className="text-xs text-zinc-500 text-center">Si aún no tienes cuenta, te pediremos registrarte antes de activar.</p> : null}
+          {!user ? <p className="text-xs text-zinc-500 text-center">Crearás tu acceso NexCard para administrar tu perfil digital y activar esta compra.</p> : null}
           {alreadyClaimed && user ? <p className="text-xs text-zinc-500 text-center">Reintentaremos el vínculo con tu perfil actual para que puedas terminar el setup.</p> : null}
         </div>
       </div>

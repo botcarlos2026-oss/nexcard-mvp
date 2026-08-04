@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AppRouteRenderer from './components/AppRouteRenderer';
-import { api, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
+import { api, getPendingClaimEmail, getPendingClaimToken, setPendingClaimEmail, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { useCart } from './store/cartStore';
 import { isAdminEmail } from './config/admin';
@@ -23,6 +23,7 @@ function App() {
   const [ordersAdminData, setOrdersAdminData] = useState([]);
   const [error, setError] = useState('');
   const [pendingClaimToken, setPendingClaimTokenState] = useState(() => getPendingClaimToken());
+  const [pendingClaimEmail, setPendingClaimEmailState] = useState(() => getPendingClaimEmail());
   const { getTotalItems, startNewCheckout } = useCart();
   const {
     checkoutStep,
@@ -37,7 +38,7 @@ function App() {
 
   const navigate = useCallback((newPath) => {
     window.history.pushState({}, '', newPath);
-    setPath(newPath);
+    setPath(window.location.pathname);
   }, []);
 
   useEffect(() => {
@@ -121,7 +122,9 @@ function App() {
       try {
         await api.claimProfile(claimToken);
         setPendingClaimToken(null);
+        setPendingClaimEmail(null);
         setPendingClaimTokenState(null);
+        setPendingClaimEmailState('');
         try {
           sessionStorage.removeItem('nx_pending_profile_slug');
         } catch (_) {
@@ -133,10 +136,12 @@ function App() {
     }
   };
 
-  const handleClaimAuthRequired = (token) => {
+  const handleClaimAuthRequired = (token, buyerEmail = '') => {
     setPendingClaimToken(token);
+    setPendingClaimEmail(buyerEmail);
     setPendingClaimTokenState(token);
-    navigate('/login');
+    setPendingClaimEmailState(buyerEmail || '');
+    navigate('/login?mode=register&claim=1');
   };
 
   const handleContinueSetup = ({ token, reservedSlug }) => {
@@ -156,8 +161,25 @@ function App() {
     setStoredAuth(authPayload);
     const claimToken = getPendingClaimToken();
     if (claimToken) {
-      navigate(`/activar/${claimToken}`);
-      return;
+      try {
+        const result = await api.claimProfile(claimToken);
+        setPendingClaimEmail(null);
+        setPendingClaimEmailState('');
+        if (result?.requires_profile_setup) {
+          handleContinueSetup({
+            token: claimToken,
+            reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '',
+          });
+          return;
+        }
+        setPendingClaimToken(null);
+        setPendingClaimTokenState(null);
+        navigate('/edit');
+        return;
+      } catch (_) {
+        navigate(`/activar/${claimToken}`);
+        return;
+      }
     }
 
     const adminAccess = await getCurrentAdminAccess().catch(() => ({
@@ -185,6 +207,7 @@ function App() {
       currentOrder={currentOrder}
       path={path}
       pendingClaimToken={pendingClaimToken}
+      pendingClaimEmail={pendingClaimEmail}
       user={user}
       data={data}
       adminData={adminData}

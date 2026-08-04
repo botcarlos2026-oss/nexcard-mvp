@@ -4,6 +4,9 @@ import path from 'path';
 const repoRoot = path.resolve(__dirname, '../..');
 const activationPagePath = path.join(repoRoot, 'src/components/ActivationPage.jsx');
 const appPath = path.join(repoRoot, 'src/App.jsx');
+const authPagePath = path.join(repoRoot, 'src/components/AuthPage.jsx');
+const appRouteRendererPath = path.join(repoRoot, 'src/components/AppRouteRenderer.jsx');
+const apiPath = path.join(repoRoot, 'src/services/api.js');
 
 const read = (filePath) => fs.readFileSync(filePath, 'utf8');
 
@@ -27,6 +30,44 @@ describe('activation flow hardening', () => {
 
     expect(source).toContain("sessionStorage.setItem('nx_pending_profile_slug', reservedSlug)");
     expect(source).toContain("sessionStorage.removeItem('nx_pending_profile_slug')");
-    expect(source).toContain("setPendingClaimToken(null)");
+    expect(source).toContain('setPendingClaimToken(null)');
+  });
+
+  it('guarda token y email comprador para el primer acceso contextual', () => {
+    const appSource = read(appPath);
+    const apiSource = read(apiPath);
+    const routeSource = read(appRouteRendererPath);
+
+    expect(apiSource).toContain('nexcard_pending_claim_email');
+    expect(apiSource).toContain('export const getPendingClaimEmail');
+    expect(apiSource).toContain('export const setPendingClaimEmail');
+    expect(apiSource).toContain('setPendingClaimEmail(null)');
+    expect(appSource).toContain("const handleClaimAuthRequired = (token, buyerEmail = '')");
+    expect(appSource).toContain('setPendingClaimEmail(buyerEmail)');
+    expect(appSource).toContain("navigate('/login?mode=register&claim=1')");
+    expect(routeSource).toContain('pendingClaimEmail={pendingClaimEmail}');
+  });
+
+  it('presenta creación de acceso contextual en vez de login genérico', () => {
+    const activationSource = read(activationPagePath);
+    const authSource = read(authPagePath);
+
+    expect(activationSource).toContain('Crear acceso y activar NexCard');
+    expect(activationSource).toContain('Crearás tu acceso NexCard para administrar tu perfil digital');
+    expect(activationSource).toContain("onAuthRequired?.(token, buyerEmail)");
+    expect(authSource).toContain('Crea tu acceso NexCard.');
+    expect(authSource).toContain('Define tu contraseña para activar la NexCard asociada a este correo.');
+    expect(authSource).toContain('Crear cuenta y activar NexCard');
+    expect(authSource).toContain('readOnly={shouldLockEmail}');
+    expect(authSource).toContain('mode === AUTH_MODES.REGISTER && hasPendingClaim');
+  });
+
+  it('reclama automáticamente después de auth y conserva fallback seguro', () => {
+    const appSource = read(appPath);
+
+    expect(appSource).toContain('const result = await api.claimProfile(claimToken)');
+    expect(appSource).toContain('handleContinueSetup({');
+    expect(appSource).toContain("navigate(`/activar/${claimToken}`)");
+    expect(appSource).toContain("navigate('/edit')");
   });
 });
