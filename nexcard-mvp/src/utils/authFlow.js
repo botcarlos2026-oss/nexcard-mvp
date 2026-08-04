@@ -10,6 +10,9 @@ export function getInitialAuthMode(search = '', options = {}) {
   if (params.get('mode') === AUTH_MODES.RESET_PASSWORD || params.get('type') === 'recovery') {
     return AUTH_MODES.RESET_PASSWORD;
   }
+  if (params.get('mode') === AUTH_MODES.LOGIN) {
+    return AUTH_MODES.LOGIN;
+  }
   if (params.get('mode') === AUTH_MODES.REGISTER || options.hasPendingClaim) {
     return AUTH_MODES.REGISTER;
   }

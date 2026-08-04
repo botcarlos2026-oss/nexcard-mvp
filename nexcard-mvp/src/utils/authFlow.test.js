@@ -14,6 +14,7 @@ describe('authFlow helpers', () => {
 
   it('opens register mode for first-access claim flows', () => {
     expect(getInitialAuthMode('?mode=register&claim=1')).toBe(AUTH_MODES.REGISTER);
+    expect(getInitialAuthMode('?mode=login&claim=1', { hasPendingClaim: true })).toBe(AUTH_MODES.LOGIN);
     expect(getInitialAuthMode('', { hasPendingClaim: true })).toBe(AUTH_MODES.REGISTER);
     expect(getInitialAuthMode('?mode=reset-password', { hasPendingClaim: true })).toBe(AUTH_MODES.RESET_PASSWORD);
   });

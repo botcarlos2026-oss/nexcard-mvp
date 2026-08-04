@@ -18,6 +18,15 @@ import {
   validatePasswordResetForm,
 } from '../utils/authFlow';
 
+const EMAIL_NOT_CONFIRMED_MESSAGE = 'Tu cuenta fue creada, pero falta confirmar el correo. Abre el email de confirmación de Supabase/NexCard y luego vuelve a iniciar sesión para activar tu NexCard.';
+
+const isEmailNotConfirmedError = (message = '') => /email not confirmed/i.test(message);
+
+const buildSignupConfirmationRedirectTo = (hrefOrOrigin) => {
+  const url = new URL(hrefOrOrigin || 'https://www.nexcard.cl');
+  return `${url.origin}/login?mode=login&claim=1`;
+};
+
 const getCopy = (mode, hasPendingClaim = false) => {
   if (mode === AUTH_MODES.REGISTER) {
     if (hasPendingClaim) {
@@ -61,6 +70,7 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [confirmationPending, setConfirmationPending] = useState(false);
   const [formData, setFormData] = useState({
     email: lockedClaimEmail,
     password: '',
@@ -71,6 +81,7 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) 
     setMode(nextMode);
     setError('');
     setNotice('');
+    setConfirmationPending(false);
     setFormData((current) => ({ ...current, password: '', confirmPassword: '' }));
   };
 
@@ -79,6 +90,7 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) 
     setLoading(true);
     setError('');
     setNotice('');
+    setConfirmationPending(false);
 
     try {
       if (mode === AUTH_MODES.REQUEST_RESET) {
@@ -116,14 +128,37 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) 
         : await api.login({ ...formData, email: normalizeAuthEmail(formData.email) });
 
       if (mode === AUTH_MODES.REGISTER && authPayload.needsEmailConfirmation) {
-        switchMode(AUTH_MODES.LOGIN);
-        setNotice('Cuenta creada. Te enviamos un correo de confirmación; confirma tu cuenta antes de iniciar sesión.');
+        setConfirmationPending(true);
+        setNotice('Cuenta creada. Te enviamos un correo de confirmación; confirma ese email y luego vuelve aquí para iniciar sesión y activar tu NexCard.');
         return;
       }
 
       onAuthSuccess(authPayload);
     } catch (err) {
+      if (isEmailNotConfirmedError(err.message)) {
+        setConfirmationPending(true);
+        setError(EMAIL_NOT_CONFIRMED_MESSAGE);
+        return;
+      }
       setError(err.message || 'No fue posible iniciar sesión/registro');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    setLoading(true);
+    setError('');
+    setNotice('');
+    try {
+      await api.resendSignupConfirmation({
+        email: normalizeAuthEmail(formData.email),
+        redirectTo: buildSignupConfirmationRedirectTo(window.location.href),
+      });
+      setConfirmationPending(true);
+      setNotice('Reenviamos el correo de confirmación. Confírmalo y luego vuelve a iniciar sesión para activar tu NexCard.');
+    } catch (err) {
+      setError(err.message || 'No fue posible reenviar el correo de confirmación.');
     } finally {
       setLoading(false);
     }
@@ -224,6 +259,20 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) 
 
             {error && <p className="text-sm font-bold text-rose-400" data-cy="auth-error">{error}</p>}
             {notice && <p className="text-sm font-bold text-emerald-300" data-cy="auth-notice">{notice}</p>}
+            {confirmationPending && (
+              <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100" data-cy="auth-email-confirmation-pending">
+                <p className="font-black text-amber-200">Falta confirmar tu correo antes de ingresar.</p>
+                <p className="mt-1 text-amber-100/90">Después de confirmar, vuelve a esta pantalla y usa “Ya tengo cuenta, iniciar sesión”.</p>
+                <button
+                  type="button"
+                  onClick={handleResendConfirmation}
+                  disabled={loading}
+                  className="mt-3 text-xs font-black uppercase tracking-widest text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
+                >
+                  Reenviar correo de confirmación
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"
