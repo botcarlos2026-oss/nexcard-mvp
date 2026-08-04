@@ -5,10 +5,13 @@ export const AUTH_MODES = Object.freeze({
   RESET_PASSWORD: 'reset-password',
 });
 
-export function getInitialAuthMode(search = '') {
+export function getInitialAuthMode(search = '', options = {}) {
   const params = new URLSearchParams(search || '');
   if (params.get('mode') === AUTH_MODES.RESET_PASSWORD || params.get('type') === 'recovery') {
     return AUTH_MODES.RESET_PASSWORD;
+  }
+  if (params.get('mode') === AUTH_MODES.REGISTER || options.hasPendingClaim) {
+    return AUTH_MODES.REGISTER;
   }
   return AUTH_MODES.LOGIN;
 }

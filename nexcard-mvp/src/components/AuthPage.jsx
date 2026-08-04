@@ -18,8 +18,15 @@ import {
   validatePasswordResetForm,
 } from '../utils/authFlow';
 
-const getCopy = (mode) => {
+const getCopy = (mode, hasPendingClaim = false) => {
   if (mode === AUTH_MODES.REGISTER) {
+    if (hasPendingClaim) {
+      return {
+        title: 'Crea tu acceso NexCard.',
+        description: 'Define tu contraseña para activar la NexCard asociada a este correo.',
+        submit: 'Crear cuenta y activar NexCard',
+      };
+    }
     return {
       title: 'Crea tu NexCard.',
       description: 'Registro habilitado con Supabase. Te enviaremos un correo para confirmar la cuenta.',
@@ -47,13 +54,15 @@ const getCopy = (mode) => {
   };
 };
 
-const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
-  const [mode, setMode] = useState(() => getInitialAuthMode(window.location.search));
+const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) => {
+  const hasPendingClaim = !!pendingClaimToken;
+  const lockedClaimEmail = hasPendingClaim ? normalizeAuthEmail(pendingClaimEmail) : '';
+  const [mode, setMode] = useState(() => getInitialAuthMode(window.location.search, { hasPendingClaim }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [formData, setFormData] = useState({
-    email: '',
+    email: lockedClaimEmail,
     password: '',
     confirmPassword: '',
   });
@@ -93,6 +102,15 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
         return;
       }
 
+      const isContextualRegister = mode === AUTH_MODES.REGISTER && hasPendingClaim;
+      if (isContextualRegister) {
+        const validationError = validatePasswordResetForm(formData.password, formData.confirmPassword);
+        if (validationError) {
+          setError(validationError);
+          return;
+        }
+      }
+
       const authPayload = mode === AUTH_MODES.REGISTER
         ? await api.register({ ...formData, email: normalizeAuthEmail(formData.email) })
         : await api.login({ ...formData, email: normalizeAuthEmail(formData.email) });
@@ -111,10 +129,11 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
     }
   };
 
-  const copy = getCopy(mode);
+  const copy = getCopy(mode, hasPendingClaim);
   const needsPassword = mode !== AUTH_MODES.REQUEST_RESET;
-  const needsConfirmPassword = mode === AUTH_MODES.RESET_PASSWORD;
+  const needsConfirmPassword = mode === AUTH_MODES.RESET_PASSWORD || (mode === AUTH_MODES.REGISTER && hasPendingClaim);
   const isPasswordRecovery = mode === AUTH_MODES.REQUEST_RESET || mode === AUTH_MODES.RESET_PASSWORD;
+  const shouldLockEmail = !!lockedClaimEmail && mode !== AUTH_MODES.RESET_PASSWORD && hasPendingClaim;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white font-sans flex items-center justify-center p-6 relative overflow-hidden">
@@ -149,8 +168,13 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
                     required
                     placeholder="ejemplo@correo.com"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-zinc-800/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 font-bold focus:border-emerald-500 outline-none transition-all"
+                    readOnly={shouldLockEmail}
+                    aria-readonly={shouldLockEmail}
+                    onChange={(e) => {
+                      if (shouldLockEmail) return;
+                      setFormData({ ...formData, email: e.target.value });
+                    }}
+                    className="w-full bg-zinc-800/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 font-bold focus:border-emerald-500 outline-none transition-all read-only:text-zinc-300 read-only:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -180,7 +204,7 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
 
             {needsConfirmPassword && (
               <div>
-                <label htmlFor="auth-confirm-password" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">Confirmar nueva contraseña</label>
+                <label htmlFor="auth-confirm-password" className="block text-[10px] uppercase tracking-widest font-black text-zinc-500 mb-2 ml-1">{mode === AUTH_MODES.REGISTER ? 'Confirmar contraseña' : 'Confirmar nueva contraseña'}</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                   <input
@@ -228,7 +252,9 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken }) => {
               onClick={() => switchMode(mode === AUTH_MODES.LOGIN ? AUTH_MODES.REGISTER : AUTH_MODES.LOGIN)}
               className="text-sm font-bold text-zinc-400 hover:text-white transition-colors"
             >
-              {mode === AUTH_MODES.LOGIN ? '¿No tienes cuenta? Regístrate' : 'Volver a iniciar sesión'}
+              {hasPendingClaim
+                ? (mode === AUTH_MODES.LOGIN ? 'Crear cuenta para activar esta NexCard' : 'Ya tengo cuenta, iniciar sesión')
+                : (mode === AUTH_MODES.LOGIN ? '¿No tienes cuenta? Regístrate' : 'Volver a iniciar sesión')}
             </button>
           </div>
         </div>
