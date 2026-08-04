@@ -91,7 +91,7 @@ export function useCheckoutFlow() {
 
       const { data, error } = await supabase
         .from('orders')
-        .select('id, payment_status, paid_at, fulfillment_status, updated_at')
+        .select('id, folio, customer_email, payment_method, payment_status, paid_at, fulfillment_status, amount_cents, currency, created_at, updated_at')
         .eq('id', paymentVerificationOrderId)
         .single();
 
