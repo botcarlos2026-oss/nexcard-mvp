@@ -32,6 +32,22 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
 
   const totalCLP = Number(order.amount_cents || 0).toLocaleString('es-CL');
 
+  const fulfillmentStatusLabel = {
+    new: 'Nueva',
+    in_production: 'En producción',
+    ready: 'Lista para despacho',
+    shipped: 'Enviada',
+    delivered: 'Entregada',
+    cancelled: 'Cancelada',
+  }[order.fulfillment_status] || order.fulfillment_status || 'En verificación';
+
+  const paymentMethodLabel = {
+    'mercado-pago': 'Mercado Pago',
+    mercado_pago: 'Mercado Pago',
+    webpay: 'Transbank WebPay',
+    transbank: 'Transbank WebPay',
+  }[order.payment_method] || 'En verificación';
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">
       <div className="max-w-2xl mx-auto">
@@ -85,7 +101,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
             <div>
               <p className="text-zinc-400 text-sm mb-1">Método de Pago</p>
               <p className="font-semibold capitalize">
-                {order.payment_method === 'mercado-pago' ? 'Mercado Pago' : 'Transbank WebPay'}
+                {paymentMethodLabel}
               </p>
             </div>
           </div>
@@ -115,7 +131,7 @@ export default function OrderConfirmation({ order, onContinueShopping }) {
               <p className="text-zinc-400 text-sm mb-2">Estado de Entrega</p>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-slate-500"></div>
-                <span className="font-semibold capitalize">{order.fulfillment_status}</span>
+                <span className="font-semibold">{fulfillmentStatusLabel}</span>
               </div>
             </div>
           </div>
