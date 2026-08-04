@@ -18,7 +18,11 @@ const getProfileFixture = (kind) => ({
   expectedLastEvent: requiredEnv(`${kind}_profile_last_event`),
 });
 
-const getProfileRow = (fixture) => cy.contains('[data-cy=admin-profiles-table] tbody tr', fixture.slug, { timeout: 10000 });
+const cssEscape = (value) => {
+  return String(value).replace(/[\\"]/g, '\\$&');
+};
+
+const getProfileRow = (fixture) => cy.get(`[data-cy="admin-profiles-row-${cssEscape(fixture.slug)}"]`, { timeout: 10000 });
 
 const assertProfileRow = (fixture) => {
   getProfileRow(fixture)
@@ -49,7 +53,7 @@ describe('Admin profiles lifecycle/history visibility', () => {
   it('loads /admin/profiles and shows lifecycle/history columns', () => {
     cy.contains('h1', /Profiles Recovery Desk/i).should('exist');
 
-    ['Profile', 'Status', 'Deleted', 'Versions', 'Last Event', 'Updated', 'Flags'].forEach((column) => {
+    ['Profile', 'Status', 'Deleted', 'Versions', 'Snapshot / Restore', 'Last Event', 'Updated', 'Actions'].forEach((column) => {
       cy.get('[data-cy=admin-profiles-table]').should('contain.text', column);
     });
   });
@@ -66,29 +70,29 @@ describe('Admin profiles lifecycle/history visibility', () => {
     const active = getProfileFixture('active');
     const archived = getProfileFixture('archived');
 
-    cy.get('input[placeholder*="slug"]').clear().type(archived.slug);
+    cy.get('[data-cy=admin-profiles-search]').clear().type(archived.slug);
     getProfileRow(archived).should('exist');
-    cy.contains('[data-cy=admin-profiles-table] tbody tr', active.slug).should('not.exist');
+    getProfileRow(active).should('not.exist');
 
-    cy.get('input[placeholder*="slug"]').clear();
-    cy.get('select').select('archived');
+    cy.get('[data-cy=admin-profiles-search]').clear();
+    cy.get('[data-cy=admin-profiles-status-filter]').select('archived');
     getProfileRow(archived).should('exist').and('contain.text', archived.expectedDeleted);
-    cy.contains('[data-cy=admin-profiles-table] tbody tr', active.slug).should('not.exist');
+    getProfileRow(active).should('not.exist');
   });
 
   it('keeps history/archive visual guardrails visible after filter changes', () => {
     const archived = getProfileFixture('archived');
 
-    cy.get('select').select('archived');
+    cy.get('[data-cy=admin-profiles-status-filter]').select('archived');
     assertProfileRow(archived);
-    cy.contains('[data-cy=admin-profiles-table] tbody tr', archived.slug)
+    getProfileRow(archived)
       .find('[title="Tiene historial"]')
       .should('exist');
-    cy.contains('[data-cy=admin-profiles-table] tbody tr', archived.slug)
+    getProfileRow(archived)
       .find('[title="Archivado"]')
       .should('exist');
 
-    cy.get('select').select('all');
+    cy.get('[data-cy=admin-profiles-status-filter]').select('all');
     assertProfileRow(archived);
   });
 });

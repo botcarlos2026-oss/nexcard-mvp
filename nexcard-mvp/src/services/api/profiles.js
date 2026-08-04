@@ -71,6 +71,17 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
       return acc;
     }, {});
 
+    const versionCountMap = versions.reduce((acc, v) => {
+      acc[v.profile_id] = (acc[v.profile_id] || 0) + 1;
+      return acc;
+    }, {});
+
+    const versionsByProfile = versions.reduce((acc, v) => {
+      if (!acc[v.profile_id]) acc[v.profile_id] = [];
+      acc[v.profile_id].push(v);
+      return acc;
+    }, {});
+
     const lastEventMap = events.reduce((acc, e) => {
       if (!acc[e.entity_id]) acc[e.entity_id] = e;
       return acc;
@@ -78,7 +89,10 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
 
     const profiles = (profilesRes.data || []).map((p) => ({
       ...p,
+      status: p.deleted_at ? 'archived' : p.status,
       latest_version: latestVersionMap[p.id] || null,
+      version_count: versionCountMap[p.id] || 0,
+      versions: versionsByProfile[p.id] || [],
       last_event: lastEventMap[p.id] || null,
     }));
 

@@ -26,6 +26,9 @@ Esto baja el riesgo de mezclar credenciales de trabajo diario con seeds de testi
 - Credenciales por env:
   - `CYPRESS_login_email`
   - `CYPRESS_login_password`
+- Smoke real de perfil público:
+  - `CYPRESS_smoke_profile_slug` obligatorio cuando `RUNNER_MODE=real` o `E2E_USE_REAL_SUPABASE=true`.
+  - Debe apuntar a un slug público estable/aprobado; no asumir que `qa-smoke-profile` existe en producción.
 - Por defecto queda `admin@nexcard.cl / admin123` (solo mock local). Sobrescribe en CI/real.
 
 ## Scripts
@@ -39,6 +42,8 @@ Esto baja el riesgo de mezclar credenciales de trabajo diario con seeds de testi
 - Alias explícito guardrails admin/cards: `npm run test:e2e:admin-cards-guardrails`
 - Pack mínimo lifecycle cards: `npm run test:e2e:cards-lifecycle`
 - Solo admin profiles: `npm run test:e2e:admin-profiles`
+- Verificar fixtures reales admin profiles: `npm run test:e2e:admin-profiles:fixtures`
+- Sembrar fixtures QA admin/smoke idempotentes: `npm run test:e2e:admin-profiles:seed`
 - Alias explícito guardrails admin/profiles: `npm run test:e2e:admin-profiles-guardrails`
 - Coherencia punta a punta public/admin para profiles: `npm run test:e2e:profiles-e2e`
 - Pack recomendado para cerrar profiles: `npm run test:e2e:profiles-full`
@@ -87,6 +92,13 @@ npm run test:e2e:cards-lifecycle
 
 ## Variables de entorno para admin profiles
 Estas suites quedan reproducibles si apuntas a dos perfiles seed/controlados: uno `active` y otro `archived`, ambos con historial visible.
+
+Para no depender de perfiles reales de cliente, el dataset QA estable recomendado es:
+- smoke público: `CYPRESS_smoke_profile_slug="qa-smoke-profile"`
+- active admin: `CYPRESS_active_profile_slug="qa-active-profile"`, `CYPRESS_active_profile_full_name="QA Active Profile"`, `CYPRESS_active_profile_last_event="Snapshot generado"`, `CYPRESS_active_profile_versions="2"`
+- archived admin: `CYPRESS_archived_profile_slug="qa-archived-profile"`, `CYPRESS_archived_profile_full_name="QA Archived Profile"`, `CYPRESS_archived_profile_last_event="Soft delete ejecutado"`, `CYPRESS_archived_profile_versions="3"`
+
+Si falta el dataset, ejecutar `npm run test:e2e:admin-profiles:seed` con service-role local presente. El seeder sólo toca slugs `qa-smoke-profile`, `qa-active-profile` y `qa-archived-profile`.
 
 ### Requeridas
 - `CYPRESS_active_profile_slug`

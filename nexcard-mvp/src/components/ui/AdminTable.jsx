@@ -24,9 +24,10 @@ export function TH({ children, className = '' }) {
   );
 }
 
-export function TR({ children, onClick, active }) {
+export function TR({ children, onClick, active, ...props }) {
   return (
     <tr
+      {...props}
       onClick={onClick}
       className={`border-b border-zinc-800/60 transition-colors ${
         onClick ? 'cursor-pointer hover:bg-zinc-800/50' : ''
