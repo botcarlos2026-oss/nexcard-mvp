@@ -70,4 +70,19 @@ describe('activation flow hardening', () => {
     expect(appSource).toContain("navigate(`/activar/${claimToken}`)");
     expect(appSource).toContain("navigate('/edit')");
   });
+
+  it('maneja cuentas creadas pero con email sin confirmar sin perder el contexto de activación', () => {
+    const authSource = read(authPagePath);
+    const apiSource = read(apiPath);
+
+    expect(authSource).toContain('EMAIL_NOT_CONFIRMED_MESSAGE');
+    expect(authSource).toContain('Falta confirmar tu correo antes de ingresar.');
+    expect(authSource).toContain('Reenviar correo de confirmación');
+    expect(authSource).toContain('buildSignupConfirmationRedirectTo');
+    expect(authSource).toContain('/login?mode=login&claim=1');
+    expect(authSource).toContain('setConfirmationPending(true)');
+    expect(authSource).not.toContain('switchMode(AUTH_MODES.LOGIN);\n        setNotice(\'Cuenta creada.');
+    expect(apiSource).toContain('resendSignupConfirmation');
+    expect(apiSource).toContain("type: 'signup'");
+  });
 });

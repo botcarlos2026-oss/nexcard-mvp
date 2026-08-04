@@ -195,6 +195,19 @@ export const api = {
     return { ok: true };
   },
 
+  resendSignupConfirmation: async ({ email, redirectTo }) => {
+    if (!hasSupabase) {
+      throw new Error('Confirmación de correo disponible solo con Supabase Auth.');
+    }
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
   updatePassword: async ({ password }) => {
     if (!hasSupabase) {
       throw new Error('Cambio de contraseña disponible solo con Supabase Auth.');
