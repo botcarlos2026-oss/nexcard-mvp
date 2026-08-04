@@ -125,6 +125,7 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
             <label className="relative flex-1 block">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
               <input
+                data-cy="admin-profiles-search"
                 type="text"
                 placeholder="Buscar por slug, nombre, status, evento o versión"
                 className="w-full px-5 py-2.5 pl-10 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
@@ -135,6 +136,7 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
             <label className="relative block">
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
               <select
+                data-cy="admin-profiles-status-filter"
                 className="w-full appearance-none px-4 py-2.5 pl-10 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors sm:w-56"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -168,7 +170,7 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
                 const canRestore = Boolean(profile.deleted_at && profile.can_restore && profile.latest_version);
 
                 return (
-                  <TR key={profile.id}>
+                  <TR key={profile.id} data-cy={`admin-profiles-row-${profile.slug}`}>
                     <TD>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-zinc-800 rounded-xl text-zinc-400">

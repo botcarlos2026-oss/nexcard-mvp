@@ -54,7 +54,13 @@ const groups = {
   ],
 };
 
-const required = groups[mode] || groups.local;
+const required = [...(groups[mode] || groups.local)];
+const usesRealSupabase = String(process.env.E2E_USE_REAL_SUPABASE || '').toLowerCase() === 'true'
+  || String(process.env.RUNNER_MODE || '').toLowerCase() === 'real';
+
+if (mode === 'smoke' && usesRealSupabase) {
+  required.push('CYPRESS_smoke_profile_slug');
+}
 const missing = required.filter((name) => !readEnv(name));
 
 const warnings = [];
@@ -65,6 +71,9 @@ if (missing.length) {
   console.error(`[e2e:env-check] Missing required env for mode "${mode}":`);
   missing.forEach((name) => console.error(`- ${name}`));
   console.error('\nTip: copy .env.e2e.example to .env.e2e.local and fill the seeded values.');
+  if (missing.includes('CYPRESS_smoke_profile_slug')) {
+    console.error('Real smoke requires a stable approved public profile slug. Set CYPRESS_smoke_profile_slug or seed/approve qa-smoke-profile.');
+  }
   process.exit(1);
 }
 
