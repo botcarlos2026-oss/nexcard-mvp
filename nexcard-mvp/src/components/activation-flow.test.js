@@ -6,6 +6,7 @@ const activationPagePath = path.join(repoRoot, 'src/components/ActivationPage.js
 const appPath = path.join(repoRoot, 'src/App.jsx');
 const authPagePath = path.join(repoRoot, 'src/components/AuthPage.jsx');
 const appRouteRendererPath = path.join(repoRoot, 'src/components/AppRouteRenderer.jsx');
+const setupWizardPath = path.join(repoRoot, 'src/components/SetupWizard.jsx');
 const apiPath = path.join(repoRoot, 'src/services/api.js');
 
 const read = (filePath) => fs.readFileSync(filePath, 'utf8');
@@ -15,13 +16,17 @@ describe('activation flow hardening', () => {
     const source = read(activationPagePath);
 
     expect(source).toContain("err?.code === 'AUTH_REQUIRED'");
-    expect(source).toContain('onAuthRequired?.(token)');
+    expect(source).toContain('onAuthRequired?.(token, buyerEmail)');
     expect(source).toContain("err?.status === 401 || err?.status === 403");
   });
 
-  it('preserva reserved_slug para setup antes de navegar', () => {
+  it('preserva y muestra reserved_slug para setup antes de navegar', () => {
     const source = read(activationPagePath);
 
+    expect(source).toContain('const suggestedSlug = claimData?.reserved_slug || order?.card_customization?.desired_slug ||');
+    expect(source).toContain('data-cy="activation-suggested-slug"');
+    expect(source).toContain('Usuario sugerido listo');
+    expect(source).toContain('nexcard.cl/{suggestedSlug}');
     expect(source).toContain("onContinueSetup?.({ token, reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '' })");
   });
 
@@ -55,9 +60,10 @@ describe('activation flow hardening', () => {
     expect(activationSource).toContain('Crear acceso y activar NexCard');
     expect(activationSource).toContain('Crearás tu acceso NexCard para administrar tu perfil digital');
     expect(activationSource).toContain("onAuthRequired?.(token, buyerEmail)");
-    expect(authSource).toContain('Crea tu acceso NexCard.');
-    expect(authSource).toContain('Define tu contraseña para activar la NexCard asociada a este correo.');
-    expect(authSource).toContain('Crear cuenta y activar NexCard');
+    expect(authSource).toContain('Paso 1 de 2: crea tu acceso.');
+    expect(authSource).toContain('Después de confirmar tu correo, continuaremos automáticamente al setup guiado.');
+    expect(authSource).toContain('Crear acceso y seguir al setup');
+    expect(authSource).toContain('Este flujo separa crear acceso de editar perfil');
     expect(authSource).toContain('readOnly={shouldLockEmail}');
     expect(authSource).toContain('mode === AUTH_MODES.REGISTER && hasPendingClaim');
   });
@@ -65,10 +71,25 @@ describe('activation flow hardening', () => {
   it('reclama automáticamente después de auth y conserva fallback seguro', () => {
     const appSource = read(appPath);
 
+    expect(appSource).toContain('const completePendingClaim = useCallback(async (claimToken) =>');
+    expect(appSource).toContain("path !== '/login'");
+    expect(appSource).toContain('pendingClaimCompletionRef.current === pendingClaimToken');
     expect(appSource).toContain('const result = await api.claimProfile(claimToken)');
     expect(appSource).toContain('handleContinueSetup({');
     expect(appSource).toContain("navigate(`/activar/${claimToken}`)");
     expect(appSource).toContain("navigate('/edit')");
+  });
+
+  it('presenta setup como segundo paso separado de edición posterior', () => {
+    const setupSource = read(setupWizardPath);
+    const routeSource = read(appRouteRendererPath);
+
+    expect(setupSource).toContain('Paso 2 de 2 · Setup guiado');
+    expect(setupSource).toContain('Ya creaste el acceso. Ahora completa el perfil público');
+    expect(setupSource).toContain('data-cy="wizard-reserved-slug-summary"');
+    expect(setupSource).toContain('Slug sugerido ya reservado por tu compra/admin');
+    expect(routeSource).toContain("if (path === '/setup')");
+    expect(routeSource).toContain("if (path === '/edit')");
   });
 
   it('maneja cuentas creadas pero con email sin confirmar sin perder el contexto de activación', () => {

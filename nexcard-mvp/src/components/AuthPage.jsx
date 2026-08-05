@@ -27,15 +27,22 @@ const getCopy = (mode, hasPendingClaim = false) => {
   if (mode === AUTH_MODES.REGISTER) {
     if (hasPendingClaim) {
       return {
-        title: 'Crea tu acceso NexCard.',
-        description: 'Define tu contraseña para activar la NexCard asociada a este correo.',
-        submit: 'Crear cuenta y activar NexCard',
+        title: 'Paso 1 de 2: crea tu acceso.',
+        description: 'Define tu contraseña para activar la NexCard asociada a este correo. Después de confirmar tu correo, continuaremos automáticamente al setup guiado.',
+        submit: 'Crear acceso y seguir al setup',
       };
     }
     return {
       title: 'Crea tu NexCard.',
       description: 'Registro habilitado con Supabase. Te enviaremos un correo para confirmar la cuenta.',
       submit: 'Registrarme',
+    };
+  }
+  if (mode === AUTH_MODES.LOGIN && hasPendingClaim) {
+    return {
+      title: 'Continúa con tu acceso NexCard.',
+      description: 'Ingresa con el correo de compra; si acabas de confirmarlo, avanzaremos automáticamente al setup guiado.',
+      submit: 'Continuar activación',
     };
   }
   if (mode === AUTH_MODES.REQUEST_RESET) {
@@ -185,7 +192,7 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) 
           </h1>
           <p className="mt-3 text-zinc-400 font-medium">
             {copy.description}
-            {pendingClaimToken ? ' Estás entrando para activar una NexCard comprada.' : ''}
+            {pendingClaimToken ? ' Este flujo separa crear acceso de editar perfil: primero validamos tu cuenta y luego te llevamos al setup guiado.' : ''}
           </p>
         </div>
 
@@ -262,7 +269,7 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) 
             {confirmationPending && (
               <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100" data-cy="auth-email-confirmation-pending">
                 <p className="font-black text-amber-200">Falta confirmar tu correo antes de ingresar.</p>
-                <p className="mt-1 text-amber-100/90">Después de confirmar, vuelve a esta pantalla y usa “Ya tengo cuenta, iniciar sesión”.</p>
+                <p className="mt-1 text-amber-100/90">Después de confirmar, vuelve a esta pantalla. Si Supabase deja una sesión activa, continuaremos automáticamente al setup guiado; si no, usa “Ya tengo cuenta, iniciar sesión”.</p>
                 <button
                   type="button"
                   onClick={handleResendConfirmation}
