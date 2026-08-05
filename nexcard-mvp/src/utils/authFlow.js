@@ -28,6 +28,11 @@ export function buildPasswordResetRedirectTo(hrefOrOrigin) {
   return `${url.origin}/login?mode=${AUTH_MODES.RESET_PASSWORD}`;
 }
 
+export function buildSignupConfirmationRedirectTo(hrefOrOrigin) {
+  const url = new URL(hrefOrOrigin || 'https://www.nexcard.cl');
+  return `${url.origin}/login?mode=${AUTH_MODES.LOGIN}&claim=1`;
+}
+
 export function validatePasswordResetForm(password = '', confirmPassword = '') {
   if (password.length < 8) {
     return 'La contraseña debe tener al menos 8 caracteres.';

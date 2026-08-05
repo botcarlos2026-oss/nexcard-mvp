@@ -78,10 +78,14 @@ describe('activation flow hardening', () => {
     expect(authSource).toContain('EMAIL_NOT_CONFIRMED_MESSAGE');
     expect(authSource).toContain('Falta confirmar tu correo antes de ingresar.');
     expect(authSource).toContain('Reenviar correo de confirmación');
+    const authFlowSource = read(path.join(repoRoot, 'src/utils/authFlow.js'));
+
     expect(authSource).toContain('buildSignupConfirmationRedirectTo');
-    expect(authSource).toContain('/login?mode=login&claim=1');
+    expect(authFlowSource).toContain('/login?mode=${AUTH_MODES.LOGIN}&claim=1');
     expect(authSource).toContain('setConfirmationPending(true)');
     expect(authSource).not.toContain('switchMode(AUTH_MODES.LOGIN);\n        setNotice(\'Cuenta creada.');
+    expect(authSource).toContain('redirectTo: isContextualRegister ? buildSignupConfirmationRedirectTo(window.location.href) : undefined');
+    expect(apiSource).toContain('const redirectTo = payload.redirectTo ||');
     expect(apiSource).toContain('resendSignupConfirmation');
     expect(apiSource).toContain("type: 'signup'");
   });
