@@ -111,7 +111,14 @@ const SetupWizard = ({ onComplete }) => {
   return (
     <div className="fixed inset-0 z-[100] bg-zinc-950 text-white font-sans flex items-center justify-center p-6">
       <div className="max-w-md w-full">
-        
+        <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Paso 2 de 2 · Setup guiado</p>
+          <p className="mt-1 text-sm font-bold text-zinc-200">Ya creaste el acceso. Ahora completa el perfil público que quedará conectado a tu tarjeta NFC.</p>
+          {reservedSlug ? (
+            <p className="mt-2 text-xs font-black text-emerald-300" data-cy="wizard-reserved-slug-summary">Usuario listo: nexcard.cl/{reservedSlug}</p>
+          ) : null}
+        </div>
+
         {/* Progress Bar */}
         <div className="flex gap-2 mb-12">
           {[0, 1, 2, 3, 4].map(i => (
@@ -190,7 +197,7 @@ const SetupWizard = ({ onComplete }) => {
                     className="flex-1 bg-transparent px-5 py-5 text-lg font-bold outline-none"
                   />
                 </div>
-                {slugStatus === 'reserved' ? <p className="mt-2 text-xs font-bold text-emerald-400">Usuario reservado por tu compra.</p> : null}
+                {slugStatus === 'reserved' ? <p className="mt-2 text-xs font-bold text-emerald-400">Slug sugerido ya reservado por tu compra/admin. Puedes avanzar sin elegir otro usuario.</p> : null}
                 {slugStatus === 'available' ? <p className="mt-2 text-xs font-bold text-emerald-400">Usuario disponible.</p> : null}
                 {slugStatus === 'checking' ? <p className="mt-2 text-xs font-bold text-zinc-400">Validando disponibilidad…</p> : null}
                 {slugError ? <p className="mt-2 text-xs font-bold text-rose-400">{slugError}</p> : null}

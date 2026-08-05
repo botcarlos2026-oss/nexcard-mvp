@@ -9,8 +9,13 @@ import { useCheckoutFlow } from './hooks/useCheckoutFlow';
 import { useAppBootstrap } from './hooks/useAppBootstrap';
 import { getCurrentAdminAccess } from './utils/adminAccess';
 
+const getReservedSlugFromClaimResult = (result = {}) => (
+  result?.reserved_slug || result?.order?.card_customization?.desired_slug || ''
+);
+
 function App() {
   const bootstrapSeqRef = useRef(0);
+  const pendingClaimCompletionRef = useRef(null);
   const [data, setData] = useState(initialMockData);
   const { user, setUser, sessionReady } = useAuthSessionSync();
   const [path, setPath] = useState(window.location.pathname);
@@ -144,7 +149,7 @@ function App() {
     navigate('/login?mode=register&claim=1');
   };
 
-  const handleContinueSetup = ({ token, reservedSlug }) => {
+  const handleContinueSetup = useCallback(({ token, reservedSlug }) => {
     setPendingClaimToken(token);
     setPendingClaimTokenState(token);
     try {
@@ -154,32 +159,47 @@ function App() {
       // sessionStorage puede estar bloqueado en modo privado.
     }
     navigate('/setup');
-  };
+  }, [navigate]);
+
+  const completePendingClaim = useCallback(async (claimToken) => {
+    try {
+      const result = await api.claimProfile(claimToken);
+      setPendingClaimEmail(null);
+      setPendingClaimEmailState('');
+      if (result?.requires_profile_setup) {
+        handleContinueSetup({
+          token: claimToken,
+          reservedSlug: getReservedSlugFromClaimResult(result),
+        });
+        return true;
+      }
+      setPendingClaimToken(null);
+      setPendingClaimTokenState(null);
+      navigate('/edit');
+      return true;
+    } catch (_) {
+      navigate(`/activar/${claimToken}`);
+      return false;
+    }
+  }, [handleContinueSetup, navigate]);
+
+  useEffect(() => {
+    if (!sessionReady || !user || !pendingClaimToken || path !== '/login') return;
+    if (pendingClaimCompletionRef.current === pendingClaimToken) return;
+
+    pendingClaimCompletionRef.current = pendingClaimToken;
+    completePendingClaim(pendingClaimToken).finally(() => {
+      pendingClaimCompletionRef.current = null;
+    });
+  }, [completePendingClaim, path, pendingClaimToken, sessionReady, user]);
 
   const handleAuthSuccess = async (authPayload) => {
     setUser(authPayload.user);
     setStoredAuth(authPayload);
     const claimToken = getPendingClaimToken();
     if (claimToken) {
-      try {
-        const result = await api.claimProfile(claimToken);
-        setPendingClaimEmail(null);
-        setPendingClaimEmailState('');
-        if (result?.requires_profile_setup) {
-          handleContinueSetup({
-            token: claimToken,
-            reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '',
-          });
-          return;
-        }
-        setPendingClaimToken(null);
-        setPendingClaimTokenState(null);
-        navigate('/edit');
-        return;
-      } catch (_) {
-        navigate(`/activar/${claimToken}`);
-        return;
-      }
+      await completePendingClaim(claimToken);
+      return;
     }
 
     const adminAccess = await getCurrentAdminAccess().catch(() => ({

@@ -47,7 +47,7 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
       }
     } catch (err) {
       if (err?.code === 'AUTH_REQUIRED' || err?.status === 401 || err?.status === 403) {
-        onAuthRequired?.(token);
+        onAuthRequired?.(token, buyerEmail);
         return;
       }
       setError(activationHelpMessage);
@@ -74,6 +74,7 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
 
   const order = claimData?.order;
   const claim = claimData?.claim;
+  const suggestedSlug = claimData?.reserved_slug || order?.card_customization?.desired_slug || '';
   const alreadyClaimed = claim?.already_claimed || claim?.status === 'claimed';
   const canRetryClaim = !!user;
   const disableActivate = busy || (alreadyClaimed && !canRetryClaim);
@@ -100,6 +101,16 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
             <p className="text-zinc-400 text-sm mb-1">Tarjetas incluidas</p>
             <p className="font-semibold">{claim?.quantity}</p>
           </div>
+
+          {suggestedSlug ? (
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5" data-cy="activation-suggested-slug">
+              <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Usuario sugerido listo</p>
+              <p className="mt-2 text-2xl font-black text-white">nexcard.cl/{suggestedSlug}</p>
+              <p className="mt-2 text-sm text-emerald-100/90">
+                Reservamos este slug desde la compra/admin para que al activar no tengas que crear “otra cuenta” ni elegir desde cero.
+              </p>
+            </div>
+          ) : null}
 
           {alreadyClaimed ? (
             <div className="bg-emerald-950 border border-emerald-700 rounded-xl p-5 flex gap-3">
