@@ -10,6 +10,8 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
 
+const normalizeEmail = (email?: string | null) => (email || '').trim().toLowerCase();
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -87,6 +89,15 @@ serve(async (req) => {
     if (authError || !user) {
       return new Response(JSON.stringify({ error: 'Sesión inválida o expirada' }), {
         status: 401,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const claimEmail = normalizeEmail(claim.customer_email);
+    const userEmail = normalizeEmail(user.email);
+    if (claimEmail && userEmail && claimEmail !== userEmail) {
+      return new Response(JSON.stringify({ error: 'Este link pertenece a otro correo comprador. Cierra sesión e ingresa con el correo de la compra.' }), {
+        status: 403,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
