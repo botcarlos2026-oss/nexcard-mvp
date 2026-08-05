@@ -1,6 +1,7 @@
 import {
   AUTH_MODES,
   buildPasswordResetRedirectTo,
+  buildSignupConfirmationRedirectTo,
   getInitialAuthMode,
   normalizeAuthEmail,
   validatePasswordResetForm,
@@ -26,6 +27,11 @@ describe('authFlow helpers', () => {
   it('builds a stable login recovery redirect URL', () => {
     expect(buildPasswordResetRedirectTo('https://www.nexcard.cl/preview')).toBe('https://www.nexcard.cl/login?mode=reset-password');
     expect(buildPasswordResetRedirectTo('https://www.nexcard.cl')).toBe('https://www.nexcard.cl/login?mode=reset-password');
+  });
+
+  it('builds a claim-preserving signup confirmation redirect URL', () => {
+    expect(buildSignupConfirmationRedirectTo('https://www.nexcard.cl/activar/claim-token')).toBe('https://www.nexcard.cl/login?mode=login&claim=1');
+    expect(buildSignupConfirmationRedirectTo('https://www.nexcard.cl')).toBe('https://www.nexcard.cl/login?mode=login&claim=1');
   });
 
   it('requires a strong matching password for recovery update', () => {

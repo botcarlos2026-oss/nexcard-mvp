@@ -158,9 +158,9 @@ export const api = {
 
   register: async (payload) => {
     if (hasSupabase) {
-      const redirectTo = typeof window !== 'undefined'
+      const redirectTo = payload.redirectTo || (typeof window !== 'undefined'
         ? `${window.location.origin}/login`
-        : undefined;
+        : undefined);
       const { data, error } = await supabase.auth.signUp({
         email: payload.email,
         password: payload.password,

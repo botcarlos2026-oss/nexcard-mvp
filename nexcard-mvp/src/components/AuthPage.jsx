@@ -13,6 +13,7 @@ import { api } from '../services/api';
 import {
   AUTH_MODES,
   buildPasswordResetRedirectTo,
+  buildSignupConfirmationRedirectTo,
   getInitialAuthMode,
   normalizeAuthEmail,
   validatePasswordResetForm,
@@ -21,11 +22,6 @@ import {
 const EMAIL_NOT_CONFIRMED_MESSAGE = 'Tu cuenta fue creada, pero falta confirmar el correo. Abre el email de confirmación de Supabase/NexCard y luego vuelve a iniciar sesión para activar tu NexCard.';
 
 const isEmailNotConfirmedError = (message = '') => /email not confirmed/i.test(message);
-
-const buildSignupConfirmationRedirectTo = (hrefOrOrigin) => {
-  const url = new URL(hrefOrOrigin || 'https://www.nexcard.cl');
-  return `${url.origin}/login?mode=login&claim=1`;
-};
 
 const getCopy = (mode, hasPendingClaim = false) => {
   if (mode === AUTH_MODES.REGISTER) {
@@ -124,7 +120,11 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) 
       }
 
       const authPayload = mode === AUTH_MODES.REGISTER
-        ? await api.register({ ...formData, email: normalizeAuthEmail(formData.email) })
+        ? await api.register({
+          ...formData,
+          email: normalizeAuthEmail(formData.email),
+          redirectTo: isContextualRegister ? buildSignupConfirmationRedirectTo(window.location.href) : undefined,
+        })
         : await api.login({ ...formData, email: normalizeAuthEmail(formData.email) });
 
       if (mode === AUTH_MODES.REGISTER && authPayload.needsEmailConfirmation) {
