@@ -23,4 +23,25 @@ describe('hybrid order cards automation', () => {
     expect(source).toContain(".eq('order_id', claim.order_id)");
     expect(source).toContain(".is('profile_id', null)");
   });
+
+  it('blocks claim consumption when the logged-in email differs from the buyer email before mutating rows', () => {
+    const source = fs.readFileSync(claimProfilePath, 'utf8');
+
+    expect(source).toContain('const normalizeEmail =');
+    expect(source).toContain('const claimEmail = normalizeEmail(claim.customer_email);');
+    expect(source).toContain('const userEmail = normalizeEmail(user.email);');
+    expect(source).toContain('claimEmail && userEmail && claimEmail !== userEmail');
+    expect(source).toContain("status: 403");
+    expect(source).toContain('Este link pertenece a otro correo comprador');
+
+    const mismatchGuardIndex = source.indexOf('claimEmail && userEmail && claimEmail !== userEmail');
+    const claimMutationIndex = source.indexOf("await admin.from('profile_claims').update(updatePayload)");
+    const slugMutationIndex = source.indexOf("status: 'consumed'");
+    const cardMutationIndex = source.indexOf("activation_status: 'assigned'");
+
+    expect(mismatchGuardIndex).toBeGreaterThan(-1);
+    expect(claimMutationIndex).toBeGreaterThan(mismatchGuardIndex);
+    expect(slugMutationIndex).toBeGreaterThan(mismatchGuardIndex);
+    expect(cardMutationIndex).toBeGreaterThan(mismatchGuardIndex);
+  });
 });
