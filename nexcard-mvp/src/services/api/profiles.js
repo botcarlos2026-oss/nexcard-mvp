@@ -12,6 +12,22 @@ const normalizeAccountType = (value) => {
   return 'individual';
 };
 
+const getFunctionErrorStatus = (error) => error?.context?.status || error?.context?.statusCode || null;
+
+const readFunctionErrorMessage = async (error) => {
+  const context = error?.context;
+  if (context && typeof context.clone === 'function') {
+    try {
+      const payload = await context.clone().json();
+      if (payload?.error) return payload.error;
+      if (payload?.message) return payload.message;
+    } catch {
+      // ignore non-JSON function error bodies
+    }
+  }
+  return error?.message || '';
+};
+
 const PROFILE_ALLOWED_FIELDS = [
   'slug', 'full_name', 'profession', 'bio', 'avatar_url', 'theme_color', 'is_dark_mode',
   'whatsapp', 'instagram', 'linkedin', 'website', 'vcard_enabled', 'calendar_url',
@@ -151,14 +167,21 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
       },
     });
     if (error) {
-      const status = error?.context?.status;
-      if (status === 401 || status === 403) {
+      const status = getFunctionErrorStatus(error);
+      const functionMessage = await readFunctionErrorMessage(error);
+      if (status === 401) {
         const authError = new Error('Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.');
         authError.code = 'AUTH_REQUIRED';
         authError.status = status;
         throw authError;
       }
-      throw new Error(error.message || 'No fue posible activar tu perfil');
+      if (status === 403) {
+        const claimError = new Error(functionMessage || 'Este link pertenece a otro correo comprador. Cierra sesión e ingresa con el correo de la compra.');
+        claimError.code = 'CLAIM_EMAIL_MISMATCH';
+        claimError.status = status;
+        throw claimError;
+      }
+      throw new Error(functionMessage || 'No fue posible activar tu perfil');
     }
     if (data?.error) throw new Error(data.error);
     return data;

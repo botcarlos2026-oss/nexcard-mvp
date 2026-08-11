@@ -12,12 +12,20 @@ const apiPath = path.join(repoRoot, 'src/services/api.js');
 const read = (filePath) => fs.readFileSync(filePath, 'utf8');
 
 describe('activation flow hardening', () => {
-  it('redirige a auth cuando claimProfile devuelve sesión inválida o expirada', () => {
+  it('redirige a auth solo cuando claimProfile devuelve sesión inválida o expirada', () => {
     const source = read(activationPagePath);
 
     expect(source).toContain("err?.code === 'AUTH_REQUIRED'");
     expect(source).toContain('onAuthRequired?.(token, buyerEmail)');
-    expect(source).toContain("err?.status === 401 || err?.status === 403");
+    expect(source).toContain('err?.status === 401');
+    expect(source).not.toContain('err?.status === 401 || err?.status === 403');
+  });
+
+  it('muestra mismatch de correo sin volver a la misma activación', () => {
+    const source = read(activationPagePath);
+
+    expect(source).toContain('Ingresa con el correo de la compra');
+    expect(source).toContain("setError(err?.message || activationHelpMessage)");
   });
 
   it('preserva y muestra reserved_slug para setup antes de navegar', () => {
