@@ -63,7 +63,7 @@ export const getPricingCopy = (productOrSku) => {
 export const buildPricingPlan = (product = {}, { fallbackCards = 1 } = {}) => {
   const copy = getPricingCopy(product.sku) || {};
   const cards = copy.cards || Number(product.cards) || fallbackCards;
-  const displaySku = copy.displaySku || PRICING_DISPLAY_SKU_BY_COUNT[cards] || product.sku;
+  const displaySku = copy.displaySku || product.sku || PRICING_DISPLAY_SKU_BY_COUNT[cards];
 
   return {
     ...product,
