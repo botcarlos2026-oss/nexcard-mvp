@@ -1,10 +1,10 @@
 import React, { Suspense } from 'react';
-import LandingPage from './LandingPage';
-import ComingSoon from './ComingSoon';
-import PrivacyPolicy from './PrivacyPolicy';
-import TermsAndConditions from './TermsAndConditions';
-import NexCardProfile from './NexCardProfile';
 import SafeErrorState from './common/SafeErrorState';
+const LandingPage = React.lazy(() => import('./LandingPage'));
+const ComingSoon = React.lazy(() => import('./ComingSoon'));
+const PrivacyPolicy = React.lazy(() => import('./PrivacyPolicy'));
+const TermsAndConditions = React.lazy(() => import('./TermsAndConditions'));
+const NexCardProfile = React.lazy(() => import('./NexCardProfile'));
 const AdminDashboard = React.lazy(() => import('./AdminDashboard'));
 const InventoryDashboard = React.lazy(() => import('./InventoryDashboard'));
 const AdminCardsDashboard = React.lazy(() => import('./AdminCardsDashboard'));
@@ -141,11 +141,11 @@ export default function AppRouteRenderer({
     return withSuspense(<DeliveryConfirmation orderId={parts[0]} token={parts[1]} />);
   }
 
-  if (path === '/') return <ComingSoon />;
-  if (path === '/preview') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
-  if (path === '/coming-soon') return <LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />;
-  if (path === '/privacidad') return <PrivacyPolicy />;
-  if (path === '/terminos') return <TermsAndConditions />;
+  if (path === '/') return withSuspense(<ComingSoon />);
+  if (path === '/preview') return withSuspense(<LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />);
+  if (path === '/coming-soon') return withSuspense(<LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />);
+  if (path === '/privacidad') return withSuspense(<PrivacyPolicy />);
+  if (path === '/terminos') return withSuspense(<TermsAndConditions />);
 
   if (error) {
     const isActivationError = path.startsWith('/activar/');
@@ -162,5 +162,5 @@ export default function AppRouteRenderer({
     );
   }
 
-  return <NexCardProfile data={data} />;
+  return withSuspense(<NexCardProfile data={data} />);
 }
