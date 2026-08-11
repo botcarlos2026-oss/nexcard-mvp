@@ -49,7 +49,7 @@ serve(async (req) => {
 
     const { data: order } = await admin
       .from('orders')
-      .select('id, folio, customer_name, customer_email, payment_status, fulfillment_status, amount_cents, card_customization, created_at')
+      .select('id, folio, customer_name, customer_email, customer_phone, payment_status, fulfillment_status, amount_cents, card_customization, created_at')
       .eq('id', claim.order_id)
       .maybeSingle();
 

@@ -8,6 +8,7 @@ const authPagePath = path.join(repoRoot, 'src/components/AuthPage.jsx');
 const appRouteRendererPath = path.join(repoRoot, 'src/components/AppRouteRenderer.jsx');
 const setupWizardPath = path.join(repoRoot, 'src/components/SetupWizard.jsx');
 const apiPath = path.join(repoRoot, 'src/services/api.js');
+const claimFunctionPath = path.join(repoRoot, 'supabase/functions/claim-profile/index.ts');
 
 const read = (filePath) => fs.readFileSync(filePath, 'utf8');
 
@@ -35,7 +36,7 @@ describe('activation flow hardening', () => {
     expect(source).toContain('data-cy="activation-suggested-slug"');
     expect(source).toContain('Usuario sugerido listo');
     expect(source).toContain('nexcard.cl/{suggestedSlug}');
-    expect(source).toContain("onContinueSetup?.({ token, reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '' })");
+    expect(source).toContain("onContinueSetup?.({ token, reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '', claimResult: result })");
   });
 
   it('cierra el ciclo del reserved_slug después de completar setup y claim', () => {
@@ -43,7 +44,33 @@ describe('activation flow hardening', () => {
 
     expect(source).toContain("sessionStorage.setItem('nx_pending_profile_slug', reservedSlug)");
     expect(source).toContain("sessionStorage.removeItem('nx_pending_profile_slug')");
+    expect(source).toContain("sessionStorage.removeItem('nx_pending_profile_seed')");
     expect(source).toContain('setPendingClaimToken(null)');
+  });
+
+  it('prellena setup con datos de la compra para reducir fricción', () => {
+    const appSource = read(appPath);
+    const setupSource = read(setupWizardPath);
+
+    expect(appSource).toContain('const getProfileSeedFromClaimResult = (result = {}) =>');
+    expect(appSource).toContain('order.customer_phone');
+    expect(read(claimFunctionPath)).toContain('customer_phone');
+    expect(appSource).toContain("sessionStorage.setItem('nx_pending_profile_seed'");
+    expect(setupSource).toContain("sessionStorage.getItem('nx_pending_profile_seed')");
+    expect(setupSource).toContain('company: profileSeed.company ||');
+    expect(setupSource).toContain('whatsapp: profileSeed.whatsapp ||');
+    expect(setupSource).toContain('contact_phone: profileSeed.contact_phone || profileSeed.whatsapp ||');
+    expect(setupSource).toContain('data-cy="wizard-company"');
+    expect(setupSource).toContain('Empresa prellenada desde tu compra');
+    expect(setupSource).toContain('Número prellenado desde tu compra');
+  });
+
+  it('resalta la vista previa como acción secundaria importante del editor', () => {
+    const editorSource = read(path.join(repoRoot, 'src/components/UserEditor.jsx'));
+
+    expect(editorSource).toContain('bg-emerald-50 px-6 py-4 text-emerald-700');
+    expect(editorSource).toContain('Ver vista previa de mi NexCard');
+    expect(editorSource).toContain('group-hover:translate-x-1');
   });
 
   it('guarda token y email comprador para el primer acceso contextual', () => {
