@@ -395,10 +395,10 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           </div>
         </section>
 
-        {teamMembers.length > 0 && (
+        {teamMembers.length > 1 && (
           <section className="border-b border-zinc-800 py-16 md:py-[78px]">
             <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
-              <SectionHead title="Quiénes trabajan con nosotros.">Equipo y aliados detrás de la experiencia NexCard.</SectionHead>
+              <SectionHead title="Equipo detrás de NexCard.">Personas y aliados que acompañan activación, soporte y operación.</SectionHead>
               <div className={`grid gap-6 ${
                 teamMembers.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
                 teamMembers.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-md mx-auto' :
