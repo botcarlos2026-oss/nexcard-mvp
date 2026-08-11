@@ -337,10 +337,10 @@ const UserEditor = ({ data, onSave, onLogout }) => {
 
         </div>
 
-        <div className="mt-8 text-center">
-          <a href={`/${profile.slug || 'carlos-alvarez'}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-zinc-400 hover:text-emerald-500 font-bold text-xs uppercase tracking-widest transition-all">
-            Ver Vista Previa de mi NexCard
-            <ChevronRight size={14} />
+        <div className="mt-8 flex justify-center">
+          <a href={`/${profile.slug || 'carlos-alvarez'}`} target="_blank" rel="noreferrer" className="group inline-flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-4 text-emerald-700 shadow-sm shadow-emerald-100/80 hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800 hover:shadow-lg hover:shadow-emerald-100 transition-all focus:outline-none focus:ring-4 focus:ring-emerald-500/20">
+            <span className="text-sm font-black uppercase tracking-[0.18em]">Ver vista previa de mi NexCard</span>
+            <ChevronRight size={18} className="transition-transform group-hover:translate-x-1" />
           </a>
         </div>
       </div>

@@ -22,16 +22,26 @@ const SetupWizard = ({ onComplete }) => {
       return '';
     }
   });
+  const [profileSeed] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('nx_pending_profile_seed') || '{}');
+    } catch {
+      return {};
+    }
+  });
   const [slugStatus, setSlugStatus] = useState(reservedSlug ? 'reserved' : 'idle');
   const [slugError, setSlugError] = useState('');
   const [formData, setFormData] = useState({
     account_type: 'personal', // personal | business
-    full_name: '',
-    profession: '',
+    full_name: profileSeed.full_name || '',
+    profession: profileSeed.profession || '',
+    company: profileSeed.company || '',
     slug: reservedSlug,
     bio: '',
     theme_color: '#10B981',
-    whatsapp: '',
+    whatsapp: profileSeed.whatsapp || '',
+    contact_phone: profileSeed.contact_phone || profileSeed.whatsapp || '',
+    contact_email: profileSeed.contact_email || '',
   });
 
   const profilePreset = formData.account_type === 'business'
@@ -140,7 +150,7 @@ const SetupWizard = ({ onComplete }) => {
                 onClick={() => { setFormData({...formData, account_type: 'personal'}); nextStep(); }}
                 className={`w-full p-6 rounded-[24px] border-2 text-left transition-all flex items-center gap-5 ${formData.account_type === 'personal' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'}`}
               >
-                <div className={`p-3 rounded-xl ${formData.account_type === 'personal' ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>
+                <div className={`p-3 rounded-xl ${formData.account_type === 'personal' ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-white/60'}`}>
                   <User size={24} />
                 </div>
                 <div>
@@ -153,7 +163,7 @@ const SetupWizard = ({ onComplete }) => {
                 onClick={() => { setFormData({...formData, account_type: 'business'}); nextStep(); }}
                 className={`w-full p-6 rounded-[24px] border-2 text-left transition-all flex items-center gap-5 ${formData.account_type === 'business' ? 'border-emerald-500 bg-emerald-500/10' : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'}`}
               >
-                <div className={`p-3 rounded-xl ${formData.account_type === 'business' ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}>
+                <div className={`p-3 rounded-xl ${formData.account_type === 'business' ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-white/60'}`}>
                   <Building2 size={24} />
                 </div>
                 <div>
@@ -210,6 +220,15 @@ const SetupWizard = ({ onComplete }) => {
                 onChange={e => setFormData({...formData, profession: e.target.value})}
                 className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl px-6 py-5 text-lg font-bold focus:border-emerald-500 outline-none transition-all"
               />
+              <input
+                data-cy="wizard-company"
+                type="text"
+                placeholder="Empresa / organización"
+                value={formData.company}
+                onChange={e => setFormData({...formData, company: e.target.value})}
+                className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl px-6 py-5 text-lg font-bold focus:border-emerald-500 outline-none transition-all"
+              />
+              {profileSeed.company ? <p className="text-xs font-bold text-emerald-300">Empresa prellenada desde tu compra. Puedes cambiarla si quieres.</p> : null}
             </div>
           </div>
         )}
@@ -284,9 +303,10 @@ const SetupWizard = ({ onComplete }) => {
                 type="text" 
                 placeholder="WhatsApp (ej: 56912345678)"
                 value={formData.whatsapp}
-                onChange={e => setFormData({...formData, whatsapp: e.target.value})}
+                onChange={e => setFormData({...formData, whatsapp: e.target.value, contact_phone: e.target.value})}
                 className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-2xl px-6 py-5 text-lg font-bold focus:border-emerald-500 outline-none transition-all"
               />
+              {profileSeed.whatsapp ? <p className="mt-3 text-xs font-bold text-emerald-300">Número prellenado desde tu compra. Puedes editarlo antes de finalizar.</p> : null}
             </div>
           </div>
         )}

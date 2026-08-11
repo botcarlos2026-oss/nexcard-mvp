@@ -13,6 +13,22 @@ const getReservedSlugFromClaimResult = (result = {}) => (
   result?.reserved_slug || result?.order?.card_customization?.desired_slug || ''
 );
 
+const normalizePhoneSeed = (value = '') => String(value || '').replace(/[^\d+]/g, '').trim();
+
+const getProfileSeedFromClaimResult = (result = {}) => {
+  const order = result?.order || {};
+  const customization = order?.card_customization || {};
+  const phone = normalizePhoneSeed(order.customer_phone || customization.customer_phone || '');
+  return {
+    full_name: customization.full_name || order.customer_name || '',
+    profession: customization.job_title || '',
+    company: customization.company || '',
+    whatsapp: phone,
+    contact_phone: phone,
+    contact_email: order.customer_email || result?.claim?.customer_email || '',
+  };
+};
+
 function App() {
   const bootstrapSeqRef = useRef(0);
   const pendingClaimCompletionRef = useRef(null);
@@ -132,6 +148,7 @@ function App() {
         setPendingClaimEmailState('');
         try {
           sessionStorage.removeItem('nx_pending_profile_slug');
+          sessionStorage.removeItem('nx_pending_profile_seed');
         } catch (_) {
           // sessionStorage puede estar bloqueado en modo privado.
         }
@@ -149,12 +166,14 @@ function App() {
     navigate('/login?mode=register&claim=1');
   };
 
-  const handleContinueSetup = useCallback(({ token, reservedSlug }) => {
+  const handleContinueSetup = useCallback(({ token, reservedSlug, claimResult }) => {
     setPendingClaimToken(token);
     setPendingClaimTokenState(token);
     try {
       if (reservedSlug) sessionStorage.setItem('nx_pending_profile_slug', reservedSlug);
       else sessionStorage.removeItem('nx_pending_profile_slug');
+      if (claimResult) sessionStorage.setItem('nx_pending_profile_seed', JSON.stringify(getProfileSeedFromClaimResult(claimResult)));
+      else sessionStorage.removeItem('nx_pending_profile_seed');
     } catch (_) {
       // sessionStorage puede estar bloqueado en modo privado.
     }
@@ -170,6 +189,7 @@ function App() {
         handleContinueSetup({
           token: claimToken,
           reservedSlug: getReservedSlugFromClaimResult(result),
+          claimResult: result,
         });
         return true;
       }
