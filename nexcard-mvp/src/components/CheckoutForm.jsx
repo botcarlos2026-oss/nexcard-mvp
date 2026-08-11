@@ -193,6 +193,12 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const discountCents = getDiscountCents();
   const finalTotalCents = Math.max(0, totalCents - discountCents);
   const totalCLP = finalTotalCents.toLocaleString('es-CL');
+  const paymentDisabled = loading || slugStatus === 'checking' || !formData.acceptTerms;
+  const paymentDisabledReason = !formData.acceptTerms
+    ? 'Acepta los términos y la política de privacidad para activar el pago.'
+    : slugStatus === 'checking'
+    ? 'Estamos validando tu usuario público antes de continuar.'
+    : '';
 
   // Guard: si llegan aquí sin items, redirigir
   if (items.length === 0) {
@@ -461,7 +467,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                     name="customerName"
                     value={formData.customerName}
                     onChange={handleChange}
-                    placeholder="Juan Pérez García"
+                    placeholder="Nombre y apellido"
                     autoComplete="name"
                     className={inputClass}
                   />
@@ -508,7 +514,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                       // silencioso — no bloquear checkout
                     }
                   }}
-                  placeholder="juan@example.com"
+                  placeholder="correo@empresa.cl"
                   autoComplete="email"
                   className={inputClass}
                 />
@@ -520,7 +526,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   name="customerAddress"
                   value={formData.customerAddress}
                   onChange={handleChange}
-                  placeholder="Calle Principal 123, Depto 4B, Santiago, Región Metropolitana"
+                  placeholder="Calle, número, comuna y región"
                   rows="3"
                   autoComplete="street-address"
                   className={inputClass + ' resize-none'}
@@ -541,7 +547,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   value={desiredSlug}
                   onChange={(e) => handleDesiredSlugChange(e.target.value)}
                   onBlur={() => checkDesiredSlugAvailability(desiredSlug)}
-                  placeholder="tu-nombre-o-marca"
+                  placeholder="nombre-o-marca"
                   autoComplete="off"
                   className="flex-1 bg-transparent px-4 py-3 text-white placeholder-zinc-500 focus:outline-none text-sm font-bold"
                 />
@@ -578,7 +584,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                     name="job_title"
                     value={customization.job_title}
                     onChange={handleCustomizationChange}
-                    placeholder="CEO & Founder, Diseñador UX..."
+                    placeholder="Cargo, profesión o especialidad"
                     className={inputClass}
                   />
                 </div>
@@ -591,7 +597,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   name="company"
                   value={customization.company}
                   onChange={handleCustomizationChange}
-                  placeholder="NexCard"
+                  placeholder="Empresa o marca"
                   className={inputClass}
                 />
               </div>
@@ -782,8 +788,9 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               <div className="flex-[2] flex flex-col gap-1.5">
                 <button
                   type="submit"
-                  disabled={loading || slugStatus === 'checking'}
-                  className={`btn-base btn-press w-full btn-primary disabled:opacity-60 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 ${loading ? 'btn-loading' : ''}`}
+                  disabled={paymentDisabled}
+                  aria-describedby={paymentDisabledReason ? 'checkout-payment-disabled-reason' : undefined}
+                  className={`btn-base btn-press w-full btn-primary disabled:opacity-60 disabled:cursor-not-allowed font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 ${loading ? 'btn-loading' : ''}`}
                 >
                   {loading ? (
                     <>
@@ -798,6 +805,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   )}
                 </button>
                 <p className="text-xs text-zinc-400 text-center">Serás redirigido a Mercado Pago para completar el pago de forma segura</p>
+                {paymentDisabledReason && (
+                  <p id="checkout-payment-disabled-reason" className="text-xs text-amber-300 text-center font-semibold">
+                    {paymentDisabledReason}
+                  </p>
+                )}
               </div>
             </div>
 
