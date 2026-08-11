@@ -1,4 +1,4 @@
-import { createOrdersApi } from './orders';
+import { createOrdersApi, deriveOrderObservability } from './orders';
 
 const createQuery = (table, data = []) => {
   const query = {
@@ -14,6 +14,25 @@ const createQuery = (table, data = []) => {
   query.then = (resolve, reject) => Promise.resolve({ data, error: null }).then(resolve, reject);
   return query;
 };
+
+describe('deriveOrderObservability', () => {
+  it('no marca como problema una activación post-compra mientras la orden sigue en producción', () => {
+    const result = deriveOrderObservability({
+      order: {
+        payment_status: 'paid',
+        fulfillment_status: 'in_production',
+        paid_at: new Date().toISOString(),
+        payments: [{ status: 'paid' }],
+      },
+      claim: { status: 'claimed', updated_at: new Date().toISOString() },
+      relatedCards: [{ id: 'card-1', status: 'assigned', activation_status: 'assigned' }],
+    });
+
+    expect(result.activation_completed).toBe(true);
+    expect(result.observability_alerts).toEqual([]);
+    expect(result.observability_anomaly_level).toBe('ok');
+  });
+});
 
 describe('createOrdersApi.getOrders', () => {
   it('envía identificadores de idempotencia requeridos por el RPC live', async () => {

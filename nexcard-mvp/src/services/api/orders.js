@@ -41,7 +41,7 @@ const hoursSince = (value) => {
   return (Date.now() - ms) / (1000 * 60 * 60);
 };
 
-const deriveOrderObservability = ({ order, claim, relatedCards }) => {
+export const deriveOrderObservability = ({ order, claim, relatedCards }) => {
   const activeCardsCount = relatedCards.filter((card) => card.status === 'active' || card.activation_status === 'activated').length;
   const programmedCardsCount = relatedCards.filter((card) => card.nfc_url || card.programmed_at || card.status === 'programmed').length;
   const assignedCardsCount = relatedCards.filter((card) => card.profile_id || card.activation_status === 'assigned').length;
@@ -74,9 +74,9 @@ const deriveOrderObservability = ({ order, claim, relatedCards }) => {
   if (order.fulfillment_status === 'delivered' && !activationCompleted) {
     observabilityAlerts.push('Entregada sin activación cerrada');
   }
-  if (activationCompleted && !['delivered', 'shipped'].includes(order.fulfillment_status)) {
-    observabilityAlerts.push('Activación detectada antes de entrega confirmada');
-  }
+  // La activación post-compra puede ocurrir antes del despacho físico. En ese
+  // caso la orden sigue correctamente en producción y no debe caer en
+  // "Problemas" solo porque el comprador ya completó su perfil.
   if (claim?.status === 'pending' && order.fulfillment_status === 'delivered') {
     observabilityAlerts.push('Claim pendiente post-entrega');
   }
