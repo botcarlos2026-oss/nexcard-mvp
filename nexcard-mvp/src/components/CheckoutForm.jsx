@@ -5,11 +5,30 @@ import { ArrowLeft, ShieldCheck, AlertCircle, Tag } from 'lucide-react';
 import CardPreview from './CardPreview';
 import { PROFILE_SLUG_RULES_MESSAGE, isValidProfileSlug, slugify } from '../utils/slug';
 
+const createClientCheckoutId = () => (
+  globalThis.crypto?.randomUUID?.() || `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`
+);
+
+const getOrCreateClientCheckoutFingerprint = () => {
+  try {
+    const key = 'nexcard_checkout_fingerprint';
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const next = createClientCheckoutId();
+    localStorage.setItem(key, next);
+    return next;
+  } catch {
+    return createClientCheckoutId();
+  }
+};
+
 export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const { items, getTotalCents, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paymentMethod] = useState('mercado-pago');
+  const [clientCheckoutAttemptId] = useState(createClientCheckoutId);
+  const [clientCheckoutFingerprint] = useState(getOrCreateClientCheckoutFingerprint);
   const [abandonedCartId, setAbandonedCartId] = useState(null);
   const [couponCode, setCouponCode] = useState(() => new URLSearchParams(window.location.search).get('coupon') || '');
   const [couponData, setCouponData] = useState(null);
@@ -287,6 +306,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
       };
 
       const orderPayload = {
+        client_checkout_attempt_id: clientCheckoutAttemptId,
+        client_checkout_fingerprint: clientCheckoutFingerprint,
         customer_name: formData.customerName.trim(),
         customer_email: formData.customerEmail.trim().toLowerCase(),
         customer_phone: formData.customerPhone.trim(),
