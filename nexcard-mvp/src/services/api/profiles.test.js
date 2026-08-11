@@ -58,22 +58,24 @@ describe('createProfilesApi activation claim auth', () => {
     });
   });
 
-  it('traduce 403 de Edge Function a flujo AUTH_REQUIRED', async () => {
+  it('traduce 403 de Edge Function a mismatch de correo sin forzar loop de login', async () => {
     const { api } = createApi({
       session: { access_token: 'valid-jwt' },
       invokeResult: {
         data: null,
         error: {
           message: 'Edge Function returned a non-2xx status code',
-          context: { status: 403 },
+          context: new Response(JSON.stringify({
+            error: 'Este link pertenece a otro correo comprador. Cierra sesión e ingresa con el correo de la compra.',
+          }), { status: 403 }),
         },
       },
     });
 
     await expect(api.claimProfile('claim-token')).rejects.toMatchObject({
-      code: 'AUTH_REQUIRED',
+      code: 'CLAIM_EMAIL_MISMATCH',
       status: 403,
-      message: AUTH_MESSAGE,
+      message: 'Este link pertenece a otro correo comprador. Cierra sesión e ingresa con el correo de la compra.',
     });
   });
 

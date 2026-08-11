@@ -26,7 +26,9 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
     return () => { mounted = false; };
   }, [token]);
 
-  const activationErrorTitle = 'Link de activación inválido o expirado';
+  const activationErrorTitle = error?.includes('otro correo comprador')
+    ? 'Ingresa con el correo de la compra'
+    : 'Link de activación inválido o expirado';
   const activationErrorMessage = error || 'Revisa el enlace o solicita uno nuevo al equipo NexCard.';
   const activationHelpMessage = 'Revisa el enlace o solicita uno nuevo al equipo NexCard.';
 
@@ -46,11 +48,11 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
         onContinueSetup?.({ token, reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '' });
       }
     } catch (err) {
-      if (err?.code === 'AUTH_REQUIRED' || err?.status === 401 || err?.status === 403) {
+      if (err?.code === 'AUTH_REQUIRED' || err?.status === 401) {
         onAuthRequired?.(token, buyerEmail);
         return;
       }
-      setError(activationHelpMessage);
+      setError(err?.message || activationHelpMessage);
     } finally {
       setBusy(false);
     }
