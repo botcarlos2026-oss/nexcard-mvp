@@ -1,5 +1,22 @@
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
+const createClientCheckoutId = () => (
+  globalThis.crypto?.randomUUID?.() || `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`
+);
+
+const getOrCreateClientCheckoutFingerprint = () => {
+  try {
+    const key = 'nexcard_checkout_fingerprint';
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const next = createClientCheckoutId();
+    localStorage.setItem(key, next);
+    return next;
+  } catch {
+    return createClientCheckoutId();
+  }
+};
+
 const uniqById = (rows = []) => Array.from(
   new Map((rows || []).filter(Boolean).map((row) => [row.id, row])).values()
 );
@@ -140,6 +157,8 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId, request
     const userId = getClerkUserId() || null;
 
     const orderData = {
+      client_checkout_attempt_id: payload.client_checkout_attempt_id || createClientCheckoutId(),
+      client_checkout_fingerprint: payload.client_checkout_fingerprint || getOrCreateClientCheckoutFingerprint(),
       user_id: userId,
       customer_name: payload.customer_name.trim(),
       customer_email: payload.customer_email.trim().toLowerCase(),
