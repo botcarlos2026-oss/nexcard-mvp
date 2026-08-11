@@ -1,15 +1,15 @@
 # NexCard — cierre 404 real, analytics/crash y Zero-to-Hero
 
 Fecha: 2026-08-11
-Branch limpio: `release/close-404-analytics-crash-20260811`
-Worktree limpio: `/tmp/nexcard-close-404-analytics-crash-20260811/nexcard-mvp`
-Base: `origin/main` (`3dca6cd` al crear worktree)
+PR implementación: https://github.com/botcarlos2026-oss/nexcard-mvp/pull/45
+Merge commit: `9e3f0b773513a4035a80699fd16085e3106cfeec`
 
 ## Veredicto ejecutivo
 
 | Punto | Estado | Evidencia |
 |---|---|---|
-| 404 real para slugs inexistentes | Implementado prod-ready; pendiente deploy para validar HTTP real en `nexcard.cl` | `middleware.js`, lookup Supabase activo/inexistente validado, respuesta local `buildNotFoundResponse().status === 404` |
+| 404 real para slugs inexistentes | Cerrado en producción | `https://www.nexcard.cl/slug-inexistente-qa-404` => HTTP `404`, header `x-nexcard-route: public-profile-not-found` |
+| Rutas públicas/deep links | Cerrado | `/preview`, `/qa-smoke-profile`, `/activar/token-invalido-qa`, `/seguimiento/ord-123/token-abc`, `/` => HTTP `200` |
 | Analytics con evento real | Cerrado | Evento `view` insertado/leído en Supabase: `175a7924-0d99-44cb-b692-9f7c3aa01e13` |
 | Crash monitoring | Cerrado como monitoring propio app-owned; Sentry externo opcional sin DSN | Evento `client_crash` insertado/leído en Supabase: `bc760593-16c6-4f81-8adc-8b0b543e6a6a` |
 | Zero-to-Hero físico | Bloqueo físico/operacional pendiente | Matriz iPhone/Android/NFC/QR/datos móviles documentada; Hermes no puede ejecutar hardware real |
@@ -17,11 +17,28 @@ Base: `origin/main` (`3dca6cd` al crear worktree)
 | npm audit | Cerrado | `npm audit --audit-level=low`: `0 vulnerabilities` |
 | SEO icon/canonical | Cerrado | `index.html` contiene canonical explícito y `apple-touch-icon` |
 
+## Evidencia producción post-deploy
+
+```text
+https://www.nexcard.cl/slug-inexistente-qa-404 => 404
+https://www.nexcard.cl/preview => 200
+https://www.nexcard.cl/qa-smoke-profile => 200
+https://www.nexcard.cl/activar/token-invalido-qa => 200
+https://www.nexcard.cl/seguimiento/ord-123/token-abc => 200
+https://www.nexcard.cl/ => 200
+```
+
+Header observado en el 404:
+
+```text
+x-nexcard-route: public-profile-not-found
+```
+
 ## Cambios implementados
 
-### 1. 404 real prod-ready
+### 1. 404 real
 
-Archivo nuevo:
+Archivo:
 - `middleware.js`
 
 Comportamiento:
@@ -39,25 +56,18 @@ Comportamiento:
 - Si Supabase confirma cero filas, responde HTTP 404 con HTML seguro y `noindex`.
 - Si falta env o Supabase falla, hace fail-open para no romper perfiles reales.
 
-Validación ejecutada:
-- `unknownSlugExists: false` para `slug-inexistente-qa-404`
-- `qaSmokeProfileExists: true` para `qa-smoke-profile`
-- mock middleware:
+Validación:
+- Mock middleware:
   - missing => `false`
   - active => `true`
   - fail-open sin env => `null`
-- `node -c middleware.js`: OK
-
-Pendiente de 100% producción:
-- Push/deploy Vercel con token válido.
-- Post-deploy:
-  - `curl -sSIL https://www.nexcard.cl/slug-inexistente-qa-404 | tr -d '\r' | sed -n '1,20p'` debe devolver `404`.
-  - `curl -sSIL https://www.nexcard.cl/preview | tr -d '\r' | sed -n '1,20p'` debe seguir `200`.
-  - Validar deep links `/activar/*` y `/seguimiento/*` no se rompen.
+- Producción:
+  - slug inexistente => HTTP 404
+  - rutas críticas/deep links => HTTP 200
 
 ### 2. Analytics verificable
 
-Archivo modificado:
+Archivo:
 - `src/utils/analyticsEngine.js`
 
 Cambios:
@@ -134,6 +144,8 @@ En worktree limpio:
 - `npm run test:e2e:env-check`: OK
 - `npm run test:e2e:smoke`: 7 passing / 0 failing
 - `supabase db push --linked --dry-run`: remote up to date
+- Vercel PR checks: pass
+- Producción post-deploy con `curl`: pass
 
 Ad-hoc verifier:
 - Script temporal creado y eliminado correctamente:
@@ -141,10 +153,8 @@ Ad-hoc verifier:
 - Resultado: `verifier_exit_code=0`
 - Validó rutas, middleware, analytics/crash, build artifact y cleanup.
 
-Intento bloqueado:
-- `npx vercel build --yes` no pudo ejecutarse por token inválido:
-  - `Error: The token provided via VERCEL_TOKEN environment variable is not valid.`
-- No se imprimieron secretos.
+Nota:
+- `npx vercel build --yes` no pudo ejecutarse localmente por `VERCEL_TOKEN` inválido, pero GitHub/Vercel sí hizo deploy y producción fue validada por HTTP real.
 
 ## Zero-to-Hero físico
 
@@ -165,26 +175,3 @@ Matriz mínima para cierre físico:
 Veredicto comercial/operacional:
 - Técnicamente OK con bloqueo comercial/operacional pendiente para la parte física.
 - Gate G/real payment no se ejecutó porque requiere autorización explícita.
-
-## Archivos principales del alcance limpio
-
-- `middleware.js`
-- `src/utils/analyticsEngine.js`
-- `src/utils/analyticsEngine.test.js`
-- `src/index.jsx`
-- `supabase/migrations/202608111745_events_client_crash_type.sql`
-- `src/components/AppRouteRenderer.jsx`
-- `vite.config.js`
-- `index.html`
-- `public/apple-touch-icon.png`
-- `package.json`
-- `package-lock.json`
-- `.hermes/plans/2026-08-11_1741-cierre-total-404-analytics-crash-zero-to-hero.md`
-
-## Próximos pasos para 100% producción
-
-1. Commit + push branch limpia.
-2. Crear PR.
-3. Corregir `VERCEL_TOKEN` o usar deploy automático de GitHub/Vercel.
-4. Post-deploy, validar HTTP real en `nexcard.cl`.
-5. Ejecutar Zero-to-Hero físico con iPhone + Android + datos móviles + tarjeta NFC/QR real y guardar evidencia.
