@@ -258,7 +258,7 @@ export const api = {
 
   getAdminDashboard: async () => adminDashboardApi.getAdminDashboard(),
 
-  getProducts: async () => productsApi.getProducts(),
+  getProducts: async (options = {}) => productsApi.getProducts(options),
   createOrder: async (payload) => ordersApi.createOrder(payload),
 
   getInventory: async () => inventoryApi.getInventory(),
