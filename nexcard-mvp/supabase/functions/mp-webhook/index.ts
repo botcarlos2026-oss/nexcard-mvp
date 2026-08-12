@@ -177,21 +177,59 @@ async function persistPaymentLedger(
     return { paymentId: existingPayment.id, existed: true };
   }
 
+  const paymentPayload = {
+    order_id: orderId,
+    provider: 'mercado_pago',
+    status: mappedStatus,
+    amount_cents: amountCents,
+    currency,
+    external_id: mpPaymentId,
+    payload: payment,
+  };
+
   const { data: insertedPayment, error: insertPaymentError } = await supabase
     .from('payments')
-    .insert({
-      order_id: orderId,
-      provider: 'mercado_pago',
-      status: mappedStatus,
-      amount_cents: amountCents,
-      currency,
-      external_id: mpPaymentId,
-      payload: payment,
-    })
+    .insert(paymentPayload)
     .select('id')
     .single();
 
   if (insertPaymentError) {
+    if (insertPaymentError.code === '23505') {
+      const { data: racedPayments, error: racedPaymentError } = await supabase
+        .from('payments')
+        .select('id, status, external_id')
+        .eq('provider', 'mercado_pago')
+        .eq('external_id', mpPaymentId)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (racedPaymentError) {
+        throw new Error(`No se pudo recuperar payment ledger concurrente: ${racedPaymentError.message}`);
+      }
+
+      const racedPayment = racedPayments?.[0] || null;
+      if (racedPayment) {
+        const { error: updateRacedPaymentError } = await supabase
+          .from('payments')
+          .update({
+            order_id: orderId,
+            status: mappedStatus,
+            amount_cents: amountCents,
+            currency,
+            payload: payment,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', racedPayment.id);
+
+        if (updateRacedPaymentError) {
+          throw new Error(`No se pudo actualizar payment ledger concurrente: ${updateRacedPaymentError.message}`);
+        }
+
+        return { paymentId: racedPayment.id, existed: true };
+      }
+    }
+
     throw new Error(`No se pudo insertar payment ledger: ${insertPaymentError.message}`);
   }
 

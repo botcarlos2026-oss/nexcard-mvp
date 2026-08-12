@@ -16,3 +16,6 @@ cypress/screenshots/
 cypress/videos/
 cypress/downloads/
 .vercel
+.hermes/
+strix_runs/
+supabase/.temp/

@@ -21,7 +21,7 @@
     "build": "vite build",
     "test": "node ./scripts/vitest-run.mjs",
     "test:unit": "node ./scripts/vitest-run.mjs",
-    "lint": "eslint src/App.jsx src/services src/config server --ext js,jsx",
+    "lint": "eslint src server scripts vite.config.js --ext js,jsx",
     "kpi:evaluate": "node ./scripts/run-executive-alert-evaluator.mjs manual",
     "kpi:evaluate:cron": "node ./scripts/run-executive-alert-evaluator.mjs cron",
     "ops:reconcile-orders": "node ./scripts/run-order-payment-reconciliation.mjs manual",

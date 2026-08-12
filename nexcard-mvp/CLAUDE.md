@@ -9,10 +9,12 @@ NexCard es una plataforma de tarjetas NFC digitales y Google Reviews Cards (NexR
 
 ---
 
-## Comandos de desarrollo
+## Stack actual y comandos de desarrollo
+
+NexCard ya está migrado a Vite. No usar instrucciones antiguas de CRA, `react-scripts` ni workarounds de build heredados de CRA.
 
 ```bash
-# Frontend React (puerto 3000)
+# Frontend React/Vite (puerto 3000 por defecto)
 npm start
 
 # Backend local Express (puerto 4000) + frontend en paralelo
@@ -21,21 +23,20 @@ npm run dev
 # Solo el servidor local mock
 npm run server
 
-# Build para producción (Vercel)
+# Build para producción (Vercel genera dist/)
 npm run build
 ```
 
 **Quality gates / tests:**
 ```bash
-# Frontend build
-npm run build
-# Nota: el script usa `CI=false` para que CRA no trate warnings heredados como errores en Vercel.
-
-# Lint mínimo operativo
+# Lint amplio: src/, server/, scripts/ y vite.config.js
 npm run lint
 
-# Unit tests mínimos (Jest vía react-scripts)
-npm test
+# Unit tests con Vitest
+npm run test:unit
+
+# Frontend build Vite
+npm run build
 
 # Check rápido
 npm run check:fast
@@ -49,10 +50,10 @@ npm run check
 # Abrir Cypress interactivo
 npm run cypress:open
 
-# Suite completa en CI
+# Suite completa E2E
 npm run test:e2e
 
-# Tests individuales
+# Tests E2E individuales
 npm run test:e2e:smoke
 npm run test:e2e:admin-cards
 npm run test:e2e:admin-profiles
@@ -63,11 +64,14 @@ npm run test:e2e:cards-lifecycle
 npm run test:e2e:profiles-full
 ```
 
-Ya existe una capa mínima de calidad:
-- lint básico (`.eslintrc.json`)
-- unit test mínimo en `src/services/api.test.js`
-- build verificado
+Capa mínima de calidad actual:
+- lint amplio con ESLint sobre `src/`, `server/`, `scripts/` y `vite.config.js`
+  - reglas React Compiler experimentales no bloquean release (`react-hooks/immutability`, `purity`, `set-state-in-effect` desactivadas hasta refactor dedicado)
+  - `catch {}` vacío permitido solo para fallbacks seguros
+- unit tests vía Vitest (`npm run test:unit`)
+- build Vite verificado (`dist/`)
 - smoke/checks listos para uso manual o pre-merge
+- CI mínimo en GitHub Actions para PR/push a `main`: `npm ci`, lint, unit tests y build
 
 ---
 
