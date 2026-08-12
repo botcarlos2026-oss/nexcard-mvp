@@ -1,4 +1,4 @@
-import { buildOrderHistoryEntries, normalizeTrackingCode, ORDER_RESTRICTED_MUTATION_FIELDS } from './orderOperations';
+import { buildOrderHistoryEntries, normalizeNfcUrl, normalizeTrackingCode, ORDER_RESTRICTED_MUTATION_FIELDS } from './orderOperations';
 
 describe('orderOperations helpers', () => {
   it('normaliza tracking code a uppercase sin espacios', () => {
@@ -35,5 +35,17 @@ describe('orderOperations helpers', () => {
   it('expone la lista de campos restringidos para mutación directa', () => {
     expect(ORDER_RESTRICTED_MUTATION_FIELDS).toContain('payment_status');
     expect(ORDER_RESTRICTED_MUTATION_FIELDS).toContain('tracking_code');
+  });
+
+  it('normaliza URLs NFC a HTTPS canónico de nexcard.cl', () => {
+    expect(normalizeNfcUrl(' https://www.nexcard.cl/carlos-test ')).toBe('https://nexcard.cl/carlos-test');
+    expect(normalizeNfcUrl('https://nexcard.cl/a1-b2')).toBe('https://nexcard.cl/a1-b2');
+  });
+
+  it('rechaza URLs NFC externas o manipuladas', () => {
+    expect(() => normalizeNfcUrl('https://evil.cl/carlos')).toThrow(/nexcard\.cl/);
+    expect(() => normalizeNfcUrl('http://nexcard.cl/carlos')).toThrow(/HTTPS/);
+    expect(() => normalizeNfcUrl('https://nexcard.cl/carlos?next=https://evil.cl')).toThrow(/query/);
+    expect(() => normalizeNfcUrl('https://nexcard.cl//evil.cl')).toThrow(/slug/);
   });
 });

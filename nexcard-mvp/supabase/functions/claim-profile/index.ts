@@ -40,7 +40,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (claimError || !claim) {
-      log('warn', 'claim_not_found', { token, error: claimError?.message || null });
+      log('warn', 'claim_not_found', { error: claimError?.message || null });
       return new Response(JSON.stringify({ error: 'Link de activación inválido o expirado' }), {
         status: 404,
         headers: { ...CORS, 'Content-Type': 'application/json' },

@@ -20,10 +20,66 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
 app.use(cors({
   origin: process.env.PUBLIC_APP_URL || 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'x-user-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'apikey', 'x-user-id', 'x-nexcard-local-admin'],
   credentials: false,
 }));
 app.use(express.json({ limit: '2mb' }));
+
+const allowInsecureLocalAuth = process.env.NEXCARD_ALLOW_INSECURE_LOCAL_AUTH === 'true';
+const allowInsecureLocalAdmin = process.env.NEXCARD_ALLOW_INSECURE_LOCAL_ADMIN === 'true';
+const localAdminSecret = process.env.NEXCARD_LOCAL_ADMIN_SECRET || '';
+
+async function requireVerifiedUser(req, res, next) {
+  const authHeader = req.header('authorization') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+
+  if (supabase && bearer) {
+    try {
+      const { data, error } = await supabase.auth.getUser(bearer);
+      if (!error && data?.user?.id) {
+        req.verifiedUser = data.user;
+        return next();
+      }
+    } catch {
+      // fall through to fail-closed response below
+    }
+  }
+
+  if (allowInsecureLocalAuth && req.header('x-user-id')) {
+    req.verifiedUser = { id: req.header('x-user-id'), source: 'explicit_insecure_local_auth' };
+    return next();
+  }
+
+  return res.status(401).json({ error: 'Authorization requerida' });
+}
+
+async function requireAdmin(req, res, next) {
+  const authHeader = req.header('authorization') || '';
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+
+  if (supabase && bearer) {
+    try {
+      const caller = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: `Bearer ${bearer}` } },
+      });
+      const { data: isAdmin, error } = await caller.rpc('has_role', { required_role: 'admin' });
+      if (!error && isAdmin) return next();
+    } catch {
+      // fall through to fail-closed response below
+    }
+  }
+
+  if (localAdminSecret && req.header('x-nexcard-local-admin') === localAdminSecret) {
+    return next();
+  }
+
+  if (allowInsecureLocalAdmin) {
+    return next();
+  }
+
+  return res.status(403).json({ error: 'Acceso admin requerido' });
+}
 
 function buildMinimalSeed() {
   return {
@@ -367,16 +423,16 @@ app.get('/api/content/landing', (_req, res) => {
   res.json(db.content.landing);
 });
 
-app.get('/api/me/profile', (req, res) => {
-  const userId = req.header('x-user-id');
+app.get('/api/me/profile', requireVerifiedUser, (req, res) => {
+  const userId = req.verifiedUser.id;
   const db = readDb();
   const profile = db.profiles.find(p => p.user_id === userId);
   if (!profile) return res.status(404).json({ error: 'Perfil no encontrado' });
   res.json(profile);
 });
 
-app.put('/api/me/profile', (req, res) => {
-  const userId = req.header('x-user-id');
+app.put('/api/me/profile', requireVerifiedUser, (req, res) => {
+  const userId = req.verifiedUser.id;
   const db = readDb();
   const index = db.profiles.findIndex(p => p.user_id === userId);
   if (index === -1) return res.status(404).json({ error: 'Perfil no encontrado' });
@@ -391,7 +447,7 @@ app.put('/api/me/profile', (req, res) => {
   res.json(db.profiles[index]);
 });
 
-app.get('/api/admin/dashboard', (_req, res) => {
+app.get('/api/admin/dashboard', requireAdmin, (_req, res) => {
   const db = readDb();
   const totalRevenue = db.orders.reduce((sum, order) => sum + (order.payment_status === 'paid' ? order.amount : 0), 0);
   const totalProfiles = db.profiles.length;
@@ -420,7 +476,7 @@ app.get('/api/admin/dashboard', (_req, res) => {
   });
 });
 
-app.get('/api/admin/cards', (_req, res) => {
+app.get('/api/admin/cards', requireAdmin, (_req, res) => {
   const db = readDb();
   const profilesById = Object.fromEntries((db.profiles || []).map((profile) => [profile.id, profile]));
   const eventsByCardId = (db.card_events || []).reduce((acc, event) => {
@@ -444,17 +500,17 @@ app.get('/api/admin/cards', (_req, res) => {
   res.json({ cards, profiles: db.profiles || [] });
 });
 
-app.get('/api/admin/inventory', (_req, res) => {
+app.get('/api/admin/inventory', requireAdmin, (_req, res) => {
   const db = readDb();
   res.json({ items: db.inventory });
 });
 
-app.get('/api/admin/orders', (_req, res) => {
+app.get('/api/admin/orders', requireAdmin, (_req, res) => {
   const db = readDb();
   res.json({ orders: db.orders, products: db.products });
 });
 
-app.post('/api/admin/orders', (req, res) => {
+app.post('/api/admin/orders', requireAdmin, (req, res) => {
   const db = readDb();
   const order = {
     id: `ord-${Date.now()}`,
@@ -468,12 +524,12 @@ app.post('/api/admin/orders', (req, res) => {
   res.status(201).json(order);
 });
 
-app.get('/api/admin/content/landing', (_req, res) => {
+app.get('/api/admin/content/landing', requireAdmin, (_req, res) => {
   const db = readDb();
   res.json(db.content.landing);
 });
 
-app.put('/api/admin/content/landing', (req, res) => {
+app.put('/api/admin/content/landing', requireAdmin, (req, res) => {
   const db = readDb();
   db.content.landing = { ...db.content.landing, ...req.body };
   writeDb(db);

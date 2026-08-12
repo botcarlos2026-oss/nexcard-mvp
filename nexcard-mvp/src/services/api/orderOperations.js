@@ -20,6 +20,35 @@ export const buildOrderHistoryEntries = (orderId, current, payload) => Object.ke
 
 export const normalizeTrackingCode = (value) => String(value || '').trim().toUpperCase();
 
+export const normalizeNfcUrl = (value) => {
+  const raw = String(value || '').trim();
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('URL NFC inválida');
+  }
+
+  if (parsed.protocol !== 'https:') {
+    throw new Error('La URL NFC debe usar HTTPS');
+  }
+
+  const allowedHosts = new Set(['nexcard.cl', 'www.nexcard.cl']);
+  if (!allowedHosts.has(parsed.hostname.toLowerCase())) {
+    throw new Error('La URL NFC debe pertenecer a nexcard.cl');
+  }
+
+  if (!/^\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(parsed.pathname)) {
+    throw new Error('La URL NFC debe apuntar a un slug público válido');
+  }
+
+  if (parsed.search || parsed.hash || parsed.username || parsed.password || parsed.port) {
+    throw new Error('La URL NFC no debe incluir query, hash, puerto ni credenciales');
+  }
+
+  return `https://nexcard.cl${parsed.pathname}`;
+};
+
 export function createOrderOperationsApi({ supabase, hasSupabase, fetchOrders }) {
   const updateOrder = async (orderId, payload) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
@@ -182,10 +211,11 @@ export function createOrderOperationsApi({ supabase, hasSupabase, fetchOrders })
 
   const updateCardNFC = async (cardId, { nfc_url }) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
+    const normalizedNfcUrl = normalizeNfcUrl(nfc_url);
     const { error } = await supabase
       .from('cards')
       .update({
-        nfc_url,
+        nfc_url: normalizedNfcUrl,
         programmed_at: new Date().toISOString(),
         status: 'programmed',
         updated_at: new Date().toISOString(),
