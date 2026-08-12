@@ -49,6 +49,13 @@ const BRAND_LOGO_STYLE = {
   fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 };
 
+export const normalizeProfileSlugInput = (value = '') => value.trim().toLowerCase();
+export const isSafeProfileSlug = (value = '') => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value);
+export const buildSafeProfilePath = (value = '') => {
+  const normalized = normalizeProfileSlugInput(value);
+  return isSafeProfileSlug(normalized) ? `/${normalized}` : null;
+};
+
 function TeamMemberCard({ member }) {
   const [imgError, setImgError] = useState(false);
   const initials = member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
@@ -183,6 +190,10 @@ function PricingCard({ plan, formatPrice, onCheckoutStart }) {
 
 export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
+  const openProfileSlug = () => {
+    const path = buildSafeProfilePath(slug);
+    if (path) window.location.assign(path);
+  };
   const [pricing, setPricing] = useState(() =>
     PRICING_FALLBACK.map((p) => buildPricingPlan({ ...p, price_cents: p.price }, { fallbackCards: PRICING_COPY_BY_SKU[p.sku]?.cards || 1 }))
   );
@@ -356,12 +367,12 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                   type="text"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && slug.trim() && (window.location.href = `/${slug.trim()}`)}
+                  onKeyDown={(e) => e.key === 'Enter' && openProfileSlug()}
                   placeholder="tu-slug"
                   aria-label="Buscar perfil por slug"
                   className="bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-44 min-h-[46px]"
                 />
-                <button onClick={() => slug.trim() && (window.location.href = `/${slug.trim()}`)} className="btn-press px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-black min-h-[46px]">Ver perfil</button>
+                <button onClick={openProfileSlug} className="btn-press px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-black min-h-[46px]">Ver perfil</button>
               </div>
             </div>
           </div>

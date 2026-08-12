@@ -3,8 +3,31 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ops-secret',
 };
+
+const encoder = new TextEncoder();
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const left = encoder.encode(a);
+  const right = encoder.encode(b);
+  if (left.length !== right.length) return false;
+  let diff = 0;
+  for (let i = 0; i < left.length; i += 1) diff |= left[i] ^ right[i];
+  return diff === 0;
+}
+
+function requireOpsSecret(req: Request): Response | null {
+  const expected = Deno.env.get('OPS_SHARED_SECRET') || '';
+  const received = req.headers.get('x-ops-secret') || '';
+  if (!expected || !received || !timingSafeEqual(received, expected)) {
+    return new Response(JSON.stringify({ success: false, error: 'No autorizado' }), {
+      status: 401,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
+  }
+  return null;
+}
 
 const ADMIN_RECIPIENTS = [
   'carlos.alvarez.contreras@gmail.com',
@@ -28,6 +51,9 @@ const pct = (num: number, den: number) => den ? `${Math.round((num / den) * 100)
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  const unauthorized = requireOpsSecret(req);
+  if (unauthorized) return unauthorized;
 
   try {
     const RESEND_API_KEY            = Deno.env.get('RESEND_API_KEY');
