@@ -71,7 +71,8 @@ Capa mínima de calidad actual:
 - unit tests vía Vitest (`npm run test:unit`)
 - build Vite verificado (`dist/`)
 - smoke/checks listos para uso manual o pre-merge
-- CI mínimo en GitHub Actions para PR/push a `main`: `npm ci`, lint, unit tests y build
+- plantilla de CI mínimo en `docs/ci/github-actions-ci.yml`: `npm ci`, lint, unit tests y build
+  - pendiente activarla como `.github/workflows/ci.yml` con un token GitHub que tenga scope `workflow`
 
 ---
 

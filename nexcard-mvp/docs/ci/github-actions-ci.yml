@@ -1,3 +1,4 @@
+# Copy to the repository root as .github/workflows/ci.yml using a GitHub token with workflow scope.
 name: CI
 
 on:
