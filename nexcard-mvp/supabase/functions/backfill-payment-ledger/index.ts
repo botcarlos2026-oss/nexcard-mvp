@@ -180,6 +180,37 @@ serve(async (req) => {
         .single();
 
       if (insertError) {
+        if (insertError.code === '23505') {
+          const { data: racedPayments, error: racedPaymentError } = await supabase
+            .from('payments')
+            .select('id, order_id, status, provider, external_id')
+            .eq('provider', candidate.provider)
+            .eq('external_id', candidate.external_id)
+            .is('deleted_at', null)
+            .limit(1);
+
+          if (racedPaymentError) {
+            summary.failed += 1;
+            results.push({ status: 'failed', order_id: row.order_id, customer_name: order?.customer_name || null, error: racedPaymentError.message });
+            log('error', 'backfill_race_recovery_failed', { order_id: row.order_id, error: racedPaymentError.message });
+            continue;
+          }
+
+          const racedPayment = racedPayments?.[0] || null;
+          if (racedPayment) {
+            summary.skipped += 1;
+            results.push({
+              status: 'skipped',
+              order_id: row.order_id,
+              customer_name: order?.customer_name || null,
+              reason: 'provider_external_id_already_exists',
+              existing_payment_id: racedPayment.id,
+              existing_order_id: racedPayment.order_id,
+            });
+            continue;
+          }
+        }
+
         summary.failed += 1;
         results.push({ status: 'failed', order_id: row.order_id, customer_name: order?.customer_name || null, error: insertError.message });
         log('error', 'backfill_insert_failed', { order_id: row.order_id, error: insertError.message });
