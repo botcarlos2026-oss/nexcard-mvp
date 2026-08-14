@@ -1,32 +1,38 @@
+const CART_TOKEN_STORAGE_PREFIX = 'nexcard_abandoned_cart_token:';
+
+const cartTokenStorageKey = (cartId) => `${CART_TOKEN_STORAGE_PREFIX}${cartId}`;
+
+const rememberCartToken = (cartId, updateToken) => {
+  if (!cartId || !updateToken || typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(cartTokenStorageKey(cartId), updateToken);
+  } catch {
+    // sessionStorage can be unavailable in private mode.
+  }
+};
+
+const readCartToken = (cartId) => {
+  if (!cartId || typeof sessionStorage === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(cartTokenStorageKey(cartId));
+  } catch {
+    return null;
+  }
+};
+
 export function createCrmApi({ supabase, hasSupabase }) {
   return {
     saveAbandonedCart: async ({ email, customerName, items, totalCents }) => {
       if (!hasSupabase) return null;
       try {
-        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-        const { data: existing } = await supabase
-          .from('abandoned_carts')
-          .select('id')
-          .eq('email', email.toLowerCase())
-          .in('status', ['abandoned', 'email_sent'])
-          .gte('created_at', twoHoursAgo)
-          .limit(1)
-          .maybeSingle();
-
-        if (existing?.id) {
-          await supabase
-            .from('abandoned_carts')
-            .update({ customer_name: customerName || null, items, total_cents: totalCents })
-            .eq('id', existing.id);
-          return { id: existing.id };
-        }
-
-        const { data, error } = await supabase
-          .from('abandoned_carts')
-          .insert([{ email: email.toLowerCase(), customer_name: customerName || null, items, total_cents: totalCents }])
-          .select('id')
-          .single();
-        if (error) return null;
+        const { data, error } = await supabase.rpc('save_abandoned_cart_public', {
+          cart_email: email,
+          cart_customer_name: customerName || null,
+          cart_items: items || [],
+          cart_total_cents: Number(totalCents) || 0,
+        });
+        if (error || !data?.id) return null;
+        rememberCartToken(data.id, data.update_token);
         return { id: data.id };
       } catch {
         return null;
@@ -36,10 +42,12 @@ export function createCrmApi({ supabase, hasSupabase }) {
     markCartConverted: async (cartId) => {
       if (!hasSupabase || !cartId) return;
       try {
-        await supabase
-          .from('abandoned_carts')
-          .update({ status: 'converted', converted_at: new Date().toISOString() })
-          .eq('id', cartId);
+        const updateToken = readCartToken(cartId);
+        if (!updateToken) return;
+        await supabase.rpc('mark_abandoned_cart_converted_public', {
+          cart_id: cartId,
+          cart_update_token: updateToken,
+        });
       } catch {
         // silencioso
       }

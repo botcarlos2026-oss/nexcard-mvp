@@ -125,7 +125,7 @@ serve(async (req) => {
           order_id: row.order_id,
           customer_name: meta.customer_name || null,
           status: 'failed',
-          error: error.message,
+          error: 'reconcile_failed',
           order_payment_status: row.order_payment_status,
           suggested_order_payment_status: row.suggested_order_payment_status,
           payment_statuses: row.payment_statuses,
@@ -180,8 +180,8 @@ serve(async (req) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    log('error', 'reconciliation_unhandled_exception', { message: error.message });
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    log('error', 'reconciliation_unhandled_exception', { message: error?.message || String(error), stack: error?.stack || null });
+    return new Response(JSON.stringify({ success: false, error: 'internal_error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });

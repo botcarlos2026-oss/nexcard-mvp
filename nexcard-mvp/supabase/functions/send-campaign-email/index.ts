@@ -157,9 +157,9 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('send-campaign-email error:', error.message);
+    console.error('send-campaign-email error:', error?.message, error?.stack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'internal_error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

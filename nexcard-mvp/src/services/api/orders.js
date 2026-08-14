@@ -209,7 +209,7 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId, request
         return null;
       }
     })();
-    const useLocalAdminFallback = Boolean(storedAuth?.user && (storedAuth.user.role === 'admin' || /admin/i.test(storedAuth.user.email || '')));
+    const useLocalAdminFallback = Boolean(storedAuth?.user?.role === 'admin');
 
     if (!hasSupabase || useLocalAdminFallback) return request('/admin/orders');
 

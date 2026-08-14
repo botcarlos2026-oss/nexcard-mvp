@@ -32,7 +32,7 @@ const PROFILE_ALLOWED_FIELDS = [
   'slug', 'full_name', 'profession', 'bio', 'avatar_url', 'theme_color', 'is_dark_mode',
   'whatsapp', 'instagram', 'linkedin', 'website', 'vcard_enabled', 'calendar_url',
   'bank_enabled', 'bank_name', 'bank_type', 'bank_number', 'bank_rut', 'bank_email',
-  'view_count', 'status', 'account_type', 'company', 'contact_email', 'contact_phone',
+  'account_type', 'company', 'contact_email', 'contact_phone',
   'location', 'cover_image_url', 'facebook', 'facebook_enabled', 'instagram_enabled',
   'linkedin_enabled', 'contact_email_enabled', 'contact_phone_enabled', 'website_enabled',
   'whatsapp_enabled', 'portfolio_enabled', 'portfolio_url', 'calendar_url_enabled',
@@ -49,7 +49,7 @@ const buildProfilePayload = (payload = {}, { userId, email, existingProfile } = 
     full_name: payload.full_name?.trim() || existingProfile?.full_name || email?.split('@')[0] || 'Nuevo perfil NexCard',
     account_type: normalizeAccountType(payload.account_type || existingProfile?.account_type),
     contact_email: payload.contact_email || existingProfile?.contact_email || email || null,
-    status: payload.status || existingProfile?.status || 'active',
+    status: existingProfile?.status || 'active',
     theme_color: payload.theme_color || existingProfile?.theme_color || '#10B981',
   };
 

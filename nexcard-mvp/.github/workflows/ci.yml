@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-test-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Unit tests
+        run: npm test
+      - name: Audit high+
+        run: npm audit --audit-level=high
+      - name: Dist secret scan
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const patterns = [/SENDGRID/i, /SERVICE_ROLE_KEY/i, /SUPABASE_SERVICE_ROLE/i, /[A-Z0-9]+_API_KEY/];
+          const hits = [];
+          function walk(dir) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(full);
+              else if (/\.(js|css|html|json|map)$/i.test(entry.name)) {
+                const content = fs.readFileSync(full, 'utf8');
+                if (patterns.some((pattern) => pattern.test(content))) hits.push(full);
+              }
+            }
+          }
+          walk('dist');
+          if (hits.length) {
+            console.error('Potential secret marker found in dist:', hits.join('\n'));
+            process.exit(1);
+          }
+          NODE

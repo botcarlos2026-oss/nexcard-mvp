@@ -318,9 +318,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    log('error', 'send_confirmation_exception', { message: error.message });
+    log('error', 'send_confirmation_exception', { message: error?.message || String(error), stack: error?.stack || null });
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: 'internal_error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
