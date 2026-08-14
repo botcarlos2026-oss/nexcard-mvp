@@ -48,6 +48,14 @@ describe('activation flow hardening', () => {
     expect(source).toContain('setPendingClaimToken(null)');
   });
 
+  it('no devuelve ni loguea el token de activación en el preview del claim', () => {
+    const source = read(claimFunctionPath);
+
+    expect(source).not.toContain('token,');
+    expect(source).not.toContain("{ token, error");
+    expect(source).toContain("already_claimed: claim.status === 'claimed'");
+  });
+
   it('prellena setup con datos de la compra para reducir fricción', () => {
     const appSource = read(appPath);
     const setupSource = read(setupWizardPath);

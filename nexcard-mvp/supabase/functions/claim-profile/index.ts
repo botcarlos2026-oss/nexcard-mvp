@@ -63,7 +63,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         claim: {
           ...claim,
-          token,
           already_claimed: claim.status === 'claimed',
         },
         order,
