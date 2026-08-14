@@ -192,8 +192,8 @@ serve(async (req) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    log('error', 'claim_profile_exception', { message: error.message });
-    return new Response(JSON.stringify({ error: error.message }), {
+    log('error', 'claim_profile_exception', { message: error?.message || String(error), stack: error?.stack || null });
+    return new Response(JSON.stringify({ error: 'internal_error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });

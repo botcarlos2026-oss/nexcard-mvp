@@ -1,9 +1,16 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
-const { randomUUID } = require('crypto');
+const { randomBytes, randomUUID, scryptSync, timingSafeEqual } = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
+
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCAL_SERVER !== 'true') {
+  console.error('server/index.js no debe correr en producción');
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -17,6 +24,7 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: process.env.PUBLIC_APP_URL || 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -26,12 +34,93 @@ app.use(cors({
 app.use(express.json({ limit: '2mb' }));
 
 const allowInsecureLocalAuth = process.env.NEXCARD_ALLOW_INSECURE_LOCAL_AUTH === 'true';
-const allowInsecureLocalAdmin = process.env.NEXCARD_ALLOW_INSECURE_LOCAL_ADMIN === 'true';
 const localAdminSecret = process.env.NEXCARD_LOCAL_ADMIN_SECRET || '';
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const sessions = new Map();
+const PROFILE_ALLOWED_FIELDS = new Set([
+  'slug', 'full_name', 'profession', 'bio', 'avatar_url', 'theme_color', 'is_dark_mode',
+  'whatsapp', 'instagram', 'linkedin', 'website', 'vcard_enabled', 'calendar_url',
+  'bank_enabled', 'bank_name', 'bank_type', 'bank_number', 'bank_rut', 'bank_email',
+  'account_type', 'company', 'contact_email', 'contact_phone', 'location', 'cover_image_url',
+  'facebook', 'facebook_enabled', 'instagram_enabled', 'linkedin_enabled',
+  'contact_email_enabled', 'contact_phone_enabled', 'website_enabled', 'whatsapp_enabled',
+  'portfolio_enabled', 'portfolio_url', 'calendar_url_enabled', 'tiktok', 'tiktok_enabled',
+  'review_url', 'card_type',
+]);
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos, intenta más tarde' },
+});
+
+function getBearerToken(req) {
+  const authHeader = req.header('authorization') || '';
+  return authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+}
+
+function pruneExpiredSessions(now = Date.now()) {
+  for (const [token, session] of sessions.entries()) {
+    if (!session || session.expiresAt <= now) sessions.delete(token);
+  }
+}
+
+function createLocalSession(userId) {
+  pruneExpiredSessions();
+  const token = randomBytes(32).toString('hex');
+  sessions.set(token, { userId, createdAt: Date.now(), expiresAt: Date.now() + SESSION_TTL_MS });
+  return token;
+}
+
+function getLocalSessionUser(req) {
+  const token = getBearerToken(req);
+  if (!token) return null;
+  pruneExpiredSessions();
+  const session = sessions.get(token);
+  if (!session) return null;
+  const db = readDb();
+  const user = db.users.find((candidate) => candidate.id === session.userId);
+  if (!user) {
+    sessions.delete(token);
+    return null;
+  }
+  return user;
+}
+
+function hashPassword(password, salt = randomBytes(16).toString('hex')) {
+  const hash = scryptSync(String(password), salt, 64).toString('hex');
+  return `scrypt:${salt}:${hash}`;
+}
+
+function verifyPassword(password, user) {
+  if (!user) return false;
+  if (user.password_hash) {
+    const [scheme, salt, storedHash] = String(user.password_hash).split(':');
+    if (scheme !== 'scrypt' || !salt || !storedHash) return false;
+    const candidate = Buffer.from(scryptSync(String(password), salt, 64).toString('hex'), 'hex');
+    const stored = Buffer.from(storedHash, 'hex');
+    return candidate.length === stored.length && timingSafeEqual(candidate, stored);
+  }
+  return typeof user.password === 'string' && user.password === password;
+}
+
+function sanitizeStoredUser(user) {
+  if (!user) return user;
+  const { password: _password, password_hash: _passwordHash, ...safeUser } = user;
+  return safeUser;
+}
 
 async function requireVerifiedUser(req, res, next) {
-  const authHeader = req.header('authorization') || '';
-  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+  const bearer = getBearerToken(req);
+
+  const localUser = getLocalSessionUser(req);
+  if (localUser) {
+    req.verifiedUser = sanitizeStoredUser(localUser);
+    return next();
+  }
 
   if (supabase && bearer) {
     try {
@@ -54,8 +143,13 @@ async function requireVerifiedUser(req, res, next) {
 }
 
 async function requireAdmin(req, res, next) {
-  const authHeader = req.header('authorization') || '';
-  const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
+  const bearer = getBearerToken(req);
+
+  const localUser = getLocalSessionUser(req);
+  if (localUser) {
+    if (localUser.role === 'admin') return next();
+    return res.status(403).json({ error: 'Acceso admin requerido' });
+  }
 
   if (supabase && bearer) {
     try {
@@ -73,11 +167,6 @@ async function requireAdmin(req, res, next) {
   if (localAdminSecret && req.header('x-nexcard-local-admin') === localAdminSecret) {
     return next();
   }
-
-  if (allowInsecureLocalAdmin) {
-    return next();
-  }
-
   return res.status(403).json({ error: 'Acceso admin requerido' });
 }
 
@@ -183,7 +272,7 @@ function ensureSmokeFixtures(db) {
   const adminUser = {
     id: 'user-admin-e2e-local',
     email: 'admin@nexcard.local',
-    password: 'nexcard-local-admin',
+    password_hash: hashPassword(process.env.NEXCARD_LOCAL_ADMIN_PASSWORD || 'nexcard-local-admin'),
     role: 'admin',
   };
 
@@ -240,8 +329,7 @@ function writeDb(db) {
 
 function sanitizeUser(user) {
   if (!user) return null;
-  const { password: _password, ...safeUser } = user;
-  return safeUser;
+  return sanitizeStoredUser(user);
 }
 
 function getPublicProfileUrl(slug) {
@@ -253,17 +341,24 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'nexcard-local-api', timestamp: new Date().toISOString() });
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', loginLimiter, (req, res) => {
   const { email, password } = req.body || {};
   const db = readDb();
-  const user = db.users.find(u => u.email === email && u.password === password);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const user = db.users.find((candidate) => String(candidate.email || '').trim().toLowerCase() === normalizedEmail);
 
-  if (!user) {
+  if (!user || !verifyPassword(password, user)) {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
 
+  if (!user.password_hash && user.password) {
+    user.password_hash = hashPassword(password);
+    delete user.password;
+    writeDb(db);
+  }
+
   const profile = db.profiles.find(p => p.user_id === user.id) || null;
-  return res.json({ user: sanitizeUser(user), profile, token: `local-${user.id}` });
+  return res.json({ user: sanitizeUser(user), profile, token: createLocalSession(user.id) });
 });
 
 app.get('/api/public/profiles/:slug', (req, res) => {
@@ -437,9 +532,13 @@ app.put('/api/me/profile', requireVerifiedUser, (req, res) => {
   const index = db.profiles.findIndex(p => p.user_id === userId);
   if (index === -1) return res.status(404).json({ error: 'Perfil no encontrado' });
 
+  const patch = Object.fromEntries(
+    Object.entries(req.body || {}).filter(([key, value]) => PROFILE_ALLOWED_FIELDS.has(key) && value !== undefined)
+  );
+
   db.profiles[index] = {
     ...db.profiles[index],
-    ...req.body,
+    ...patch,
     user_id: userId,
   };
 
@@ -544,6 +643,14 @@ app.post('/api/upload/avatar', (req, res) => {
 app.post('/api/track', (req, res) => {
   const { slug, buttonType } = req.body || {};
   res.json({ ok: true, slug, buttonType, trackedAt: new Date().toISOString() });
+});
+
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  const isProd = process.env.NODE_ENV === 'production';
+  res.status(err.status || 500).json({
+    error: isProd ? 'Internal server error' : err.message,
+  });
 });
 
 ensureDb();

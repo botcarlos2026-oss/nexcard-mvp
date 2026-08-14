@@ -106,8 +106,10 @@ export const setLastOrderSnapshot = (order) => {
 };
 
 async function request(path, options = {}) {
+  const storedAuth = getStoredAuth();
   const headers = {
     'Content-Type': 'application/json',
+    ...(storedAuth?.token ? { Authorization: `Bearer ${storedAuth.token}` } : {}),
     ...(options.headers || {}),
   };
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });

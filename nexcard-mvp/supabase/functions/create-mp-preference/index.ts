@@ -146,9 +146,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    log('error', 'create_preference_exception', { message: error.message });
+    log('error', 'create_preference_exception', { message: error?.message || String(error), stack: error?.stack || null });
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'internal_error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

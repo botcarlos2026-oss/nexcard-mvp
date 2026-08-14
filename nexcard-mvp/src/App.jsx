@@ -3,7 +3,6 @@ import AppRouteRenderer from './components/AppRouteRenderer';
 import { api, getPendingClaimEmail, getPendingClaimToken, setPendingClaimEmail, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { useCart } from './store/cartStore';
-import { isAdminEmail } from './config/admin';
 import { useAuthSessionSync } from './hooks/useAuthSessionSync';
 import { useCheckoutFlow } from './hooks/useCheckoutFlow';
 import { useAppBootstrap } from './hooks/useAppBootstrap';
@@ -223,7 +222,7 @@ function App() {
     }
 
     const adminAccess = await getCurrentAdminAccess().catch(() => ({
-      isAdmin: isAdminEmail(authPayload.user?.email),
+      isAdmin: authPayload.user?.role === 'admin',
     }));
 
     if (adminAccess?.isAdmin) {

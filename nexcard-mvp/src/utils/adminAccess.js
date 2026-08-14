@@ -1,5 +1,4 @@
 import { hasSupabase, supabase } from '../services/supabaseClient';
-import { isAdminEmail } from '../config/admin';
 
 const AUTH_TIMEOUT_MS = 4000;
 
@@ -22,10 +21,10 @@ function readStoredUser() {
 function resolveLocalAdminAccess() {
   const storedUser = readStoredUser();
   const storedEmail = storedUser?.email || null;
-  const isAdmin = storedUser?.role === 'admin' || isAdminEmail(storedEmail);
+  const isAdmin = storedUser?.role === 'admin';
   return {
     isAdmin,
-    source: storedUser?.role === 'admin' ? 'local_role' : (isAdmin ? 'local_email_fallback' : 'local_anonymous'),
+    source: isAdmin ? 'local_role' : 'local_anonymous',
     session: null,
     email: storedEmail,
     user: storedUser,
@@ -34,14 +33,7 @@ function resolveLocalAdminAccess() {
 
 async function resolveAdminRoleFromSupabase() {
   if (!hasSupabase || !supabase) {
-    const storedUser = readStoredUser();
-    return {
-      isAdmin: true,
-      source: storedUser?.email ? 'local_mode_with_storage' : 'local_mode',
-      session: null,
-      email: storedUser?.email || null,
-      user: storedUser,
-    };
+    return resolveLocalAdminAccess();
   }
 
   let session = null;
@@ -67,10 +59,10 @@ async function resolveAdminRoleFromSupabase() {
   if (!session?.user?.id) {
     const storedUser = readStoredUser();
     if (storedUser?.email) {
-      const isAdmin = storedUser.role === 'admin' || isAdminEmail(storedUser.email);
+      const isAdmin = storedUser.role === 'admin';
       return {
         isAdmin,
-        source: storedUser.role === 'admin' ? 'stored_auth_local_role' : 'stored_auth_local_email',
+        source: isAdmin ? 'stored_auth_local_role' : 'stored_auth_local_non_admin',
         session: null,
         email: storedUser.email,
         user: storedUser,
@@ -83,8 +75,8 @@ async function resolveAdminRoleFromSupabase() {
     const { data, error } = await withTimeout(supabase.rpc('has_role', { required_role: 'admin' }), 'has_role');
     if (error) {
       return {
-        isAdmin: isAdminEmail(email),
-        source: 'email_fallback_rpc_error',
+        isAdmin: false,
+        source: 'role_rpc_error',
         session,
         email,
         error,
@@ -96,8 +88,8 @@ async function resolveAdminRoleFromSupabase() {
     }
   } catch (error) {
     return {
-      isAdmin: isAdminEmail(email),
-      source: 'email_fallback_rpc_timeout',
+      isAdmin: false,
+      source: 'role_rpc_timeout',
       session,
       email,
       error,
@@ -105,8 +97,8 @@ async function resolveAdminRoleFromSupabase() {
   }
 
   return {
-    isAdmin: isAdminEmail(email),
-    source: isAdminEmail(email) ? 'email_fallback' : 'memberships',
+    isAdmin: false,
+    source: 'memberships',
     session,
     email,
   };

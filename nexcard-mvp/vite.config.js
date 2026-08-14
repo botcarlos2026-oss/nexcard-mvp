@@ -1,13 +1,26 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const CLIENT_ENV_WHITELIST = [
+  'REACT_APP_API_URL',
+  'REACT_APP_PUBLIC_APP_URL',
+  'REACT_APP_SUPABASE_URL',
+  'REACT_APP_SUPABASE_ANON_KEY',
+  'REACT_APP_DISABLE_SUPABASE',
+];
+
 export default defineConfig(({ mode }) => {
   const reactAppEnv = loadEnv(mode, process.cwd(), 'REACT_APP_');
+  const defineEnv = Object.fromEntries(
+    CLIENT_ENV_WHITELIST.map((key) => [
+      `process.env.${key}`,
+      JSON.stringify(reactAppEnv[key] || ''),
+    ])
+  );
+
   return {
     plugins: [react()],
-    define: {
-      'process.env': JSON.stringify(reactAppEnv),
-    },
+    define: defineEnv,
     server: {
       host: '127.0.0.1',
     },
