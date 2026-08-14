@@ -260,8 +260,8 @@ serve(async (req) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    log('error', 'payment_ledger_backfill_failed', { message: error.message });
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    log('error', 'payment_ledger_backfill_failed', { message: error?.message || String(error), stack: error?.stack || null });
+    return new Response(JSON.stringify({ success: false, error: 'internal_error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
