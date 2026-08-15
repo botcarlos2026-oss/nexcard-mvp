@@ -114,7 +114,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   // Persistir en sessionStorage al cambiar
   useEffect(() => {
     try {
-      const { acceptTerms, ...persistable } = formData;
+      const { acceptTerms: _acceptTerms, ...persistable } = formData;
       sessionStorage.setItem('nx_checkout_form', JSON.stringify(persistable));
     } catch {}
   }, [formData]);
@@ -340,7 +340,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           // Crear preferencia en MP vía Edge Function
           const { supabase } = await import('../services/supabaseClient');
           const { data, error } = await supabase.functions.invoke('create-mp-preference', {
-            body: JSON.stringify({ orderId: result.id }),
+            body: JSON.stringify({
+              orderId: result.id,
+              clientCheckoutAttemptId,
+              clientCheckoutFingerprint,
+            }),
           });
 
           if (error || !data?.init_point) {

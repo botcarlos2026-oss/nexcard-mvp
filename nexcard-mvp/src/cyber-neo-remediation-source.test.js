@@ -26,7 +26,7 @@ describe('Cyber Neo remediation source guards', () => {
     expect(adminAccess).not.toContain('isAdminEmail');
     expect(adminAccess).not.toContain('email_fallback');
     expect(app).not.toContain('isAdminEmail');
-    expect(orders).toContain("storedAuth?.user?.role === 'admin'");
+    expect(orders).not.toContain("storedAuth?.user?.role === 'admin'");
     expect(orders).not.toContain('/admin/i.test');
   });
 

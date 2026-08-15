@@ -202,16 +202,7 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId, request
   };
 
   const getOrders = async () => {
-    const storedAuth = (() => {
-      try {
-        return JSON.parse(localStorage.getItem('nexcard_auth') || 'null');
-      } catch {
-        return null;
-      }
-    })();
-    const useLocalAdminFallback = Boolean(storedAuth?.user?.role === 'admin');
-
-    if (!hasSupabase || useLocalAdminFallback) return request('/admin/orders');
+    if (!hasSupabase) return request('/admin/orders');
 
     try {
       const { data, error } = await supabase

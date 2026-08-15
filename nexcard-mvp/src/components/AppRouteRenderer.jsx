@@ -87,7 +87,7 @@ export default function AppRouteRenderer({
   }
 
   if (checkoutStep === 'confirmation') {
-    return withSuspense(<OrderConfirmation order={currentOrder} onContinueShopping={handleBackToShop} />);
+    return withSuspense(<OrderConfirmation order={currentOrder} />);
   }
 
   if (path === '/login') return withSuspense(<AuthPage onAuthSuccess={handleAuthSuccess} pendingClaimToken={pendingClaimToken} pendingClaimEmail={pendingClaimEmail} />);

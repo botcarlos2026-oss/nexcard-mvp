@@ -3,7 +3,7 @@ import { createProfilesApi } from './profiles';
 
 const AUTH_MESSAGE = 'Sesión inválida o expirada. Inicia sesión nuevamente para activar tu NexCard.';
 
-const createApi = ({ session = null, invokeResult = { data: { success: true }, error: null }, rpcResult = { data: { available: true, slug: 'qa-smoke-profile', reason: 'available', message: 'Usuario disponible.' }, error: null } } = {}) => {
+const createApi = ({ session = null, invokeResult = { data: { success: true }, error: null }, rpcResult = { data: { available: true, slug: 'qa-smoke-profile', reason: 'available', message: 'Usuario disponible.' }, error: null }, from = vi.fn() } = {}) => {
   const supabase = {
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session }, error: null }),
@@ -12,6 +12,7 @@ const createApi = ({ session = null, invokeResult = { data: { success: true }, e
       invoke: vi.fn().mockResolvedValue(invokeResult),
     },
     rpc: vi.fn().mockResolvedValue(rpcResult),
+    from,
   };
 
   return {
@@ -111,5 +112,24 @@ describe('createProfilesApi activation claim auth', () => {
         Authorization: 'Bearer valid-jwt',
       },
     });
+  });
+
+  it('lee el perfil público desde la view sin seleccionar columnas sensibles', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: { slug: 'ana' }, error: null });
+    const is = vi.fn(() => ({ maybeSingle }));
+    const eqStatus = vi.fn(() => ({ is }));
+    const eqSlug = vi.fn(() => ({ eq: eqStatus }));
+    const select = vi.fn(() => ({ eq: eqSlug }));
+    const from = vi.fn(() => ({ select }));
+    const { api } = createApi({ from });
+
+    await expect(api.getPublicProfile('ana')).resolves.toEqual({ slug: 'ana' });
+
+    expect(from).toHaveBeenCalledWith('profiles_public');
+    const columns = select.mock.calls[0][0];
+    expect(columns).not.toContain('bank_');
+    expect(columns).not.toContain('contact_email,');
+    expect(columns).not.toContain('contact_phone,');
+    expect(columns).not.toBe('*');
   });
 });

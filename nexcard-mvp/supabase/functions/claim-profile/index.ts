@@ -40,7 +40,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (claimError || !claim) {
-      log('warn', 'claim_not_found', { error: claimError?.message || null });
+      log('warn', 'claim_not_found', { token_prefix: token.slice(0, 8), error: claimError?.message || null });
       return new Response(JSON.stringify({ error: 'Link de activación inválido o expirado' }), {
         status: 404,
         headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -192,8 +192,8 @@ serve(async (req) => {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    log('error', 'claim_profile_exception', { message: error?.message || String(error), stack: error?.stack || null });
-    return new Response(JSON.stringify({ error: 'internal_error' }), {
+    log('error', 'claim_profile_exception', { message: error.message });
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });

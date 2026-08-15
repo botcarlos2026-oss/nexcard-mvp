@@ -17,13 +17,21 @@ serve(async (req) => {
 
   try {
     const text = await req.text();
-    const { orderId } = JSON.parse(text);
+    const { orderId, clientCheckoutAttemptId, clientCheckoutFingerprint } = JSON.parse(text);
 
     if (!orderId) {
       log('warn', 'missing_order_id');
       return new Response(
         JSON.stringify({ error: 'orderId es requerido' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!clientCheckoutAttemptId || !clientCheckoutFingerprint) {
+      log('warn', 'missing_checkout_proof', { order_id: orderId });
+      return new Response(
+        JSON.stringify({ error: 'Falta prueba del intento de checkout' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -38,7 +46,7 @@ serve(async (req) => {
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, customer_email, amount_cents, currency, payment_status')
+      .select('id, customer_email, amount_cents, currency, payment_status, client_checkout_attempt_id, client_checkout_fingerprint')
       .eq('id', orderId)
       .single();
 
@@ -47,6 +55,17 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Orden no encontrada' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (
+      order.client_checkout_attempt_id !== clientCheckoutAttemptId
+      || order.client_checkout_fingerprint !== clientCheckoutFingerprint
+    ) {
+      log('warn', 'checkout_proof_mismatch', { order_id: orderId });
+      return new Response(
+        JSON.stringify({ error: 'No autorizado para iniciar el pago de esta orden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
