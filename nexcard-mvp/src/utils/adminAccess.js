@@ -18,13 +18,13 @@ function readStoredUser() {
   }
 }
 
-function resolveLocalAdminAccess() {
+function resolveLocalOnlyAdminAccess() {
   const storedUser = readStoredUser();
   const storedEmail = storedUser?.email || null;
   const isAdmin = storedUser?.role === 'admin';
   return {
     isAdmin,
-    source: isAdmin ? 'local_role' : 'local_anonymous',
+    source: isAdmin ? 'local_only_role' : 'local_only_anonymous',
     session: null,
     email: storedEmail,
     user: storedUser,
@@ -33,7 +33,7 @@ function resolveLocalAdminAccess() {
 
 async function resolveAdminRoleFromSupabase() {
   if (!hasSupabase || !supabase) {
-    return resolveLocalAdminAccess();
+    return resolveLocalOnlyAdminAccess();
   }
 
   let session = null;
@@ -47,27 +47,16 @@ async function resolveAdminRoleFromSupabase() {
     session = sessionData?.session || null;
     email = session?.user?.email || null;
   } catch (error) {
-    const storedUser = readStoredUser();
-    const storedEmail = storedUser?.email || null;
     return {
-      ...resolveLocalAdminAccess(),
-      source: storedEmail ? 'stored_auth_fallback' : 'session_error',
+      isAdmin: false,
+      source: 'session_error',
+      session: null,
+      email: null,
       error,
     };
   }
 
   if (!session?.user?.id) {
-    const storedUser = readStoredUser();
-    if (storedUser?.email) {
-      const isAdmin = storedUser.role === 'admin';
-      return {
-        isAdmin,
-        source: isAdmin ? 'stored_auth_local_role' : 'stored_auth_local_non_admin',
-        session: null,
-        email: storedUser.email,
-        user: storedUser,
-      };
-    }
     return { isAdmin: false, source: 'anonymous', session, email };
   }
 
@@ -76,7 +65,7 @@ async function resolveAdminRoleFromSupabase() {
     if (error) {
       return {
         isAdmin: false,
-        source: 'role_rpc_error',
+        source: 'has_role_error',
         session,
         email,
         error,
@@ -89,7 +78,7 @@ async function resolveAdminRoleFromSupabase() {
   } catch (error) {
     return {
       isAdmin: false,
-      source: 'role_rpc_timeout',
+      source: 'has_role_timeout',
       session,
       email,
       error,

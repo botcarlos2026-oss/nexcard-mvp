@@ -39,6 +39,15 @@ const PROFILE_ALLOWED_FIELDS = [
   'tiktok', 'tiktok_enabled', 'review_url', 'card_type'
 ];
 
+const PUBLIC_PROFILE_COLUMNS = [
+  'id', 'slug', 'full_name', 'profession', 'bio', 'avatar_url', 'theme_color', 'is_dark_mode',
+  'whatsapp', 'instagram', 'linkedin', 'website', 'vcard_enabled', 'calendar_url',
+  'account_type', 'company', 'location', 'cover_image_url', 'facebook', 'facebook_enabled',
+  'instagram_enabled', 'linkedin_enabled', 'contact_email_enabled', 'contact_phone_enabled',
+  'website_enabled', 'whatsapp_enabled', 'portfolio_enabled', 'portfolio_url',
+  'calendar_url_enabled', 'tiktok', 'tiktok_enabled', 'review_url', 'card_type', 'status', 'deleted_at'
+].join(', ');
+
 const buildProfilePayload = (payload = {}, { userId, email, existingProfile } = {}) => {
   const baseSlug = slugify(payload.slug || payload.full_name || email?.split('@')[0] || 'perfil');
   const normalizedPayload = {
@@ -190,7 +199,7 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
   const getPublicProfile = async (slug) => {
     if (hasSupabase) {
       const { data, error } = await supabase
-        .from('profiles').select('*')
+        .from('profiles_public').select(PUBLIC_PROFILE_COLUMNS)
         .eq('slug', slug).eq('status', 'active').is('deleted_at', null).maybeSingle();
       if (error) throw new Error(error.message);
       if (data) return data;

@@ -35,6 +35,10 @@ describe('deriveOrderObservability', () => {
 });
 
 describe('createOrdersApi.getOrders', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it('envía identificadores de idempotencia requeridos por el RPC live', async () => {
     const createdOrder = { id: 'order-1', customer_email: 'cliente@nexcard.cl' };
     const single = jest.fn(() => Promise.resolve({ data: createdOrder, error: null }));
@@ -105,5 +109,32 @@ describe('createOrdersApi.getOrders', () => {
     expect(queries.orders.select).toHaveBeenCalledWith('*, order_items(*), payments(*)');
     expect(queries.orders.is).toHaveBeenCalledWith('deleted_at', null);
     expect(queries.orders.order).toHaveBeenCalledWith('created_at', { ascending: false });
+  });
+
+  it('no usa fallback admin local aunque localStorage declare role admin', async () => {
+    window.localStorage.setItem('nexcard_auth', JSON.stringify({
+      user: { id: 'spoofed-user', email: 'admin@nexcard.cl', role: 'admin' },
+    }));
+
+    const queries = {};
+    const supabase = {
+      from: jest.fn((table) => {
+        queries[table] = createQuery(table, []);
+        return queries[table];
+      }),
+    };
+    const request = jest.fn(() => Promise.resolve({ orders: [{ id: 'local-admin-order' }] }));
+
+    const api = createOrdersApi({
+      supabase,
+      hasSupabase: true,
+      getClerkUserId: () => null,
+      request,
+    });
+
+    await api.getOrders();
+
+    expect(request).not.toHaveBeenCalledWith('/admin/orders');
+    expect(supabase.from).toHaveBeenCalledWith('orders');
   });
 });

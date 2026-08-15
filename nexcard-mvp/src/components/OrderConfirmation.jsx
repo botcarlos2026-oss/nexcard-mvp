@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckCircle, Clock, Copy } from 'lucide-react';
 
-export default function OrderConfirmation({ order, onContinueShopping }) {
+export default function OrderConfirmation({ order }) {
   const [copied, setCopied] = React.useState(false);
 
   const handleCopyOrderId = () => {

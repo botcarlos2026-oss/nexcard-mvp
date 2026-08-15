@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, BadgeCheck, CheckCircle, ChevronDown, Clock3, Mail, MessageCircle, ScanLine, Smartphone } from 'lucide-react';
+import { ArrowRight, CheckCircle, ChevronDown, Clock3, Mail, MessageCircle, ScanLine, Smartphone } from 'lucide-react';
 import { api } from '../services/api';
 import DiscountWheel from './DiscountWheel';
 import { CORPORATE_QUOTE_WHATSAPP_URL } from '../config/contactLinks';
