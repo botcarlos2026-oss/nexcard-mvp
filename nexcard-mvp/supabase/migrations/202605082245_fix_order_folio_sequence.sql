@@ -15,24 +15,26 @@ begin
   from public.orders
   where folio like ('NX-' || v_year || '-%');
 
-  perform setval('public.order_folio_seq', greatest(v_max_suffix, 0), true);
+  if v_max_suffix > 0 then
+    perform setval('public.order_folio_seq', v_max_suffix, true);
+  else
+    perform setval('public.order_folio_seq', 1, false);
+  end if;
 
   new.folio := 'NX-' || v_year || '-' || lpad(nextval('public.order_folio_seq')::text, 3, '0');
   return new;
 end;
 $$;
 
-select setval(
-  'public.order_folio_seq',
-  greatest(
-    coalesce((
-      select max(split_part(folio, '-', 3)::integer)
-      from public.orders
-      where folio like ('NX-' || extract(year from now())::text || '-%')
-    ), 0),
-    0
-  ),
-  true
-);
+with current_suffix as (
+  select coalesce(max(split_part(folio, '-', 3)::integer), 0) as max_suffix
+  from public.orders
+  where folio like ('NX-' || extract(year from now())::text || '-%')
+)
+select case
+  when max_suffix > 0 then setval('public.order_folio_seq', max_suffix, true)
+  else setval('public.order_folio_seq', 1, false)
+end
+from current_suffix;
 
 commit;
