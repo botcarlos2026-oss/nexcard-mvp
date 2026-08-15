@@ -6,7 +6,7 @@
 -- un error al ejecutar. En ese caso, usar Vercel Cron Jobs o ejecutar
 -- manualmente desde el panel admin de EmailDashboard.
 
-DO $$
+DO $do$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_extension WHERE extname = 'pg_cron'
@@ -16,7 +16,7 @@ BEGIN
     PERFORM cron.schedule(
       'check-abandoned-carts',
       '0 * * * *',
-      $$
+      $job$
       SELECT net.http_post(
         url := current_setting('app.supabase_url') || '/functions/v1/send-abandoned-cart',
         headers := jsonb_build_object(
@@ -25,10 +25,10 @@ BEGIN
         ),
         body := '{"trigger":"cron"}'
       );
-      $$
+      $job$
     );
   ELSE
     RAISE NOTICE 'pg_cron no disponible — activar manualmente desde Extensions o usar Vercel Cron Jobs';
   END IF;
 END;
-$$;
+$do$;

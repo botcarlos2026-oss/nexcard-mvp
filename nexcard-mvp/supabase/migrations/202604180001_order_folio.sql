@@ -21,10 +21,20 @@ FOR EACH ROW
 WHEN (NEW.folio IS NULL)
 EXECUTE FUNCTION generate_order_folio();
 
--- Asignar folios a órdenes existentes sin folio
+-- Asignar folios a órdenes existentes sin folio.
+-- PostgreSQL does not allow window functions directly in UPDATE SET, so
+-- compute the deterministic row numbers in a CTE first for clean replays.
+WITH ordered_orders AS (
+  SELECT
+    id,
+    'NX-' || EXTRACT(YEAR FROM created_at)::TEXT || '-' ||
+      LPAD(ROW_NUMBER() OVER (ORDER BY created_at, id)::TEXT, 3, '0') AS generated_folio
+  FROM orders
+  WHERE folio IS NULL
+)
 UPDATE orders
-SET folio = 'NX-' || EXTRACT(YEAR FROM created_at)::TEXT || '-' ||
-            LPAD(ROW_NUMBER() OVER (ORDER BY created_at)::TEXT, 3, '0')
-WHERE folio IS NULL;
+SET folio = ordered_orders.generated_folio
+FROM ordered_orders
+WHERE orders.id = ordered_orders.id;
 
 commit;
