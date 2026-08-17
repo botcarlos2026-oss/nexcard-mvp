@@ -20,7 +20,7 @@
   },
   "scripts": {
     "start": "vite --host 127.0.0.1 --port ${PORT:-3000}",
-    "build": "vite build",
+    "build": "vite build && node ./scripts/generate-middleware-index-html.mjs",
     "test": "node ./scripts/vitest-run.mjs",
     "test:unit": "node ./scripts/vitest-run.mjs",
     "lint": "eslint src server scripts vite.config.js --ext js,jsx",
