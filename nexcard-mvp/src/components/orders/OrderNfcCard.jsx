@@ -18,7 +18,7 @@ export default function OrderNfcCard({
 }) {
   const linkedCard = order.related_cards?.find((card) => card.order_id === order.id) || order.related_cards?.[0];
   const alreadyProgrammed = linkedCard?.nfc_url;
-  const programmedUrl = linkedCard?.nfc_url || `https://nexcard.cl/${nfcSlug}`;
+  const programmedUrl = linkedCard?.nfc_url || `https://www.nexcard.cl/${nfcSlug}`;
 
   return (
     <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4 space-y-5">
@@ -57,11 +57,11 @@ export default function OrderNfcCard({
           <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Paso B — Configurar URL del NFC</p>
           <p className="text-xs text-zinc-500">
             URL que se programará en el chip:{' '}
-            <span className="font-bold text-zinc-300">https://nexcard.cl/{nfcSlug || '<slug>'}</span>
+            <span className="font-bold text-zinc-300">https://www.nexcard.cl/{nfcSlug || '<slug>'}</span>
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2 flex-1">
-              <span className="text-sm font-bold text-zinc-500 shrink-0">nexcard.cl/</span>
+              <span className="text-sm font-bold text-zinc-500 shrink-0">www.nexcard.cl/</span>
               <input
                 type="text"
                 value={nfcSlug}

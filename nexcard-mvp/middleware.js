@@ -58,11 +58,19 @@ function getSupabaseConfig(env = process.env) {
 }
 
 async function publicProfileExists(slug, { env = process.env, fetchImpl = fetch } = {}) {
+  const profile = await fetchPublicProfileForOg(slug, { env, fetchImpl });
+  return profile === null ? null : profile !== false;
+}
+
+// Returns the profile fields needed for per-profile Open Graph tags, `false`
+// if no active public profile matches the slug, or `null` on config/lookup
+// failure (caller should fail open and let the SPA render normally).
+async function fetchPublicProfileForOg(slug, { env = process.env, fetchImpl = fetch } = {}) {
   const config = getSupabaseConfig(env);
   if (!config) return null;
 
   const query = new URL(`${config.url}/rest/v1/profiles`);
-  query.searchParams.set('select', 'id');
+  query.searchParams.set('select', 'full_name,profession,bio,avatar_url,cover_image_url');
   query.searchParams.set('slug', `eq.${slug}`);
   query.searchParams.set('status', 'eq.active');
   query.searchParams.set('deleted_at', 'is.null');
@@ -78,7 +86,57 @@ async function publicProfileExists(slug, { env = process.env, fetchImpl = fetch 
 
   if (!res.ok) return null;
   const rows = await res.json();
-  return Array.isArray(rows) && rows.length > 0;
+  if (!Array.isArray(rows) || rows.length === 0) return false;
+  return rows[0];
+}
+
+function escapeHtmlAttr(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildProfileOgTitle(profile) {
+  const name = String(profile.full_name || '').trim();
+  return name ? `${name} — NexCard` : 'NexCard — Tu Tarjeta Digital NFC';
+}
+
+function buildProfileOgDescription(profile) {
+  const bio = String(profile.bio || '').trim();
+  const profession = String(profile.profession || '').trim();
+  if (bio) return bio.length > 200 ? `${bio.slice(0, 197)}...` : bio;
+  if (profession) return `${profession} · Tarjeta de contacto digital NexCard.`;
+  return 'Comparte tu contacto completo con un solo toque. Sin apps, sin papel. Compatible con iPhone y Android.';
+}
+
+async function rewriteOgTagsForProfile(response, profile, slug) {
+  const html = await response.text();
+  const profileUrl = `https://nexcard.cl/${slug}`;
+  const title = escapeHtmlAttr(buildProfileOgTitle(profile));
+  const description = escapeHtmlAttr(buildProfileOgDescription(profile));
+  const image = escapeHtmlAttr(profile.avatar_url || profile.cover_image_url || 'https://nexcard.cl/og-image.svg');
+
+  const rewritten = html
+    .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
+    .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${profileUrl}$2`)
+    .replace(/(<meta property="og:title" content=")[^"]*(")/, `$1${title}$2`)
+    .replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${description}$2`)
+    .replace(/(<meta property="og:image" content=")[^"]*(")/, `$1${image}$2`)
+    .replace(/(<meta name="twitter:url" content=")[^"]*(")/, `$1${profileUrl}$2`)
+    .replace(/(<meta name="twitter:title" content=")[^"]*(")/, `$1${title}$2`)
+    .replace(/(<meta name="twitter:description" content=")[^"]*(")/, `$1${description}$2`)
+    .replace(/(<meta name="twitter:image" content=")[^"]*(")/, `$1${image}$2`);
+
+  const headers = new Headers(response.headers);
+  headers.delete('content-length');
+
+  return new Response(rewritten, {
+    status: response.status,
+    headers,
+  });
 }
 
 function buildNotFoundResponse() {
@@ -99,9 +157,15 @@ async function middleware(request) {
   if (!slug) return next();
 
   try {
-    const exists = await publicProfileExists(slug);
-    if (exists === false) return buildNotFoundResponse();
-    return next();
+    const profile = await fetchPublicProfileForOg(slug);
+    if (profile === false) return buildNotFoundResponse();
+    if (!profile) return next();
+
+    const response = await next();
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/html')) return response;
+
+    return rewriteOgTagsForProfile(response, profile, slug);
   } catch {
     return next();
   }
@@ -114,4 +178,8 @@ module.exports.config = {
 };
 module.exports.getCandidatePublicSlug = getCandidatePublicSlug;
 module.exports.publicProfileExists = publicProfileExists;
+module.exports.fetchPublicProfileForOg = fetchPublicProfileForOg;
+module.exports.buildProfileOgTitle = buildProfileOgTitle;
+module.exports.buildProfileOgDescription = buildProfileOgDescription;
+module.exports.rewriteOgTagsForProfile = rewriteOgTagsForProfile;
 module.exports.buildNotFoundResponse = buildNotFoundResponse;

@@ -87,7 +87,7 @@ export function useOrdersDashboardActions({
       setFeedback({ type: 'error', message: 'Vincula primero una card a la orden.' });
       return;
     }
-    const nfc_url = `https://nexcard.cl/${normalizedSlug}`;
+    const nfc_url = `https://www.nexcard.cl/${normalizedSlug}`;
     setNfcBusy(true);
     setFeedback({ type: '', message: '' });
     try {
