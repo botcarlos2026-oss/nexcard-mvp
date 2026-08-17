@@ -162,10 +162,11 @@ async function middleware(request) {
     if (!profile) return next();
 
     const response = await next();
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('text/html')) return response;
-
-    return rewriteOgTagsForProfile(response, profile, slug);
+    try {
+      return await rewriteOgTagsForProfile(response, profile, slug);
+    } catch {
+      return response;
+    }
   } catch {
     return next();
   }
