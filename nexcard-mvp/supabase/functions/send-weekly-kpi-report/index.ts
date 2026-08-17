@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ops-secret',
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const encoder = new TextEncoder();
 
@@ -50,6 +46,7 @@ const fmtMonth = (iso: string | null | undefined) => {
 const pct = (num: number, den: number) => den ? `${Math.round((num / den) * 100)}%` : '0%';
 
 serve(async (req) => {
+  const CORS = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   const unauthorized = requireOpsSecret(req);
