@@ -171,7 +171,12 @@ async function middleware(request) {
     // tags we fetch the actual index.html document ourselves instead.
     try {
       const indexUrl = new URL('/index.html', url.origin);
-      const htmlResponse = await fetch(indexUrl.toString());
+      const htmlResponse = await fetch(indexUrl.toString(), {
+        headers: {
+          'user-agent': request.headers.get('user-agent') || 'Mozilla/5.0 (compatible; NexCardOgBot/1.0)',
+          accept: 'text/html',
+        },
+      });
       if (url.searchParams.has('__og_debug')) {
         return new Response(JSON.stringify({
           indexUrl: indexUrl.toString(),
