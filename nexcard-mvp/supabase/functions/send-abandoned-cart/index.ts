@@ -8,7 +8,7 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
 
 const formatCLP = (cents: number) => `$${cents.toLocaleString('es-CL')}`;
 
-async function requireReminderAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+async function requireReminderAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, corsHeaders: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   const apikey = req.headers.get('apikey') || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
@@ -65,7 +65,7 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
 
-    const access = await requireReminderAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    const access = await requireReminderAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, corsHeaders);
     if (access.error) return access.error;
 
     // Modo cron: procesar todos los carritos pendientes

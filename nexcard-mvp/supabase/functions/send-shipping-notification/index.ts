@@ -13,7 +13,7 @@ const escapeHtml = (value: unknown): string => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
-async function requireShippingAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+async function requireShippingAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, CORS: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   const apikey = req.headers.get('apikey') || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
@@ -74,7 +74,7 @@ serve(async (req) => {
     const SUPABASE_ANON_KEY         = Deno.env.get('SUPABASE_ANON_KEY')!;
     const APP_URL                  = Deno.env.get('APP_URL') || 'https://nexcard.cl';
 
-    const access = await requireShippingAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    const access = await requireShippingAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, CORS);
     if (access.error) return access.error;
 
     if (!RESEND_API_KEY) {

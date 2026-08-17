@@ -13,7 +13,7 @@ const escapeHtml = (value: unknown) => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
-async function requireActivationAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+async function requireActivationAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, CORS: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   const apikey = req.headers.get('apikey') || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
@@ -62,7 +62,7 @@ serve(async (req) => {
 
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY no configurado');
 
-    const access = await requireActivationAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    const access = await requireActivationAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, CORS);
     if (access.error) return access.error;
 
     const { order_id } = await req.json();
