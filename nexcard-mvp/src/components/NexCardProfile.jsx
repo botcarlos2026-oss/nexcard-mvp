@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { generateVCard } from '../utils/vCardEngine';
 import { trackClick } from '../utils/analyticsEngine';
+import { safeExternalUrl } from '../utils/safeExternalUrl';
 import LinkIcon from './LinkIcon';
 
 const NexCardProfile = ({ data }) => {
@@ -45,9 +46,7 @@ const NexCardProfile = ({ data }) => {
   const isDark = data.is_dark_mode !== undefined ? data.is_dark_mode : true;
   const slug = data.slug || 'carlos';
   const websiteValue = data.website || data.website_url || '';
-  const websiteHref = websiteValue
-    ? (websiteValue.startsWith('http://') || websiteValue.startsWith('https://') ? websiteValue : `https://${websiteValue}`)
-    : '';
+  const websiteHref = safeExternalUrl(websiteValue);
   const bankEmailValue = data.bank_email || data.contact_email || '';
   const profileContext = `${data.profession || ''} ${data.bio || ''} ${data.company || ''}`.toLowerCase();
   const hasWhatsapp = data.whatsapp_enabled !== false && !!data.whatsapp;
@@ -60,7 +59,7 @@ const NexCardProfile = ({ data }) => {
   const inferredBusinessProfile = !!data.company && (hasWebsite || hasPhone || hasWhatsapp || hasLocation || /tienda|local|ventas|comercial|cat[aá]logo|restaurant|restaurante|barber|sal[oó]n|spa|inmobiliaria|distribuid|servicio t[eé]cnico/.test(profileContext));
   const isBusinessProfile = explicitBusinessProfile || inferredBusinessProfile;
   const showTopFallbackContact = !hasWhatsapp && !hasCalendar;
-  const businessPrimaryLinkHref = hasWebsite ? websiteHref : (hasPortfolio ? data.portfolio_url : '');
+  const businessPrimaryLinkHref = hasWebsite ? websiteHref : (hasPortfolio ? safeExternalUrl(data.portfolio_url) : '');
   const businessPrimaryLinkLabel = hasWebsite ? 'Ver sitio web' : (hasPortfolio ? 'Ver catálogo' : '');
   const phoneCtaLabel = isBusinessProfile && hasLocation ? 'Llamar al local' : 'Llamar ahora';
   const whatsappCtaLabel = isBusinessProfile ? 'Escribir por WhatsApp' : (hasCalendar ? 'Escribirme por WhatsApp' : 'Hablemos por WhatsApp');
@@ -244,7 +243,7 @@ const NexCardProfile = ({ data }) => {
               )}
               {hasCalendar && (
                 <a
-                  href={data.calendar_url}
+                  href={safeExternalUrl(data.calendar_url)}
                   onClick={() => handleLinkClick('calendar')}
                   target="_blank"
                   rel="noreferrer"
@@ -493,7 +492,7 @@ const NexCardProfile = ({ data }) => {
           <div className="space-y-3">
             {!isBusinessProfile && (data.calendar_url_enabled !== false && data.calendar_url) && (
               <a
-                href={data.calendar_url}
+                href={safeExternalUrl(data.calendar_url)}
                 onClick={() => handleLinkClick('calendar')}
                 target="_blank"
                 rel="noreferrer"
@@ -511,7 +510,7 @@ const NexCardProfile = ({ data }) => {
 
             {(data.portfolio_enabled !== false && data.portfolio_url) && (
               <a
-                href={data.portfolio_url}
+                href={safeExternalUrl(data.portfolio_url)}
                 onClick={() => handleLinkClick('portfolio')}
                 target="_blank"
                 rel="noreferrer"
