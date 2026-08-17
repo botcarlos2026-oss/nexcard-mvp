@@ -33,6 +33,23 @@ export function buildSignupConfirmationRedirectTo(hrefOrOrigin) {
   return `${url.origin}/login?mode=${AUTH_MODES.LOGIN}&claim=1`;
 }
 
+export function parseAuthHashError(hash = '') {
+  const raw = String(hash || '').replace(/^#/, '');
+  if (!raw) return null;
+  const params = new URLSearchParams(raw);
+  const error = params.get('error');
+  const errorCode = params.get('error_code');
+  if (!error && !errorCode) return null;
+  return { error, errorCode, errorDescription: params.get('error_description') };
+}
+
+export function getAuthHashErrorMessage({ errorCode } = {}) {
+  if (errorCode === 'otp_expired') {
+    return 'Tu link de acceso expiró. Ingresa tu correo y vuelve a intentar o pide uno nuevo.';
+  }
+  return 'Tu link de acceso no es válido o ya fue usado. Ingresa tu correo y vuelve a intentar o pide uno nuevo.';
+}
+
 export function validatePasswordResetForm(password = '', confirmPassword = '') {
   if (password.length < 8) {
     return 'La contraseña debe tener al menos 8 caracteres.';

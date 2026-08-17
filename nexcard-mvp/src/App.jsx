@@ -7,6 +7,7 @@ import { useAuthSessionSync } from './hooks/useAuthSessionSync';
 import { useCheckoutFlow } from './hooks/useCheckoutFlow';
 import { useAppBootstrap } from './hooks/useAppBootstrap';
 import { getCurrentAdminAccess } from './utils/adminAccess';
+import { parseAuthHashError, getAuthHashErrorMessage } from './utils/authFlow';
 
 const getReservedSlugFromClaimResult = (result = {}) => (
   result?.reserved_slug || result?.order?.card_customization?.desired_slug || ''
@@ -44,6 +45,7 @@ function App() {
   const [error, setError] = useState('');
   const [pendingClaimToken, setPendingClaimTokenState] = useState(() => getPendingClaimToken());
   const [pendingClaimEmail, setPendingClaimEmailState] = useState(() => getPendingClaimEmail());
+  const [authHashNotice, setAuthHashNotice] = useState('');
   const { getTotalItems, startNewCheckout } = useCart();
   const {
     checkoutStep,
@@ -65,6 +67,14 @@ function App() {
     const handleLocationChange = () => setPath(window.location.pathname);
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
+
+  useEffect(() => {
+    const authHashError = parseAuthHashError(window.location.hash);
+    if (!authHashError) return;
+    setAuthHashNotice(getAuthHashErrorMessage(authHashError));
+    navigate('/login');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -247,6 +257,7 @@ function App() {
       path={path}
       pendingClaimToken={pendingClaimToken}
       pendingClaimEmail={pendingClaimEmail}
+      authHashNotice={authHashNotice}
       user={user}
       data={data}
       adminData={adminData}
