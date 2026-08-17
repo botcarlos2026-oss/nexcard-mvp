@@ -53,6 +53,10 @@
     "test:e2e:admin-profiles-guardrails": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-profiles.cy.js",
     "test:e2e:profiles-e2e": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-profiles-e2e.cy.js",
     "test:e2e:profiles-full": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-profiles.cy.js --spec cypress/e2e/admin-profiles-e2e.cy.js --spec cypress/e2e/profile-soft-delete-guard.cy.js",
+    "test:e2e:admin-products": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-products.cy.js",
+    "test:e2e:admin-inventory": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-inventory.cy.js",
+    "test:e2e:admin-wheel": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-wheel.cy.js",
+    "test:e2e:money-modules": "./scripts/run-e2e-local.sh --spec cypress/e2e/admin-products.cy.js,cypress/e2e/admin-inventory.cy.js,cypress/e2e/admin-wheel.cy.js",
     "ops:prelaunch-audit": "node ./scripts/audit-prelaunch-readiness.mjs"
   },
   "devDependencies": {
