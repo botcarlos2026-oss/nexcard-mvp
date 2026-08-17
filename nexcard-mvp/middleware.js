@@ -172,9 +172,20 @@ async function middleware(request) {
     try {
       const indexUrl = new URL('/index.html', url.origin);
       const htmlResponse = await fetch(indexUrl.toString());
+      if (url.searchParams.has('__og_debug')) {
+        return new Response(JSON.stringify({
+          indexUrl: indexUrl.toString(),
+          ok: htmlResponse.ok,
+          status: htmlResponse.status,
+          contentType: htmlResponse.headers.get('content-type'),
+        }), { headers: { 'content-type': 'application/json' } });
+      }
       if (!htmlResponse.ok) return next();
       return await rewriteOgTagsForProfile(htmlResponse, profile, slug);
-    } catch {
+    } catch (innerError) {
+      if (url.searchParams.has('__og_debug')) {
+        return new Response(JSON.stringify({ innerError: String(innerError && innerError.stack || innerError) }), { headers: { 'content-type': 'application/json' } });
+      }
       return next();
     }
   } catch {
