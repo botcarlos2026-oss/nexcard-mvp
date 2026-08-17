@@ -1,5 +1,15 @@
 const { next } = require('@vercel/functions');
 
+// Generated at build time from the real built dist/index.html (see
+// scripts/generate-middleware-index-html.mjs). Missing locally until the
+// first `npm run build` — guarded so requiring middleware.js never throws.
+let indexHtml = null;
+try {
+  indexHtml = require('./middleware-index-html.generated.js');
+} catch {
+  indexHtml = null;
+}
+
 const PUBLIC_ROUTE_PREFIXES = [
   '/admin',
   '/api',
@@ -166,33 +176,16 @@ async function middleware(request) {
     if (!profile) return next();
 
     // next() only returns an empty signal Response ({'x-middleware-next': '1'})
-    // for Vercel's routing layer to act on afterwards — it does not expose the
-    // rewritten HTML body for us to read/modify here. To inject per-profile OG
-    // tags we fetch the actual index.html document ourselves instead.
-    try {
-      const indexUrl = new URL('/index.html', url.origin);
-      const htmlResponse = await fetch(indexUrl.toString(), {
-        headers: {
-          'user-agent': request.headers.get('user-agent') || 'Mozilla/5.0 (compatible; NexCardOgBot/1.0)',
-          accept: 'text/html',
-        },
-      });
-      if (url.searchParams.has('__og_debug')) {
-        return new Response(JSON.stringify({
-          indexUrl: indexUrl.toString(),
-          ok: htmlResponse.ok,
-          status: htmlResponse.status,
-          contentType: htmlResponse.headers.get('content-type'),
-        }), { headers: { 'content-type': 'application/json' } });
-      }
-      if (!htmlResponse.ok) return next();
-      return await rewriteOgTagsForProfile(htmlResponse, profile, slug);
-    } catch (innerError) {
-      if (url.searchParams.has('__og_debug')) {
-        return new Response(JSON.stringify({ innerError: String(innerError && innerError.stack || innerError) }), { headers: { 'content-type': 'application/json' } });
-      }
-      return next();
-    }
+    // for Vercel's routing layer to act on afterwards — it doesn't expose the
+    // real HTML body to modify. A same-origin fetch('/index.html') from within
+    // Edge Middleware also proved unreliable in production (consistently
+    // returned 403, even with a forwarded browser User-Agent — likely a
+    // platform/CDN restriction on server-to-server traffic looping back into
+    // the same zone). Instead, the build snapshots the real built index.html
+    // into a generated module (see scripts/generate-middleware-index-html.mjs)
+    // that we rewrite directly, no runtime fetch involved.
+    if (!indexHtml) return next();
+    return await rewriteOgTagsForProfile(new Response(indexHtml), profile, slug);
   } catch {
     return next();
   }
