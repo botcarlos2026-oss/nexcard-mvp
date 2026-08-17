@@ -18,7 +18,7 @@ const LEGAL_FOOTER = (email: string) => `
   </div>
 `;
 
-async function requireCampaignAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+async function requireCampaignAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, corsHeaders: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   const apikey = req.headers.get('apikey') || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
@@ -83,7 +83,7 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('Variables de Supabase no configuradas');
     if (!SUPABASE_ANON_KEY) throw new Error('SUPABASE_ANON_KEY no configurada');
 
-    const access = await requireCampaignAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    const access = await requireCampaignAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, corsHeaders);
     if (access.error) return access.error;
 
     if (String(subject).length > 180) throw new Error('Subject demasiado largo');

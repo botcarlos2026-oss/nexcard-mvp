@@ -6,7 +6,7 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
 
-async function requireInternalAlertAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+async function requireInternalAlertAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, CORS: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   const apikey = req.headers.get('apikey') || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
@@ -58,7 +58,7 @@ serve(async (req) => {
       });
     }
 
-    const access = await requireInternalAlertAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    const access = await requireInternalAlertAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, CORS);
     if (access.error) return access.error;
 
     const body = await req.json();

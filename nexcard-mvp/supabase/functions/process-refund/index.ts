@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
-async function requireAdminAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+async function requireAdminAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, corsHeaders: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   if (!authHeader.startsWith('Bearer ')) {
     return { error: new Response(JSON.stringify({ success: false, error: 'Authorization requerida' }), {
@@ -60,7 +60,7 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('Supabase no configurado');
     if (!SUPABASE_ANON_KEY) throw new Error('SUPABASE_ANON_KEY no configurado');
 
-    const access = await requireAdminAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    const access = await requireAdminAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, corsHeaders);
     if (access.error) return access.error;
 
     const supabase = access.admin;

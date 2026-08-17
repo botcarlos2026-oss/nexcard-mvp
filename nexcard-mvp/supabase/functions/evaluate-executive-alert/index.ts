@@ -12,12 +12,12 @@ function timingSafeEqual(a: string, b: string) {
   return diff === 0;
 }
 
-function requireOpsAccess(req: Request, opsSecret: string | undefined) {
+function requireOpsAccess(req: Request, opsSecret: string | undefined, corsHeaders: Record<string, string>) {
   const provided = req.headers.get('x-ops-secret') || '';
   if (!opsSecret || !provided || !timingSafeEqual(provided, opsSecret)) {
     return new Response(JSON.stringify({ success: false, error: 'No autorizado' }), {
       status: 401,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
   return null;
@@ -125,7 +125,7 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const OPS_SHARED_SECRET = Deno.env.get('OPS_SHARED_SECRET');
-    const authError = requireOpsAccess(req, OPS_SHARED_SECRET);
+    const authError = requireOpsAccess(req, OPS_SHARED_SECRET, CORS);
     if (authError) return authError;
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

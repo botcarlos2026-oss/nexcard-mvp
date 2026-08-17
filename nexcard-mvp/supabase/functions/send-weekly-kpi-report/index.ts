@@ -13,7 +13,7 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-function requireOpsSecret(req: Request): Response | null {
+function requireOpsSecret(req: Request, CORS: Record<string, string>): Response | null {
   const expected = Deno.env.get('OPS_SHARED_SECRET') || '';
   const received = req.headers.get('x-ops-secret') || '';
   if (!expected || !received || !timingSafeEqual(received, expected)) {
@@ -49,7 +49,7 @@ serve(async (req) => {
   const CORS = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
-  const unauthorized = requireOpsSecret(req);
+  const unauthorized = requireOpsSecret(req, CORS);
   if (unauthorized) return unauthorized;
 
   try {

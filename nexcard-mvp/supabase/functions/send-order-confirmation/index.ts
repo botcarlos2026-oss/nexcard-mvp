@@ -15,7 +15,7 @@ const escapeHtml = (value: unknown): string => String(value ?? '')
 
 const moneyCLP = (value: unknown): string => Number(value || 0).toLocaleString('es-CL');
 
-async function requireOrderConfirmationAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string) {
+async function requireOrderConfirmationAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, corsHeaders: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   const apikey = req.headers.get('apikey') || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : '';
@@ -90,7 +90,7 @@ serve(async (req) => {
       throw new Error('Supabase env faltante');
     }
 
-    const access = await requireOrderConfirmationAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY);
+    const access = await requireOrderConfirmationAccess(req, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, corsHeaders);
     if (access.error) return access.error;
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
