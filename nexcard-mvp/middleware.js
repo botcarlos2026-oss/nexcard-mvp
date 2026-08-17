@@ -132,6 +132,10 @@ async function rewriteOgTagsForProfile(response, profile, slug) {
 
   const headers = new Headers(response.headers);
   headers.delete('content-length');
+  headers.set('content-type', 'text/html; charset=utf-8');
+  // Per-profile HTML — never let a shared CDN cache key serve one profile's
+  // personalized tags to a visitor of a different profile.
+  headers.set('cache-control', 'private, no-store');
 
   return new Response(rewritten, {
     status: response.status,
@@ -161,11 +165,17 @@ async function middleware(request) {
     if (profile === false) return buildNotFoundResponse();
     if (!profile) return next();
 
-    const response = await next();
+    // next() only returns an empty signal Response ({'x-middleware-next': '1'})
+    // for Vercel's routing layer to act on afterwards — it does not expose the
+    // rewritten HTML body for us to read/modify here. To inject per-profile OG
+    // tags we fetch the actual index.html document ourselves instead.
     try {
-      return await rewriteOgTagsForProfile(response, profile, slug);
+      const indexUrl = new URL('/index.html', url.origin);
+      const htmlResponse = await fetch(indexUrl.toString());
+      if (!htmlResponse.ok) return next();
+      return await rewriteOgTagsForProfile(htmlResponse, profile, slug);
     } catch {
-      return response;
+      return next();
     }
   } catch {
     return next();
