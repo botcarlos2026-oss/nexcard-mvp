@@ -85,7 +85,7 @@ CYPRESS_archived_profile_deleted
 ## Example
 ```bash
 CYPRESS_login_email="admin@nexcard.cl" \
-CYPRESS_login_password="admin123" \
+CYPRESS_login_password="test-only-do-not-reuse" \
 CYPRESS_active_profile_slug="carlos-alvarez" \
 CYPRESS_active_profile_status="active" \
 CYPRESS_active_profile_versions="2" \

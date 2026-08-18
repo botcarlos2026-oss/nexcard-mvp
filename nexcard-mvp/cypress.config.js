@@ -13,7 +13,7 @@ module.exports = defineConfig({
     supportFile: 'cypress/support/e2e.js',
     env: {
       login_email: 'admin@nexcard.cl', // override via CYPRESS_login_email
-      login_password: 'admin123',      // override via CYPRESS_login_password
+      login_password: 'test-only-do-not-reuse',      // override via CYPRESS_login_password
       supabase_anon_key: process.env.REACT_APP_SUPABASE_ANON_KEY || null,
       supabase_url: process.env.REACT_APP_SUPABASE_URL || null,
     },

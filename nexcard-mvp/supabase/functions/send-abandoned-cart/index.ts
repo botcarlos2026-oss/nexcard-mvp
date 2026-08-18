@@ -8,6 +8,13 @@ const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<stri
 
 const formatCLP = (cents: number) => `$${cents.toLocaleString('es-CL')}`;
 
+const escapeHtml = (value: unknown): string => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 async function requireReminderAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, corsHeaders: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   const apikey = req.headers.get('apikey') || '';
@@ -157,13 +164,13 @@ async function sendReminderEmail(supabase: any, cart: any, RESEND_API_KEY: strin
     return;
   }
 
-  const customerName = cart.customer_name || 'Cliente';
+  const customerName = escapeHtml(cart.customer_name) || 'Cliente';
   const items: Array<{ product_name: string; quantity: number; unit_price_cents: number }> = cart.items || [];
 
   const itemsHTML = items.map(item => `
     <tr>
       <td style="padding:10px 0;border-bottom:1px solid #1f2937;font-size:14px;color:#d1d5db">
-        ${item.product_name || 'Producto NexCard'} <span style="color:#6b7280">×${item.quantity}</span>
+        ${escapeHtml(item.product_name) || 'Producto NexCard'} <span style="color:#6b7280">×${item.quantity}</span>
       </td>
       <td style="padding:10px 0;border-bottom:1px solid #1f2937;text-align:right;font-size:14px;font-weight:700;color:#10B981">
         ${formatCLP(item.unit_price_cents * item.quantity)}

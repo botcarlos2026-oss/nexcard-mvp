@@ -29,7 +29,7 @@ Esto baja el riesgo de mezclar credenciales de trabajo diario con seeds de testi
 - Smoke real de perfil público:
   - `CYPRESS_smoke_profile_slug` obligatorio cuando `RUNNER_MODE=real` o `E2E_USE_REAL_SUPABASE=true`.
   - Debe apuntar a un slug público estable/aprobado; no asumir que `qa-smoke-profile` existe en producción.
-- Por defecto queda `admin@nexcard.cl / admin123` (solo mock local). Sobrescribe en CI/real.
+- Por defecto queda `admin@nexcard.cl / test-only-do-not-reuse` (solo mock local). Sobrescribe en CI/real.
 
 ## Scripts
 - Abrir runner: `npm run cypress:open`
@@ -80,7 +80,7 @@ Estas suites quedan reproducibles si apuntas a dos tarjetas seed/controladas: un
 ### Ejemplo
 ```bash
 CYPRESS_login_email="admin@nexcard.cl" \
-CYPRESS_login_password="admin123" \
+CYPRESS_login_password="test-only-do-not-reuse" \
 CYPRESS_revoked_nfc_token="nxc-revoked-token" \
 CYPRESS_revoked_expected_status="revoked" \
 CYPRESS_revoked_card_code="NXC-REV-001" \
@@ -119,7 +119,7 @@ Si falta el dataset, ejecutar `npm run test:e2e:admin-profiles:seed` con service
 ### Ejemplo
 ```bash
 CYPRESS_login_email="admin@nexcard.cl" \
-CYPRESS_login_password="admin123" \
+CYPRESS_login_password="test-only-do-not-reuse" \
 CYPRESS_active_profile_slug="carlos-alvarez" \
 CYPRESS_active_profile_status="active" \
 CYPRESS_active_profile_versions="2" \

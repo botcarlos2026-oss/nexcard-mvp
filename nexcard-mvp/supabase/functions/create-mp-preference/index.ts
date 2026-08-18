@@ -41,6 +41,23 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    const { data: withinLimit, error: rateLimitError } = await supabase.rpc('check_and_record_rate_limit', {
+      p_bucket: 'create_mp_preference',
+      p_key: orderId,
+      p_max_count: 10,
+      p_window_seconds: 300,
+    });
+
+    if (rateLimitError) {
+      log('warn', 'rate_limit_check_failed', { order_id: orderId, error: rateLimitError.message });
+    } else if (withinLimit === false) {
+      log('warn', 'rate_limited', { order_id: orderId });
+      return new Response(
+        JSON.stringify({ error: 'Demasiados intentos de pago para esta orden. Intenta de nuevo en unos minutos.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('id, customer_email, amount_cents, currency, payment_status, client_checkout_attempt_id, client_checkout_fingerprint')
