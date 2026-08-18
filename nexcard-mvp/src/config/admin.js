@@ -1,14 +1,6 @@
-export const ADMIN_EMAILS = [
-  'admin@nexcard.cl',
-  'bot.carlos.2026@gmail.com',
-  'carlos.alvarez.contreras@gmail.com',
-  // 'carlos@nexcard.com', // activar cuando el dominio esté operativo
-];
-
-export const isAdminEmail = (email) => {
-  const normalized = email?.toLowerCase?.().trim?.();
-  return !!normalized && ADMIN_EMAILS.includes(normalized);
-};
+// Admin authorization is enforced server-side via the `has_role('admin')` RPC
+// (see src/utils/adminAccess.js). Do not reintroduce a client-side email
+// allowlist here — it must never be used as an authorization source.
 
 export const ADMIN_ROUTES = new Set([
   '/admin',

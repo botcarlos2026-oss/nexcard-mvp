@@ -2,6 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
+const escapeHtml = (value: unknown): string => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 async function requireAdminAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, corsHeaders: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
   if (!authHeader.startsWith('Bearer ')) {
@@ -64,6 +71,22 @@ serve(async (req) => {
     if (access.error) return access.error;
 
     const supabase = access.admin;
+
+    const { data: withinLimit, error: rateLimitError } = await supabase.rpc('check_and_record_rate_limit', {
+      p_bucket: 'process_refund',
+      p_key: refundId,
+      p_max_count: 5,
+      p_window_seconds: 300,
+    });
+
+    if (rateLimitError) {
+      console.error('rate_limit_check_failed:', rateLimitError.message);
+    } else if (withinLimit === false) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Demasiados intentos para este reembolso. Intenta de nuevo en unos minutos.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const requestedAmount = Number(amount_cents);
     if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
@@ -207,7 +230,7 @@ serve(async (req) => {
     </div>
     <div style="padding:32px">
       <h2 style="color:#f4f4f5;font-size:22px;margin:0 0 8px">Reembolso procesado</h2>
-      <p style="color:#a1a1aa;margin:0 0 24px">Hola ${order.customer_name || 'Cliente'}, tu reembolso ha sido procesado exitosamente.</p>
+      <p style="color:#a1a1aa;margin:0 0 24px">Hola ${escapeHtml(order.customer_name) || 'Cliente'}, tu reembolso ha sido procesado exitosamente.</p>
 
       <div style="background:#09090B;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #27272a">
         <table style="width:100%;border-collapse:collapse">
@@ -217,7 +240,7 @@ serve(async (req) => {
           </tr>
           <tr>
             <td style="padding:6px 0;font-size:13px;color:#a1a1aa;font-weight:700">Motivo</td>
-            <td style="padding:6px 0;font-size:13px;color:#f4f4f5;text-align:right">${reasonLabel[reason] || reason}</td>
+            <td style="padding:6px 0;font-size:13px;color:#f4f4f5;text-align:right">${escapeHtml(reasonLabel[reason] || reason)}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;font-size:18px;color:#a1a1aa;font-weight:900">Monto reembolsado</td>
