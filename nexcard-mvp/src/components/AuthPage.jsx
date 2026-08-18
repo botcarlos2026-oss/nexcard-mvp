@@ -66,12 +66,12 @@ const getCopy = (mode, hasPendingClaim = false) => {
   };
 };
 
-const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '' }) => {
+const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '', authHashNotice = '' }) => {
   const hasPendingClaim = !!pendingClaimToken;
   const lockedClaimEmail = hasPendingClaim ? normalizeAuthEmail(pendingClaimEmail) : '';
   const [mode, setMode] = useState(() => getInitialAuthMode(window.location.search, { hasPendingClaim }));
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(authHashNotice);
   const [notice, setNotice] = useState('');
   const [confirmationPending, setConfirmationPending] = useState(false);
   const [formData, setFormData] = useState({
