@@ -22,6 +22,15 @@ const getOrCreateClientCheckoutFingerprint = () => {
   }
 };
 
+function FieldError({ name, error }) {
+  if (!error) return null;
+  return (
+    <p id={`${name}-error`} role="alert" className="text-xs text-rose-400 mt-1.5 font-semibold">
+      {error}
+    </p>
+  );
+}
+
 export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const { items, getTotalCents, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
@@ -70,6 +79,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     };
   });
   const [rutError, setRutError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const lastSavedAbandonedCartEmailRef = React.useRef('');
 
   const validateRutFormat = (rut) => {
     const clean = rut.trim().replace(/\./g, '').replace('-', '');
@@ -90,6 +101,12 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   const handleInvoiceChange = (e) => {
     const { name, value, type, checked } = e.target;
     setRutError('');
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
     setInvoiceData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -166,6 +183,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     setDesiredSlug(next);
     setSlugStatus('idle');
     setSlugMessage('');
+    setFieldErrors((prev) => {
+      if (!prev.desiredSlug) return prev;
+      const { desiredSlug: _omit, ...rest } = prev;
+      return rest;
+    });
   };
 
   const handleCustomizationChange = (e) => {
@@ -222,10 +244,10 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   // Guard: si llegan aquí sin items, redirigir
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-8 text-center">
+      <main className="min-h-screen surface-0 text-body-1 flex flex-col items-center justify-center p-8 text-center">
         <AlertCircle size={48} className="text-yellow-400 mb-4" />
         <p className="text-xl font-bold mb-2">Tu carrito está vacío</p>
-        <p className="text-zinc-400 mb-6 text-sm">No puedes iniciar un checkout sin productos</p>
+        <p className="text-body-2 mb-6 text-sm">No puedes iniciar un checkout sin productos</p>
         <button
           onClick={onBack}
           className="btn-base btn-press flex items-center gap-2 px-6 py-3 btn-primary"
@@ -233,38 +255,60 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           <ArrowLeft size={18} />
           Volver al carrito
         </button>
-      </div>
+      </main>
     );
   }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setError(''); // limpiar error al escribir
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
-  const validateForm = () => {
-    if (!formData.customerName.trim()) return 'Por favor ingresa tu nombre completo';
-    if (formData.customerName.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
+  const validateFieldsDetailed = () => {
+    const errors = {};
+    if (!formData.customerName.trim()) errors.customerName = 'Por favor ingresa tu nombre completo';
+    else if (formData.customerName.trim().length < 3) errors.customerName = 'El nombre debe tener al menos 3 caracteres';
+
     if (!formData.customerEmail.includes('@') || !formData.customerEmail.includes('.'))
-      return 'Por favor ingresa un email válido';
-    if (!formData.customerPhone.trim()) return 'Por favor ingresa un teléfono de contacto';
-    if (formData.customerPhone.replace(/\D/g, '').length < 8)
-      return 'El teléfono debe tener al menos 8 dígitos';
-    if (!formData.customerAddress.trim()) return 'Por favor ingresa tu dirección de despacho';
-    if (formData.customerAddress.trim().length < 10) return 'La dirección parece muy corta, incluye calle y número';
-    if (!desiredSlug.trim()) return 'Reserva tu usuario público NexCard antes de pagar';
-    if (!isValidProfileSlug(desiredSlug)) return PROFILE_SLUG_RULES_MESSAGE;
-    if (!formData.acceptTerms) return 'Debes aceptar los términos y condiciones para continuar';
+      errors.customerEmail = 'Por favor ingresa un email válido';
+
+    if (!formData.customerPhone.trim()) errors.customerPhone = 'Por favor ingresa un teléfono de contacto';
+    else if (formData.customerPhone.replace(/\D/g, '').length < 8)
+      errors.customerPhone = 'El teléfono debe tener al menos 8 dígitos';
+
+    if (!formData.customerAddress.trim()) errors.customerAddress = 'Por favor ingresa tu dirección de despacho';
+    else if (formData.customerAddress.trim().length < 10) errors.customerAddress = 'La dirección parece muy corta, incluye calle y número';
+
+    if (!desiredSlug.trim()) errors.desiredSlug = 'Reserva tu usuario público NexCard antes de pagar';
+    else if (!isValidProfileSlug(desiredSlug)) errors.desiredSlug = PROFILE_SLUG_RULES_MESSAGE;
+
+    if (!formData.acceptTerms) errors.acceptTerms = 'Debes aceptar los términos y condiciones para continuar';
+
     if (invoiceData.requiresInvoice) {
-      if (!invoiceData.invoiceRut.trim()) return 'Ingresa el RUT de la empresa';
-      if (!validateRutFormat(invoiceData.invoiceRut)) return 'RUT inválido. Verifica el formato y dígito verificador (ej: 12.345.678-9)';
-      if (!invoiceData.invoiceRazonSocial.trim()) return 'Ingresa la razón social de la empresa';
+      if (!invoiceData.invoiceRut.trim()) errors.invoiceRut = 'Ingresa el RUT de la empresa';
+      else if (!validateRutFormat(invoiceData.invoiceRut)) errors.invoiceRut = 'RUT inválido. Verifica el formato y dígito verificador (ej: 12.345.678-9)';
+      if (!invoiceData.invoiceRazonSocial.trim()) errors.invoiceRazonSocial = 'Ingresa la razón social de la empresa';
     }
-    return null;
+    return errors;
+  };
+
+  const FIELD_ORDER = ['customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'desiredSlug', 'acceptTerms', 'invoiceRut', 'invoiceRazonSocial'];
+
+  const validateForm = () => {
+    const errors = validateFieldsDetailed();
+    setFieldErrors(errors);
+    const firstKey = FIELD_ORDER.find((key) => errors[key]);
+    return firstKey ? errors[firstKey] : null;
   };
 
   const handleSubmit = async (e) => {
@@ -385,12 +429,23 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
   };
 
   const inputClass =
-    'w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-colors text-sm';
+    'w-full bg-surface-2 border border-surface-3 rounded-lg px-4 py-3 text-body-1 placeholder-text-3 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30 transition-colors text-sm';
+  const inputErrorClass = 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/30';
 
-  const labelClass = 'block text-sm font-semibold mb-1.5 text-zinc-300';
+  const labelClass = 'block text-sm font-semibold mb-1.5 text-body-1';
+
+  const fieldError = (name) => fieldErrors[name] || null;
+  const fieldProps = (name) => {
+    const err = fieldError(name);
+    return {
+      'aria-invalid': err ? true : undefined,
+      'aria-describedby': err ? `${name}-error` : undefined,
+      className: `${inputClass} ${err ? inputErrorClass : ''}`,
+    };
+  };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 sm:p-8">
+    <main className="min-h-screen surface-0 text-body-1 p-4 sm:p-8">
       <div className="max-w-3xl mx-auto">
 
         {/* Header */}
@@ -398,7 +453,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           <button
             onClick={onBack}
             disabled={loading}
-            className="btn-base btn-press flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm disabled:opacity-50 min-h-[44px] px-2"
+            className="btn-base btn-press flex items-center gap-2 text-body-2 hover:text-body-1 transition-colors text-sm disabled:opacity-50 min-h-[44px] px-2"
           >
             <ArrowLeft size={16} />
             Volver
@@ -407,7 +462,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         </div>
 
         {/* Stepper */}
-        <div className="flex items-center gap-1 mb-8 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1 mb-8 overflow-x-auto pb-1" aria-label="Progreso de la compra">
           {[
             { label: 'Catálogo', step: 0 },
             { label: 'Carrito', step: 1 },
@@ -417,15 +472,18 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
             const current = step === 2;
             const done = step < 2;
             const pillClass = current
-              ? 'bg-emerald-500 text-emerald-950 border border-emerald-300/60'
+              ? 'bg-brand text-[#052e23] border border-emerald-300/60'
               : done
-              ? 'text-emerald-400'
-              : 'text-zinc-600';
+              ? 'text-brand'
+              : 'text-body-3';
             const circleBorderColor = current ? '#052e23' : '#52525b';
             return (
               <React.Fragment key={step}>
-                {i > 0 && <div className="h-px w-6 shrink-0 bg-zinc-700" />}
-                <div className={`flex items-center gap-1.5 shrink-0 text-xs font-bold px-2 py-1 rounded-full ${pillClass}`}>
+                {i > 0 && <div className="h-px w-6 shrink-0 bg-surface-3" />}
+                <div
+                  aria-current={current ? 'step' : undefined}
+                  className={`flex items-center gap-1.5 shrink-0 text-xs font-bold px-2 py-1 rounded-full ${pillClass}`}
+                >
                   {done ? '✓' : <span className="w-4 h-4 rounded-full border flex items-center justify-center text-[10px]" style={{ borderColor: circleBorderColor }}>{step + 1}</span>}
                   {label}
                 </div>
@@ -435,41 +493,41 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
         </div>
 
         {/* Resumen carrito mobile */}
-        <div className="lg:hidden bg-zinc-900 border border-zinc-800 rounded-xl p-4 mb-5">
+        <div className="lg:hidden surface-1 border border-surface-2 rounded-xl p-4 mb-5">
           <h3 className="font-bold text-sm mb-3">Tu pedido</h3>
           <div className="space-y-2">
             {items.map((item) => (
               <div key={item.product_id} className="flex justify-between text-sm gap-3">
-                <span className="text-zinc-300">{item.product_name} <span className="text-zinc-500">×{item.quantity}</span></span>
+                <span className="text-body-1">{item.product_name} <span className="text-body-3">×{item.quantity}</span></span>
                 <span className="font-bold shrink-0">${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}</span>
               </div>
             ))}
           </div>
-          <div className="space-y-1.5 pt-3 mt-3 border-t border-zinc-800 text-sm">
-            <div className="flex justify-between text-zinc-400">
+          <div className="space-y-1.5 pt-3 mt-3 border-t border-surface-2 text-sm">
+            <div className="flex justify-between text-body-2">
               <span>Subtotal</span>
               <span>${totalCents.toLocaleString('es-CL')}</span>
             </div>
             {discountCents > 0 && (
-              <div className="flex justify-between text-emerald-400">
+              <div className="flex justify-between text-brand">
                 <span>Descuento ({couponCode})</span>
                 <span>-${discountCents.toLocaleString('es-CL')}</span>
               </div>
             )}
-            <div className="flex justify-between text-zinc-400">
+            <div className="flex justify-between text-body-2">
               <span>Envío</span>
-              <span className="text-emerald-400">Gratis</span>
+              <span className="text-brand">Gratis</span>
             </div>
           </div>
-          <div className="flex justify-between items-baseline pt-3 mt-3 border-t border-zinc-800">
+          <div className="flex justify-between items-baseline pt-3 mt-3 border-t border-surface-2">
             <span className="text-sm font-semibold">Total</span>
-            <span className="text-lg font-black text-emerald-400">${totalCLP}</span>
+            <span className="text-lg font-black text-brand">${totalCLP}</span>
           </div>
         </div>
 
         {/* Error global */}
         {error && (
-          <div className="flex items-start gap-3 bg-red-950 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+          <div role="alert" className="flex items-start gap-3 bg-red-950 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
             <AlertCircle size={18} className="shrink-0 mt-0.5 text-red-400" />
             <span className="text-sm">{error}</span>
           </div>
@@ -481,39 +539,44 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-5">
 
             {/* Datos personales */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="surface-1 border border-surface-2 rounded-xl p-5">
               <h2 className="text-lg font-bold mb-5">Datos de contacto</h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className={labelClass}>Nombre completo</label>
+                  <label className={labelClass} htmlFor="customerName">Nombre completo</label>
                   <input
+                    id="customerName"
                     type="text"
                     name="customerName"
                     value={formData.customerName}
                     onChange={handleChange}
                     placeholder="Nombre y apellido"
                     autoComplete="name"
-                    className={inputClass}
+                    {...fieldProps('customerName')}
                   />
+                  <FieldError name="customerName" error={fieldError('customerName')} />
                 </div>
                 <div>
-                  <label className={labelClass}>Teléfono</label>
+                  <label className={labelClass} htmlFor="customerPhone">Teléfono</label>
                   <input
+                    id="customerPhone"
                     type="tel"
                     name="customerPhone"
                     value={formData.customerPhone}
                     onChange={handleChange}
                     placeholder="+56 9 1234 5678"
                     autoComplete="tel"
-                    className={inputClass}
+                    {...fieldProps('customerPhone')}
                   />
+                  <FieldError name="customerPhone" error={fieldError('customerPhone')} />
                 </div>
               </div>
 
               <div className="mb-4">
-                <label className={labelClass}>Email</label>
+                <label className={labelClass} htmlFor="customerEmail">Email</label>
                 <input
+                  id="customerEmail"
                   type="email"
                   name="customerEmail"
                   value={formData.customerEmail}
@@ -522,6 +585,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                     const email = e.target.value.trim();
                     if (!email.includes('@') || !email.includes('.')) return;
                     if (items.length === 0) return;
+                    if (lastSavedAbandonedCartEmailRef.current === email) return;
+                    lastSavedAbandonedCartEmailRef.current = email;
                     try {
                       const result = await api.saveAbandonedCart({
                         email,
@@ -541,32 +606,37 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   }}
                   placeholder="correo@empresa.cl"
                   autoComplete="email"
-                  className={inputClass}
+                  {...fieldProps('customerEmail')}
                 />
+                <FieldError name="customerEmail" error={fieldError('customerEmail')} />
               </div>
 
               <div>
-                <label className={labelClass}>Dirección de despacho</label>
+                <label className={labelClass} htmlFor="customerAddress">Dirección de despacho</label>
                 <textarea
+                  id="customerAddress"
                   name="customerAddress"
                   value={formData.customerAddress}
                   onChange={handleChange}
                   placeholder="Calle, número, comuna y región"
                   rows="3"
                   autoComplete="street-address"
-                  className={inputClass + ' resize-none'}
+                  {...fieldProps('customerAddress')}
+                  className={`${fieldProps('customerAddress').className} resize-none`}
                 />
+                <FieldError name="customerAddress" error={fieldError('customerAddress')} />
               </div>
             </div>
 
             {/* Reserva de perfil público */}
-            <div className="bg-zinc-900 border border-emerald-900/60 rounded-xl p-5">
+            <div className="surface-1 border border-emerald-900/60 rounded-xl p-5">
               <h2 className="text-lg font-bold mb-1">Reserva tu perfil NexCard</h2>
-              <p className="text-xs text-zinc-500 mb-5">Este será tu enlace público. Lo bloqueamos durante el pago y, al confirmarse, queda reservado para tu activación.</p>
-              <label className={labelClass}>Usuario público</label>
-              <div className="flex rounded-lg border border-zinc-700 bg-zinc-800 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500/30 transition-colors overflow-hidden">
-                <span className="px-3 py-3 text-zinc-500 text-sm font-bold border-r border-zinc-700">nexcard.cl/</span>
+              <p className="text-xs text-body-3 mb-5">Este será tu enlace público. Lo bloqueamos durante el pago y, al confirmarse, queda reservado para tu activación.</p>
+              <label className={labelClass} htmlFor="desiredSlug">Usuario público</label>
+              <div className={`flex rounded-lg border bg-surface-2 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand/30 transition-colors overflow-hidden ${fieldError('desiredSlug') ? 'border-rose-500' : 'border-surface-3'}`}>
+                <span className="px-3 py-3 text-body-3 text-sm font-bold border-r border-surface-3">nexcard.cl/</span>
                 <input
+                  id="desiredSlug"
                   data-cy="checkout-desired-slug"
                   type="text"
                   value={desiredSlug}
@@ -574,26 +644,30 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   onBlur={() => checkDesiredSlugAvailability(desiredSlug)}
                   placeholder="nombre-o-marca"
                   autoComplete="off"
-                  className="flex-1 bg-transparent px-4 py-3 text-white placeholder-zinc-500 focus:outline-none text-sm font-bold"
+                  aria-invalid={fieldError('desiredSlug') ? true : undefined}
+                  aria-describedby="desiredSlug-status"
+                  className="flex-1 bg-transparent px-4 py-3 text-body-1 placeholder-text-3 focus:outline-none text-sm font-bold"
                 />
               </div>
-              <div className="mt-2 min-h-[18px]">
-                {slugStatus === 'checking' ? <p className="text-xs font-bold text-zinc-400">Validando disponibilidad…</p> : null}
-                {slugStatus === 'available' ? <p className="text-xs font-bold text-emerald-400">{slugMessage || 'Usuario disponible.'}</p> : null}
+              <div id="desiredSlug-status" role="status" className="mt-2 min-h-[18px]">
+                {slugStatus === 'checking' ? <p className="text-xs font-bold text-body-2">Validando disponibilidad…</p> : null}
+                {slugStatus === 'available' ? <p className="text-xs font-bold text-brand">{slugMessage || 'Usuario disponible.'}</p> : null}
                 {['invalid', 'taken'].includes(slugStatus) ? <p className="text-xs font-bold text-rose-400">{slugMessage}</p> : null}
-                {slugStatus === 'idle' ? <p className="text-xs text-zinc-500">Solo letras, números y guiones. No se permiten duplicados.</p> : null}
+                {slugStatus === 'idle' && !fieldError('desiredSlug') ? <p className="text-xs text-body-3">Solo letras, números y guiones. No se permiten duplicados.</p> : null}
+                {fieldError('desiredSlug') && slugStatus === 'idle' ? <p className="text-xs font-bold text-rose-400">{fieldError('desiredSlug')}</p> : null}
               </div>
             </div>
 
             {/* Personalización de tarjeta */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="surface-1 border border-surface-2 rounded-xl p-5">
               <h2 className="text-lg font-bold mb-1">Personaliza tu tarjeta</h2>
-              <p className="text-xs text-zinc-500 mb-5">Opcional — si lo dejas vacío, te contactamos en menos de 24h para definir el diseño. Tu despacho no se atrasa.</p>
+              <p className="text-xs text-body-3 mb-5">Opcional — si lo dejas vacío, te contactamos en menos de 24h para definir el diseño. Tu despacho no se atrasa.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className={labelClass}>Nombre para la tarjeta</label>
+                  <label className={labelClass} htmlFor="custom_full_name">Nombre para la tarjeta</label>
                   <input
+                    id="custom_full_name"
                     type="text"
                     name="full_name"
                     value={customization.full_name}
@@ -603,8 +677,9 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Cargo / Profesión</label>
+                  <label className={labelClass} htmlFor="custom_job_title">Cargo / Profesión</label>
                   <input
+                    id="custom_job_title"
                     type="text"
                     name="job_title"
                     value={customization.job_title}
@@ -616,8 +691,9 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               </div>
 
               <div className="mb-4">
-                <label className={labelClass}>Empresa <span className="text-zinc-600 font-normal">(opcional)</span></label>
+                <label className={labelClass} htmlFor="custom_company">Empresa <span className="text-body-2 font-normal">(opcional)</span></label>
                 <input
+                  id="custom_company"
                   type="text"
                   name="company"
                   value={customization.company}
@@ -628,8 +704,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               </div>
 
               <div className="mb-4">
-                <label className={labelClass}>Plantilla base</label>
-                <div className="grid grid-cols-2 gap-3 mt-1">
+                <span className={labelClass} id="template-label">Plantilla base</span>
+                <div className="grid grid-cols-2 gap-3 mt-1" role="group" aria-labelledby="template-label">
                   {[
                     { id: 'minimal', label: 'Minimalista' },
                     { id: 'dark', label: 'Dark premium' },
@@ -637,6 +713,7 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                     <button
                       key={id}
                       type="button"
+                      aria-pressed={customization.template === id}
                       onClick={() => setCustomization({ ...customization, template: id })}
                       className="template-option btn-press flex flex-col items-center gap-1.5 p-3 min-h-[44px] rounded-xl"
                       style={{
@@ -651,31 +728,19 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                         jobTitle={customization.job_title || 'Tu Cargo'}
                         company={customization.company}
                         primaryColor={customization.primary_color}
+                        showAccent={false}
                         size="thumb"
                       />
-                      <span className="text-zinc-400" style={{ fontSize: 11 }}>{label}</span>
+                      <span className="text-body-2" style={{ fontSize: 11 }}>{label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="mb-4">
-                <label className={labelClass}>Color principal</label>
-                <div className="flex items-center gap-3 mt-1">
-                  <input
-                    type="color"
-                    name="primary_color"
-                    value={customization.primary_color}
-                    onChange={handleCustomizationChange}
-                    className="h-11 w-14 rounded-lg cursor-pointer bg-zinc-800 border border-zinc-700 p-1"
-                  />
-                  <span className="text-sm text-zinc-400 font-mono">{customization.primary_color}</span>
-                </div>
-              </div>
-
               <div>
-                <label className={labelClass}>Notas adicionales <span className="text-zinc-600 font-normal">(opcional)</span></label>
+                <label className={labelClass} htmlFor="custom_notes">Notas adicionales <span className="text-body-2 font-normal">(opcional)</span></label>
                 <textarea
+                  id="custom_notes"
                   name="notes"
                   value={customization.notes}
                   onChange={handleCustomizationChange}
@@ -688,54 +753,57 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
             </div>
 
             {/* Método de pago */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="surface-1 border border-surface-2 rounded-xl p-5">
               <h2 className="text-lg font-bold mb-4">Método de pago</h2>
 
               <div className="space-y-3">
-                <label className="flex items-center p-4 border border-emerald-500 bg-emerald-900/20 rounded-xl cursor-pointer transition-colors">
+                <label htmlFor="paymentMethodMP" className="flex items-center p-4 border border-brand bg-brand-dim rounded-xl cursor-pointer transition-colors">
                   <input
+                    id="paymentMethodMP"
                     type="radio"
                     name="paymentMethod"
                     value="mercado-pago"
-                    checked={true}
-                    onChange={() => {}}
-                    className="mr-3 accent-emerald-500"
+                    checked
+                    readOnly
+                    className="mr-3 accent-brand"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-sm">Mercado Pago</p>
-                      <span className="text-xs bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded-full">Recomendado</span>
+                      <span className="text-xs bg-brand-dim text-brand px-2 py-0.5 rounded-full">Recomendado</span>
                     </div>
-                    <p className="text-xs text-zinc-400 mt-0.5">Tarjeta, transferencia, efectivo</p>
+                    <p className="text-xs text-body-2 mt-0.5">Tarjeta, transferencia, efectivo</p>
                   </div>
                 </label>
                 <div
-                  className="flex items-center p-4 border border-zinc-800 rounded-xl opacity-50 cursor-not-allowed pointer-events-none"
+                  className="flex items-center p-4 border border-surface-2 rounded-xl opacity-50 cursor-not-allowed pointer-events-none"
                   title="Disponible pronto"
+                  aria-hidden="true"
                 >
                   <div className="w-4 h-4 rounded-full border border-zinc-600 mr-3 shrink-0" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm text-zinc-500">Transbank WebPay</p>
-                      <span className="text-xs bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full">Próximamente</span>
+                      <p className="font-semibold text-sm text-body-3">Transbank WebPay</p>
+                      <span className="text-xs bg-surface-2 text-body-3 px-2 py-0.5 rounded-full">Próximamente</span>
                     </div>
-                    <p className="text-xs text-zinc-600 mt-0.5">Tarjetas de crédito y débito</p>
+                    <p className="text-xs text-body-3 mt-0.5">Tarjetas de crédito y débito</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Boleta / Factura empresa */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-              <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
+            <div className="surface-1 border border-surface-2 rounded-xl p-5">
+              <label htmlFor="requiresInvoice" className="flex items-center gap-3 cursor-pointer min-h-[44px]">
                 <input
+                  id="requiresInvoice"
                   type="checkbox"
                   name="requiresInvoice"
                   checked={invoiceData.requiresInvoice}
                   onChange={handleInvoiceChange}
-                  className="accent-emerald-500 w-5 h-5 shrink-0"
+                  className="accent-brand w-5 h-5 shrink-0"
                 />
-                <span className="text-sm font-semibold text-zinc-300">
+                <span className="text-sm font-semibold text-body-1">
                   Necesito boleta a nombre de empresa (factura)
                 </span>
               </label>
@@ -743,8 +811,9 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               {invoiceData.requiresInvoice && (
                 <div className="mt-4 space-y-4">
                   <div>
-                    <label className={labelClass}>RUT empresa</label>
+                    <label className={labelClass} htmlFor="invoiceRut">RUT empresa</label>
                     <input
+                      id="invoiceRut"
                       type="text"
                       name="invoiceRut"
                       value={invoiceData.invoiceRut}
@@ -755,49 +824,57 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                         }
                       }}
                       placeholder="76.543.210-K"
-                      className={inputClass}
+                      aria-invalid={(rutError || fieldError('invoiceRut')) ? true : undefined}
+                      aria-describedby={(rutError || fieldError('invoiceRut')) ? 'invoiceRut-error' : undefined}
+                      className={`${inputClass} ${(rutError || fieldError('invoiceRut')) ? inputErrorClass : ''}`}
                     />
-                    {rutError && (
-                      <p className="text-xs text-red-400 mt-1">{rutError}</p>
+                    {(rutError || fieldError('invoiceRut')) && (
+                      <p id="invoiceRut-error" role="alert" className="text-xs text-rose-400 mt-1.5 font-semibold">{rutError || fieldError('invoiceRut')}</p>
                     )}
                   </div>
                   <div>
-                    <label className={labelClass}>Razón social</label>
+                    <label className={labelClass} htmlFor="invoiceRazonSocial">Razón social</label>
                     <input
+                      id="invoiceRazonSocial"
                       type="text"
                       name="invoiceRazonSocial"
                       value={invoiceData.invoiceRazonSocial}
                       onChange={handleInvoiceChange}
                       placeholder="Empresa S.A."
-                      className={inputClass}
+                      {...fieldProps('invoiceRazonSocial')}
                     />
+                    <FieldError name="invoiceRazonSocial" error={fieldError('invoiceRazonSocial')} />
                   </div>
                 </div>
               )}
             </div>
 
             {/* Términos */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-              <label className="flex items-start gap-3 cursor-pointer min-h-[44px]">
+            <div className="surface-1 border border-surface-2 rounded-xl p-5">
+              <label htmlFor="acceptTerms" className="flex items-start gap-3 cursor-pointer min-h-[44px]">
                 <input
+                  id="acceptTerms"
                   type="checkbox"
                   name="acceptTerms"
                   checked={formData.acceptTerms}
                   onChange={handleChange}
-                  className="mt-0.5 accent-emerald-500 w-5 h-5 shrink-0"
+                  aria-invalid={fieldError('acceptTerms') ? true : undefined}
+                  aria-describedby={fieldError('acceptTerms') ? 'acceptTerms-error' : undefined}
+                  className="mt-0.5 accent-brand w-5 h-5 shrink-0"
                 />
-                <span className="text-sm text-zinc-300 leading-relaxed">
+                <span className="text-sm text-body-1 leading-relaxed">
                   Acepto los{' '}
-                  <a href="/privacidad" className="text-emerald-400 hover:underline">
+                  <a href="/privacidad" className="text-brand hover:underline">
                     términos y condiciones
                   </a>{' '}
                   y la{' '}
-                  <a href="/privacidad" className="text-emerald-400 hover:underline">
+                  <a href="/privacidad" className="text-brand hover:underline">
                     política de privacidad
                   </a>{' '}
                   de NexCard
                 </span>
               </label>
+              <FieldError name="acceptTerms" error={fieldError('acceptTerms')} />
             </div>
 
             {/* Botones */}
@@ -829,9 +906,9 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
                     </>
                   )}
                 </button>
-                <p className="text-xs text-zinc-400 text-center">Serás redirigido a Mercado Pago para completar el pago de forma segura</p>
+                <p className="text-xs text-body-2 text-center">Serás redirigido a Mercado Pago para completar el pago de forma segura</p>
                 {paymentDisabledReason && (
-                  <p id="checkout-payment-disabled-reason" className="text-xs text-amber-300 text-center font-semibold">
+                  <p id="checkout-payment-disabled-reason" role="status" className="text-xs text-amber-300 text-center font-semibold">
                     {paymentDisabledReason}
                   </p>
                 )}
@@ -842,15 +919,15 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
           {/* Resumen lateral */}
           <div className="lg:col-span-1">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 lg:sticky lg:top-8">
+            <div className="surface-1 border border-surface-2 rounded-xl p-5 lg:sticky lg:top-8">
               <h3 className="font-bold mb-4 text-base">Resumen</h3>
 
-              <div className="space-y-3 mb-4 pb-4 border-b border-zinc-800">
+              <div className="space-y-3 mb-4 pb-4 border-b border-surface-2">
                 {items.map((item) => (
                   <div key={item.product_id} className="flex justify-between text-sm">
-                    <span className="text-zinc-300 leading-tight">
+                    <span className="text-body-1 leading-tight">
                       {item.product_name}
-                      <span className="text-zinc-500 ml-1">×{item.quantity}</span>
+                      <span className="text-body-3 ml-1">×{item.quantity}</span>
                     </span>
                     <span className="font-semibold shrink-0 ml-2">
                       ${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}
@@ -861,58 +938,61 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
               {/* Coupon input */}
               <div className="mb-4">
+                <label htmlFor="couponCode" className="sr-only">Código de descuento</label>
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
-                    <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-body-3" />
                     <input
+                      id="couponCode"
                       type="text"
                       value={couponCode}
                       onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponData(null); setCouponError(''); }}
                       onKeyDown={e => e.key === 'Enter' && validateCoupon()}
                       placeholder="Código de descuento"
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-8 pr-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                      aria-describedby={couponError ? 'coupon-error' : undefined}
+                      className="w-full bg-surface-2 border border-surface-3 rounded-lg pl-8 pr-3 py-2 text-sm text-body-1 placeholder-text-3 focus:border-brand focus:outline-none min-h-[44px]"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => validateCoupon()}
                     disabled={couponLoading || !couponCode.trim()}
-                    className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                    className="px-4 py-2 min-h-[44px] bg-surface-3 hover:bg-zinc-600 text-body-1 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
                   >
                     {couponLoading ? '…' : 'Aplicar'}
                   </button>
                 </div>
                 {couponData && (
-                  <p className="text-emerald-400 text-xs mt-1.5 font-semibold">
+                  <p role="status" className="text-brand text-xs mt-1.5 font-semibold">
                     ✓ {couponData.prize.label} aplicado
                   </p>
                 )}
-                {couponError && <p className="text-red-400 text-xs mt-1.5">{couponError}</p>}
+                {couponError && <p id="coupon-error" role="alert" className="text-red-400 text-xs mt-1.5">{couponError}</p>}
               </div>
 
               <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between text-zinc-400">
+                <div className="flex justify-between text-body-2">
                   <span>Subtotal</span>
                   <span>${totalCents.toLocaleString('es-CL')}</span>
                 </div>
                 {discountCents > 0 && (
-                  <div className="flex justify-between text-emerald-400">
+                  <div className="flex justify-between text-brand">
                     <span>Descuento ({couponCode})</span>
                     <span>-${discountCents.toLocaleString('es-CL')}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-zinc-400">
+                <div className="flex justify-between text-body-2">
                   <span>Envío</span>
-                  <span className="text-emerald-400">Gratis</span>
+                  <span className="text-brand">Gratis</span>
                 </div>
               </div>
 
-              <div className="flex justify-between items-baseline pt-4 mt-4 border-t border-zinc-700">
+              <div className="flex justify-between items-baseline pt-4 mt-4 border-t border-surface-3">
                 <span className="text-lg font-black">Total</span>
-                <span className="text-2xl font-black text-emerald-400">${totalCLP}</span>
+                <span className="text-2xl font-black text-brand">${totalCLP}</span>
               </div>
 
-              <p className="text-xs text-zinc-500 mt-3 text-center">
+              <p className="text-xs text-body-3 mt-3 text-center">
                 Pago 100% seguro · SSL encriptado
               </p>
             </div>
@@ -920,6 +1000,6 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
         </div>
       </div>
-    </div>
+    </main>
   );
 }

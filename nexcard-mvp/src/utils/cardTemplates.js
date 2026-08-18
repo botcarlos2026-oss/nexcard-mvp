@@ -5,6 +5,7 @@ export function generateCardSVG(template, data = {}) {
     jobTitle = 'Tu Cargo',
     company = '',
     primaryColor = '#10B981',
+    showAccent = true,
   } = data;
 
   const color = primaryColor || '#10B981';
@@ -13,7 +14,7 @@ export function generateCardSVG(template, data = {}) {
   if (template === 'dark') {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 216">
   <rect width="340" height="216" fill="#09090B" rx="0"/>
-  <circle cx="310" cy="32" r="22" fill="${esc(color)}" opacity="0.9"/>
+  ${showAccent ? `<circle cx="310" cy="32" r="22" fill="${esc(color)}" opacity="0.9"/>` : ''}
   <text x="24" y="88" font-family="sans-serif" font-size="18" font-weight="700" fill="white">${esc(name)}</text>
   <text x="24" y="112" font-family="sans-serif" font-size="13" fill="#A1A1AA">${esc(jobTitle)}</text>
   ${company ? `<text x="24" y="131" font-family="sans-serif" font-size="12" fill="#71717A">${esc(company)}</text>` : ''}
@@ -45,7 +46,7 @@ export function generateCardSVG(template, data = {}) {
   // minimal (default)
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 216">
   <rect width="340" height="216" fill="white" rx="0"/>
-  <rect width="6" height="216" fill="${esc(color)}"/>
+  ${showAccent ? `<rect width="6" height="216" fill="${esc(color)}"/>` : ''}
   <text x="24" y="96" font-family="sans-serif" font-size="18" font-weight="700" fill="#18181B">${esc(name)}</text>
   <text x="24" y="118" font-family="sans-serif" font-size="13" fill="#71717A">${esc(jobTitle)}</text>
   ${company ? `<text x="24" y="136" font-family="sans-serif" font-size="12" fill="#A1A1AA">${esc(company)}</text>` : ''}
