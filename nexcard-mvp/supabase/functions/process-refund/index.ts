@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { alertTelegram } from "../_shared/alertTelegram.ts";
 
 const escapeHtml = (value: unknown): string => String(value ?? '')
   .replace(/&/g, '&amp;')
@@ -292,6 +293,7 @@ serve(async (req) => {
 
   } catch (err: any) {
     console.error('process-refund error:', err.message);
+    await alertTelegram('process-refund: excepción no manejada', err);
     return new Response(
       JSON.stringify({ success: false, error: err.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

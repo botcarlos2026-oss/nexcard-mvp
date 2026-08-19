@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLastOrderSnapshot } from '../services/api';
 import { hasSupabase, supabase } from '../services/supabaseClient';
+import { trackEvent } from '../utils/ga4';
 
 export function useCheckoutFlow() {
   const [checkoutStep, setCheckoutStep] = useState(null);
@@ -18,6 +19,7 @@ export function useCheckoutFlow() {
   };
 
   const handleProceedToCheckout = () => {
+    trackEvent('checkout_started');
     setCheckoutStep('checkout');
   };
 
@@ -42,6 +44,10 @@ export function useCheckoutFlow() {
     if (payment && orderId) {
       const snapshot = getLastOrderSnapshot();
       const isSuccessReturn = payment === 'success';
+
+      if (isSuccessReturn) {
+        trackEvent('payment_return_success_seen', { order_id: orderId });
+      }
 
       window.history.replaceState({}, '', '/');
 

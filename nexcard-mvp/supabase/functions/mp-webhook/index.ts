@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
+import { alertTelegram } from "../_shared/alertTelegram.ts";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
@@ -512,6 +513,7 @@ serve(async (req) => {
 
   } catch (error) {
     log('error', 'webhook_unhandled_exception', { message: error.message });
+    await alertTelegram('mp-webhook: excepción no manejada', error);
     return new Response('error', { status: 500 });
   }
 });

@@ -11,6 +11,7 @@ import { createKpiAdminApi } from './api/kpiAdmin';
 import { createAdminDashboardApi } from './api/adminDashboard';
 import { createReviewCardsApi } from './api/reviewCards';
 import { createCrmApi } from './api/crm';
+import { createEmailsApi } from './api/emails';
 import { createWheelApi } from './api/wheel';
 import { KPI_EXECUTIVE_ALERT_BAND_POLICY, KPI_EXECUTIVE_ALERT_POLICY, KPI_EXECUTIVE_ALERT_ROUTING, KPI_PAYMENT_METHOD_FEES, KPI_SLA_TARGET_HOURS, KPI_WOW_ALERT_THRESHOLDS } from '../config/admin';
 import { isManualTestReason, isNonOperationalOrder } from '../utils/orderOperationalSegmentation';
@@ -153,6 +154,7 @@ const adminDashboardApi = createAdminDashboardApi({
 });
 const reviewCardsApi = createReviewCardsApi({ supabase, hasSupabase });
 const crmApi = createCrmApi({ supabase, hasSupabase });
+const emailsApi = createEmailsApi({ supabase, getCurrentUserEmail });
 const wheelApi = createWheelApi({ supabase, hasSupabase });
 
 export const api = {
@@ -376,6 +378,14 @@ export const api = {
   createCRMDeal: async (deal) => crmApi.createCRMDeal(deal),
 
   createCRMContact: async (contact) => crmApi.createCRMContact(contact),
+
+  getEmailDashboardData: async () => emailsApi.getEmailDashboardData(),
+
+  sendCampaignToRecipients: async (recipients, payload) => emailsApi.sendCampaignToRecipients(recipients, payload),
+
+  sendTestEmail: async (payload) => emailsApi.sendTestEmail(payload),
+
+  sendAbandonedCartReminder: async (cartId) => emailsApi.sendAbandonedCartReminder(cartId),
 
   updateCRMContact: async (id, payload) => crmApi.updateCRMContact(id, payload),
 

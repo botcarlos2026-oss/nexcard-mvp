@@ -1,5 +1,6 @@
 import React from 'react';
 import { reportCrash } from '../utils/analyticsEngine';
+import { captureSentryException } from '../utils/sentry';
 
 export default class ErrorBoundary extends React.Component {
   state = { hasError: false };
@@ -10,6 +11,7 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error) {
     reportCrash(error, { component: 'ErrorBoundary', reason: 'render_error' }).catch(() => {});
+    captureSentryException(error, { component: 'ErrorBoundary' });
   }
 
   handleReload = () => {
