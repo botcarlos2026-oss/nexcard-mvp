@@ -14,6 +14,16 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat('es-CL', { dateStyle: 'short' }).format(date);
 };
 
+const isLikelyGoogleReviewUrl = (value) => {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    return /(^|\.)google\.[a-z.]+$|(^|\.)g\.page$|(^|\.)goo\.gl$/i.test(url.hostname);
+  } catch {
+    return false;
+  }
+};
+
 const NexReviewDashboard = ({ profiles = [] }) => {
   const [rows, setRows] = useState(profiles);
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,6 +31,7 @@ const NexReviewDashboard = ({ profiles = [] }) => {
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [editingId, setEditingId] = useState(null);
   const [draftUrl, setDraftUrl] = useState('');
+  const [urlError, setUrlError] = useState('');
   const [pendingDeactivate, setPendingDeactivate] = useState(null); // profile | null
 
   const filtered = useMemo(() => {
@@ -75,20 +86,35 @@ const NexReviewDashboard = ({ profiles = [] }) => {
   const openEdit = (profile) => {
     setEditingId(profile.id);
     setDraftUrl(profile.review_url || '');
+    setUrlError('');
+  };
+
+  const closeEdit = () => {
+    setEditingId(null);
+    setUrlError('');
   };
 
   const handleSaveUrl = async (profile) => {
-    if (!draftUrl.trim()) {
-      setFeedbackMsg('error', 'La URL no puede estar vacía.');
+    const trimmed = draftUrl.trim();
+    if (!trimmed) {
+      setUrlError('La URL no puede estar vacía.');
       return;
     }
+    if (!isLikelyGoogleReviewUrl(trimmed)) {
+      setUrlError('Debe ser un link de reseñas de Google (g.page, google.com o goo.gl).');
+      return;
+    }
+    setUrlError('');
     setBusyId(profile.id);
     try {
-      await api.adminUpdateProfileFields(profile.id, { review_url: draftUrl.trim(), card_type: 'review' });
+      // Saving the URL does NOT activate NexReview — activation is a
+      // separate explicit step (the toggle button), matching the "1.
+      // configura, 2. activa" flow described in the help card above.
+      await api.adminUpdateProfileFields(profile.id, { review_url: trimmed });
       setRows((prev) => prev.map((p) =>
-        p.id === profile.id ? { ...p, review_url: draftUrl.trim(), card_type: 'review' } : p
+        p.id === profile.id ? { ...p, review_url: trimmed } : p
       ));
-      setFeedbackMsg('success', `URL de reseñas actualizada para /${profile.slug}.`);
+      setFeedbackMsg('success', `URL de reseñas guardada para /${profile.slug}.`);
       setEditingId(null);
     } catch (err) {
       setFeedbackMsg('error', err.message || 'No se pudo guardar la URL.');
@@ -117,7 +143,7 @@ const NexReviewDashboard = ({ profiles = [] }) => {
 
         {/* Métricas */}
         <div className="grid grid-cols-2 gap-4 max-w-xl">
-          <AdminStat label="NexReview activos" value={reviewCards.length} accent="amber" />
+          <AdminStat label="NexReview activos" value={reviewCards.length} accent="emerald" />
           <AdminStat label="Perfiles NFC" value={nfcCards.length} />
         </div>
 
@@ -126,7 +152,7 @@ const NexReviewDashboard = ({ profiles = [] }) => {
           <p className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-3">¿Cómo funciona?</p>
           <ol className="space-y-2 text-sm font-medium text-zinc-300">
             <li><span className="font-black text-white">1.</span> Configura la URL de tu página de reseñas de Google Maps.</li>
-            <li><span className="font-black text-white">2.</span> Activa el perfil como tipo <span className="text-amber-400 font-black">NexReview</span>.</li>
+            <li><span className="font-black text-white">2.</span> Activa el perfil como tipo <span className="text-emerald-400 font-black">NexReview</span>.</li>
             <li><span className="font-black text-white">3.</span> Vincula una tarjeta NFC física a ese perfil en el panel Cards.</li>
             <li><span className="font-black text-white">4.</span> Al tocar la tarjeta, el cliente es redirigido directamente a dejar su reseña.</li>
           </ol>
@@ -183,35 +209,44 @@ const NexReviewDashboard = ({ profiles = [] }) => {
                       </div>
                     </TD>
                     <TD>
-                      <AdminBadge variant={isReview ? 'warning' : 'default'}>
+                      <AdminBadge variant={isReview ? 'success' : 'default'}>
                         {isReview ? 'NexReview' : 'NFC'}
                       </AdminBadge>
                     </TD>
                     <TD className="max-w-xs">
                       {isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="url"
-                            aria-label="URL de reseñas de Google"
-                            value={draftUrl}
-                            onChange={(e) => setDraftUrl(e.target.value)}
-                            placeholder="https://g.page/r/..."
-                            className="min-h-[44px] flex-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm font-medium text-white placeholder-zinc-500 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => handleSaveUrl(profile)}
-                            disabled={isBusy}
-                            className="min-h-[44px] shrink-0 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold disabled:opacity-50 transition-colors"
-                          >
-                            {isBusy ? <Loader2 size={14} className="animate-spin" /> : 'Guardar'}
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="min-h-[44px] shrink-0 px-3 py-2 rounded-xl border border-zinc-700 text-zinc-300 text-xs font-bold hover:bg-zinc-800 transition-colors"
-                          >
-                            Cancelar
-                          </button>
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="url"
+                              aria-label="URL de reseñas de Google"
+                              aria-invalid={urlError ? true : undefined}
+                              aria-describedby={urlError ? `nexreview-url-error-${profile.id}` : undefined}
+                              value={draftUrl}
+                              onChange={(e) => { setDraftUrl(e.target.value); if (urlError) setUrlError(''); }}
+                              placeholder="https://g.page/r/..."
+                              className={`min-h-[44px] flex-1 rounded-xl border bg-zinc-900 px-3 py-2 text-sm font-medium text-white placeholder-zinc-500 outline-none focus:ring-1 transition-colors ${urlError ? 'border-red-600 focus:border-red-500 focus:ring-red-500' : 'border-zinc-800 focus:border-emerald-500 focus:ring-emerald-500'}`}
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleSaveUrl(profile)}
+                              disabled={isBusy}
+                              className="min-h-[44px] shrink-0 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold disabled:opacity-50 transition-colors"
+                            >
+                              {isBusy ? <Loader2 size={14} className="animate-spin" /> : 'Guardar'}
+                            </button>
+                            <button
+                              onClick={closeEdit}
+                              className="min-h-[44px] shrink-0 px-3 py-2 rounded-xl border border-zinc-700 text-zinc-300 text-xs font-bold hover:bg-zinc-800 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                          {urlError && (
+                            <p id={`nexreview-url-error-${profile.id}`} role="alert" className="text-xs font-semibold text-red-400">
+                              {urlError}
+                            </p>
+                          )}
                         </div>
                       ) : profile.review_url ? (
                         <div className="flex items-center gap-2">
@@ -235,7 +270,7 @@ const NexReviewDashboard = ({ profiles = [] }) => {
                       <div className="flex items-center justify-end gap-2 flex-wrap">
                         <button
                           onClick={() => openEdit(profile)}
-                          disabled={isBusy}
+                          disabled={isBusy || (editingId !== null && !isEditing)}
                           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-50"
                         >
                           <Link2 size={13} />
@@ -243,9 +278,9 @@ const NexReviewDashboard = ({ profiles = [] }) => {
                         </button>
                         <button
                           onClick={() => handleToggleType(profile)}
-                          disabled={isBusy || (!profile.review_url && !isReview)}
+                          disabled={isBusy || (!profile.review_url && !isReview) || (editingId !== null && !isEditing)}
                           title={!profile.review_url && !isReview ? 'Configura la URL primero' : undefined}
-                          className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isReview ? 'border-amber-800 text-amber-300 hover:bg-amber-950/40' : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}
+                          className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isReview ? 'border-emerald-800 text-emerald-300 hover:bg-emerald-950/40' : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}
                         >
                           {isBusy
                             ? <Loader2 size={13} className="animate-spin" />
