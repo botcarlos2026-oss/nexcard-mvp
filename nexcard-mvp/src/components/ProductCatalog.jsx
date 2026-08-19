@@ -94,8 +94,17 @@ export default function ProductCatalog({ onProceedToCart }) {
                 return (
                   <div
                     key={product.id}
-                    className="bg-zinc-900 border border-zinc-800 hover:border-emerald-500/60 rounded-xl p-6 flex flex-col transition-all duration-200 hover:shadow-lg hover:shadow-emerald-900/20"
+                    className={`relative bg-zinc-900 rounded-xl p-6 flex flex-col transition-all duration-200 hover:shadow-lg hover:shadow-emerald-900/20 ${
+                      product.highlight
+                        ? 'border-2 border-emerald-500'
+                        : 'border border-zinc-800 hover:border-emerald-500/60'
+                    }`}
                   >
+                    {product.badge && (
+                      <span className="absolute -top-3 left-5 bg-emerald-500 text-white rounded-full px-3 py-1 text-xs font-black">
+                        {product.badge}
+                      </span>
+                    )}
                     <h3 className="text-lg font-bold mb-2 leading-tight">{product.catalogName || product.name}</h3>
                     <p className="text-zinc-400 text-sm mb-4 flex-1 leading-relaxed">
                       {product.description}

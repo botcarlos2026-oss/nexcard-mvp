@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Gift, Rocket, Gem } from 'lucide-react';
+import { CheckCircle2, Rocket, Gem } from 'lucide-react';
 
 export default function ComingSoon() {
   const [email, setEmail] = useState('');
@@ -57,7 +57,7 @@ export default function ComingSoon() {
         {/* Badge */}
         <div className="cs-element inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-semibold px-3 py-1.5 rounded-full mb-8">
           <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-          🇨🇱 Hecho en Chile · Lanzamiento mayo 2026
+          🇨🇱 Hecho en Chile
         </div>
 
         {/* Headline */}
@@ -113,12 +113,7 @@ export default function ComingSoon() {
         )}
 
         {/* Beneficios de unirse */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-14">
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
-            <Gift size={28} className="mx-auto mb-3 text-emerald-400" />
-            <p className="text-white font-semibold mb-1 text-sm">50% off</p>
-            <p className="text-zinc-500 text-xs">En tu primer pack si te suscribes hoy</p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-14">
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
             <Rocket size={28} className="mx-auto mb-3 text-emerald-400" />
             <p className="text-white font-semibold mb-1 text-sm">Acceso anticipado</p>
