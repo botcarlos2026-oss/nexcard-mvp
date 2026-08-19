@@ -34,14 +34,20 @@ const summaryCards = [
   { key: 'alerts', label: 'Alertas' },
 ];
 
-function OrderKanbanCard({ order, laneKey, selected, busy, fulfillmentNext, onMarkPaid, onAdvanceFulfillment, onSelectOrder }) {
+// Shared by the card's own quick-action button and the board's bulk-select
+// checkboxes, so "which orders can advance in one click" has one definition.
+function canQuickAdvanceOrder(order, laneKey) {
+  return laneKey === 'paid_new'
+    || (laneKey === 'in_production' && isOrderReadyForDispatch(order))
+    || (laneKey === 'shipped_pending_delivery' && order.payment_status === 'paid' && !!order.tracking_code);
+}
+
+function OrderKanbanCard({ order, laneKey, selected, busy, fulfillmentNext, onMarkPaid, onAdvanceFulfillment, onSelectOrder, bulkSelected, onToggleBulkSelect }) {
   const activation = deriveActivationStatus(order);
   const slaAlert = deriveOrderSlaAlert(order);
   const nextAction = deriveOrderNextAction(order);
   const nextFulfillment = fulfillmentNext[order.fulfillment_status];
-  const canQuickAdvance = laneKey === 'paid_new'
-    || (laneKey === 'in_production' && isOrderReadyForDispatch(order))
-    || (laneKey === 'shipped_pending_delivery' && order.payment_status === 'paid' && !!order.tracking_code);
+  const canQuickAdvance = canQuickAdvanceOrder(order, laneKey);
   const actionLabel = (() => {
     if (laneKey === 'alerts') return 'Revisar alerta';
     if (laneKey === 'ready_to_ship') return 'Registrar despacho';
@@ -68,6 +74,17 @@ function OrderKanbanCard({ order, laneKey, selected, busy, fulfillmentNext, onMa
       data-order-id={order.id}
       data-lane={laneKey}
     >
+      {canQuickAdvance && onToggleBulkSelect && (
+        <label className="mb-2 flex items-center gap-2 text-[11px] font-bold text-zinc-500">
+          <input
+            type="checkbox"
+            checked={!!bulkSelected}
+            onChange={() => onToggleBulkSelect(order.id)}
+            className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
+          />
+          Seleccionar para lote
+        </label>
+      )}
       <button type="button" onClick={() => onSelectOrder(order.id, 'detail')} className="block w-full text-left">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -131,6 +148,11 @@ export default function OrdersKanbanBoard({
   onAdvanceFulfillment,
   onSelectOrder,
   onOperationalFilterChange,
+  bulkSelectedIds,
+  onToggleBulkSelect,
+  onBulkAdvance,
+  onClearBulkSelection,
+  bulkBusy,
 }) {
   const groups = useMemo(() => buildOrdersKanbanGroups(orders), [orders]);
   const summary = useMemo(() => buildOrdersKanbanSummary(orders), [orders]);
@@ -208,6 +230,8 @@ export default function OrdersKanbanBoard({
                     onMarkPaid={onMarkPaid}
                     onAdvanceFulfillment={onAdvanceFulfillment}
                     onSelectOrder={onSelectOrder}
+                    bulkSelected={bulkSelectedIds?.has(order.id)}
+                    onToggleBulkSelect={onToggleBulkSelect}
                   />
                 ))}
                 {(groups[lane.key] || []).length === 0 && (
@@ -225,6 +249,32 @@ export default function OrdersKanbanBoard({
         <CheckCircle2 size={14} className="text-emerald-400" />
         Botones protegidos: los cambios de estado siguen usando las RPC/API existentes; no hay drag & drop accidental.
       </div>
+
+      {bulkSelectedIds?.size > 0 && (
+        <div className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-2xl border border-emerald-700 bg-zinc-950 p-3 shadow-xl" data-cy="orders-kanban-bulk-bar">
+          <p className="text-sm font-black text-white">
+            {bulkSelectedIds.size} orden{bulkSelectedIds.size === 1 ? '' : 'es'} seleccionada{bulkSelectedIds.size === 1 ? '' : 's'}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClearBulkSelection}
+              className="rounded-lg border border-zinc-700 px-3 py-2 text-xs font-black text-zinc-300 hover:border-zinc-500 hover:text-white"
+            >
+              Cancelar selección
+            </button>
+            <button
+              type="button"
+              data-cy="orders-kanban-bulk-advance"
+              onClick={onBulkAdvance}
+              disabled={bulkBusy}
+              className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-black text-emerald-950 transition-colors hover:bg-emerald-400 disabled:opacity-50"
+            >
+              {bulkBusy ? 'Avanzando…' : 'Avanzar seleccionadas'}
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

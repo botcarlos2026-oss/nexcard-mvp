@@ -202,7 +202,9 @@ export function useOrdersDashboardActions({
   }, [transitionOrderState]);
 
   const handleAdvanceFulfillment = useCallback((order) => {
-    transitionOrderState(
+    // Returns the transitionOrderState promise so a bulk caller can await each
+    // order in sequence instead of firing every request concurrently.
+    return transitionOrderState(
       order.id,
       { fulfillment_status: fulfillmentNext[order.fulfillment_status], reason: 'Avance operacional desde admin' },
       `Orden ${order.id} avanzada a ${formatLabel(fulfillmentNext[order.fulfillment_status])}.`

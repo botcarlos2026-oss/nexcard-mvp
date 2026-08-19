@@ -96,12 +96,18 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   const [dateFilter, setDateFilter] = useState('all');
   const [operationalFilter, setOperationalFilter] = useState('all');
   const [showQaInKanban, setShowQaInKanban] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [auditFilter, setAuditFilter] = useState('all');
   const [testReasonFilter, setTestReasonFilter] = useState('all');
   const [overrideAgeFilter, setOverrideAgeFilter] = useState('all');
   const [reviewStatusFilter, setReviewStatusFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
   const detailPanelRef = useRef(null);
+  const qaPanelRef = useRef(null);
+  const paymentOpPanelRef = useRef(null);
+  const financialPanelRef = useRef(null);
+  const nfcPanelRef = useRef(null);
   const shippingPanelRef = useRef(null);
   const {
     newOrdersCount,
@@ -245,6 +251,15 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     });
   }, []);
 
+  const detailSections = useMemo(() => [
+    { id: 'resumen', label: 'Resumen', ref: detailPanelRef },
+    { id: 'qa', label: 'QA', ref: qaPanelRef },
+    { id: 'pago-operacion', label: 'Pago / Operación', ref: paymentOpPanelRef },
+    { id: 'financiero', label: 'Financiero', ref: financialPanelRef },
+    { id: 'nfc', label: 'NFC', ref: nfcPanelRef },
+    { id: 'envio', label: 'Envío', ref: shippingPanelRef },
+  ], []);
+
   const selectOrderAndScroll = useCallback((orderId, target = 'detail') => {
     handleSelectOrder(orderId);
     scrollToOrderDetail(target);
@@ -268,6 +283,36 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
     }
     saveShipping();
   }, [getDispatchBlocker, saveShipping, scrollToOrderDetail]);
+
+  const handleToggleBulkSelect = useCallback((orderId) => {
+    setBulkSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  }, []);
+
+  const handleClearBulkSelection = useCallback(() => setBulkSelectedIds(new Set()), []);
+
+  // MVP for the "no bulk actions" gap: reuses the same per-order advance
+  // logic as the kanban card's own quick-action button, just looped. Not a
+  // new bulk-specific API — lower regression risk than a dedicated endpoint.
+  const handleBulkAdvance = useCallback(async () => {
+    const targets = kanbanOrders.filter((order) => bulkSelectedIds.has(order.id));
+    if (targets.length === 0) return;
+    if (!window.confirm(`¿Confirmas avanzar ${targets.length} orden${targets.length === 1 ? '' : 'es'} seleccionada${targets.length === 1 ? '' : 's'} a su siguiente estado?`)) {
+      return;
+    }
+    setBulkBusy(true);
+    for (const order of targets) {
+      // eslint-disable-next-line no-await-in-loop -- intentional: reuses the sequential per-order action, one at a time.
+      await handleAdvanceFulfillment(order);
+    }
+    setBulkBusy(false);
+    setBulkSelectedIds(new Set());
+    setFeedback({ type: 'success', message: `${targets.length} orden${targets.length === 1 ? '' : 'es'} avanzada${targets.length === 1 ? '' : 's'}.` });
+  }, [bulkSelectedIds, handleAdvanceFulfillment, kanbanOrders]);
 
   const stats = useMemo(() => buildOrdersDashboardStats(auditScopedOrders), [auditScopedOrders]);
 
@@ -518,6 +563,11 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 onAdvanceFulfillment={handleAdvanceFulfillment}
                 onSelectOrder={selectOrderAndScroll}
                 onOperationalFilterChange={setOperationalFilter}
+                bulkSelectedIds={bulkSelectedIds}
+                onToggleBulkSelect={handleToggleBulkSelect}
+                onBulkAdvance={handleBulkAdvance}
+                onClearBulkSelection={handleClearBulkSelection}
+                bulkBusy={bulkBusy}
               />
             </div>
           </div>
@@ -525,7 +575,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
 
         {/* Panel detalle bajo el Kanban para no competir visualmente con la bandeja diaria */}
         <AdminCard>
-          <div ref={detailPanelRef} className="scroll-mt-6" />
+          <div ref={detailPanelRef} className="scroll-mt-16" />
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-bold text-lg text-white">Detalle de orden</h2>
@@ -535,8 +585,25 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
           </div>
           {selectedOrder ? (
             <div className="space-y-5">
+              <nav
+                aria-label="Secciones del detalle de orden"
+                className="sticky top-0 z-20 -mx-1 flex gap-1.5 overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/95 p-1.5 backdrop-blur"
+              >
+                {detailSections.map((section) => (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => section.ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </nav>
+
               <OrderTraceabilityCard order={selectedOrder} />
 
+              <div ref={qaPanelRef} className="scroll-mt-16" />
               <OrderQaAuditCard
                 order={selectedOrder}
                 overrideAudit={selectedOrderOverrideAudit}
@@ -550,13 +617,21 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 onReviewTestClassification={reviewTestClassification}
               />
 
+              <div ref={paymentOpPanelRef} className="scroll-mt-16" />
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">
                   <label htmlFor="order-payment-status" className="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Pago</label>
                   <select
                     id="order-payment-status"
                     value={selectedOrder.payment_status || ''}
-                    onChange={(event) => transitionOrderState(selectedOrder.id, { payment_status: event.target.value, reason: 'Cambio manual de pago desde admin' }, `Estado de pago actualizado para ${selectedOrder.id}.`)}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      if (!window.confirm(`¿Confirmas cambiar el estado de pago a "${formatLabel(nextValue)}" para la orden ${selectedOrder.id}?`)) {
+                        event.target.value = selectedOrder.payment_status || '';
+                        return;
+                      }
+                      transitionOrderState(selectedOrder.id, { payment_status: nextValue, reason: 'Cambio manual de pago desde admin' }, `Estado de pago actualizado para ${selectedOrder.id}.`);
+                    }}
                     disabled={busyOrderId === selectedOrder.id}
                     className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
                   >
@@ -573,7 +648,14 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   <select
                     id="order-fulfillment-status"
                     value={selectedOrder.fulfillment_status || ''}
-                    onChange={(event) => transitionOrderState(selectedOrder.id, { fulfillment_status: event.target.value, reason: 'Cambio manual operativo desde admin' }, `Estado operativo actualizado para ${selectedOrder.id}.`)}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      if (!window.confirm(`¿Confirmas cambiar el estado operativo a "${formatLabel(nextValue)}" para la orden ${selectedOrder.id}?`)) {
+                        event.target.value = selectedOrder.fulfillment_status || '';
+                        return;
+                      }
+                      transitionOrderState(selectedOrder.id, { fulfillment_status: nextValue, reason: 'Cambio manual operativo desde admin' }, `Estado operativo actualizado para ${selectedOrder.id}.`);
+                    }}
                     disabled={busyOrderId === selectedOrder.id}
                     className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
                   >
@@ -589,8 +671,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 </div>
               </div>
 
+              <div ref={financialPanelRef} className="scroll-mt-16" />
               <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">
-                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-3">Caja, margen y stock</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-3">Caja y margen</p>
                 <div className="grid grid-cols-2 gap-4 text-sm font-bold">
                   <div>
                     <p className="text-zinc-400">Venta</p>
@@ -602,19 +685,14 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <AdminBadge variant={selectedOrder.inventory_reserved ? 'success' : 'warning'}>
-                    {selectedOrder.inventory_reserved ? 'Reserva de stock registrada' : 'Stock aún no reservado'}
-                  </AdminBadge>
                   <AdminBadge variant={selectedOrder.card_lifecycle_ready ? 'success' : 'default'}>
                     {selectedOrder.card_lifecycle_ready ? 'Cards listas para lifecycle' : 'Cards no vinculadas todavía'}
                   </AdminBadge>
                   <AdminBadge variant="info">
                     Fuente cards: {selectedOrder.related_cards_source === 'order_cards' ? 'vínculo formal' : 'match heurístico'}
                   </AdminBadge>
-                  <AdminBadge variant={selectedOrder.activation_ready ? 'success' : selectedOrder.active_cards_count > 0 ? 'info' : 'default'}>
-                    {selectedOrder.activation_ready ? `Lista para activar (${selectedOrder.activation_ready_count})` : selectedOrder.active_cards_count > 0 ? `Cards activas (${selectedOrder.active_cards_count})` : 'Aún no lista para activar'}
-                  </AdminBadge>
                 </div>
+                <p className="mt-3 text-[11px] font-medium text-zinc-500">Estado de stock y activación: ver Semáforo operativo abajo.</p>
               </div>
 
               <div className="rounded-xl border border-zinc-700 bg-zinc-800 p-4">
@@ -682,6 +760,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                 )}
               </div>
 
+              <div ref={nfcPanelRef} className="scroll-mt-16" />
               <OrderNfcCard
                 order={selectedOrder}
                 linkingCardId={linkingCardId}
@@ -712,7 +791,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
               />
 
               {/* Shipping tracking section */}
-              <div ref={shippingPanelRef} className="scroll-mt-6 rounded-xl border border-zinc-700 bg-zinc-800 p-4 space-y-4">
+              <div ref={shippingPanelRef} className="scroll-mt-16 rounded-xl border border-zinc-700 bg-zinc-800 p-4 space-y-4">
                 <div className="flex items-center gap-2">
                   <Truck size={16} className="text-blue-400" />
                   <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Envío y seguimiento</p>
