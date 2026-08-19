@@ -20,7 +20,7 @@ import { Table, THead, TH, TR, TD } from './ui/AdminTable';
 const formatDate = (value) => {
   if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString('es-CL');
 };
 
@@ -48,6 +48,7 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [busyProfileId, setBusyProfileId] = useState(null);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
+  const [pendingAction, setPendingAction] = useState(null); // { profile, action } | null
 
   useEffect(() => {
     setRows(profiles);
@@ -75,6 +76,17 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
     const values = new Set(rows.map((profile) => profile.status).filter(Boolean));
     return ['all', ...Array.from(values)];
   }, [rows]);
+
+  const requestProfileAction = (profile, action) => {
+    setPendingAction({ profile, action });
+  };
+
+  const confirmPendingAction = async () => {
+    if (!pendingAction) return;
+    const { profile, action } = pendingAction;
+    setPendingAction(null);
+    await runProfileAction(profile, action);
+  };
 
   const runProfileAction = async (profile, action) => {
     setBusyProfileId(profile.id);
@@ -106,7 +118,10 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
     <AdminShell active="profiles" title="Profiles Recovery Desk" subtitle="Historial utilizable, soft delete mínimo y restore visible para perfiles con versiones.">
 
       {feedback.message && (
-        <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/50 text-emerald-400' : 'border-red-800 bg-red-950/50 text-red-400'}`}>
+        <div
+          role={feedback.type === 'success' ? 'status' : 'alert'}
+          className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/50 text-emerald-400' : 'border-red-800 bg-red-950/50 text-red-400'}`}
+        >
           {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           <span>{feedback.message}</span>
         </div>
@@ -127,6 +142,7 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
               <input
                 data-cy="admin-profiles-search"
                 type="text"
+                aria-label="Buscar perfiles"
                 placeholder="Buscar por slug, nombre, status, evento o versión"
                 className="w-full px-5 py-2.5 pl-10 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
                 value={searchTerm}
@@ -137,6 +153,7 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
               <select
                 data-cy="admin-profiles-status-filter"
+                aria-label="Filtrar por estado de perfil"
                 className="w-full appearance-none px-4 py-2.5 pl-10 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors sm:w-56"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -234,8 +251,8 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
                         <button
                           type="button"
                           disabled={!canRestore || isBusy}
-                          onClick={() => runProfileAction(profile, 'restore')}
-                          className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${canRestore && !isBusy ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-emerald-600 hover:text-emerald-400' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
+                          onClick={() => requestProfileAction(profile, 'restore')}
+                          className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${canRestore && !isBusy ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-emerald-600 hover:text-emerald-400' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
                           title={canRestore ? `Restaurar usando v${profile.latest_version}` : 'Restore visible pero no habilitado'}
                         >
                           {isBusy ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
@@ -244,26 +261,69 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
                         <button
                           type="button"
                           disabled={!canArchive || isBusy}
-                          onClick={() => runProfileAction(profile, 'archive')}
-                          className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${canArchive && !isBusy ? 'px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
+                          onClick={() => requestProfileAction(profile, 'archive')}
+                          className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${canArchive && !isBusy ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
                           title={canArchive ? 'Archivar perfil' : 'Perfil ya archivado o no elegible'}
                         >
                           {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
                           Archive
                         </button>
                         <div className="flex items-center gap-2 text-zinc-500 pl-2">
-                          {(profile.version_count || 0) > 0 && <History size={16} title="Tiene historial" />}
-                          {profile.deleted_at && <Archive size={16} title="Archivado" />}
+                          {(profile.version_count || 0) > 0 && <History size={16} aria-label="Tiene historial" role="img" />}
+                          {profile.deleted_at && <Archive size={16} aria-label="Archivado" role="img" />}
                         </div>
                       </div>
                     </TD>
                   </TR>
                 );
               })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm font-semibold text-zinc-400">
+                    No hay perfiles que coincidan con los filtros activos.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </Table>
         </div>
       </div>
+
+      {pendingAction && (
+        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pending-profile-action-title"
+            className="w-full max-w-sm rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl"
+          >
+            <h3 id="pending-profile-action-title" className="text-lg font-bold text-white">
+              {pendingAction.action === 'archive' ? 'Archivar perfil' : 'Restaurar perfil'}
+            </h3>
+            <p className="mt-2 text-sm font-medium text-zinc-400">
+              {pendingAction.action === 'archive'
+                ? <>¿Confirmas archivar (soft delete) el perfil <span className="font-bold text-white">/{pendingAction.profile.slug}</span>?</>
+                : <>¿Confirmas restaurar el perfil <span className="font-bold text-white">/{pendingAction.profile.slug}</span> a la versión <span className="font-bold text-white">v{pendingAction.profile.latest_version}</span>? Esto reemplaza el estado actual del perfil.</>}
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmPendingAction}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors text-white ${pendingAction.action === 'archive' ? 'bg-red-600 hover:bg-red-500' : 'bg-emerald-500 hover:bg-emerald-400'}`}
+              >
+                {pendingAction.action === 'archive' ? 'Archivar' : 'Restaurar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminShell>
   );
 };
