@@ -334,6 +334,8 @@ export const api = {
   archiveProfile: async (profileId) => profilesApi.archiveProfile(profileId),
 
   restoreProfileVersion: async (profileId, version) => profilesApi.restoreProfileVersion(profileId, version),
+
+  adminUpdateProfileFields: async (profileId, payload) => profilesApi.adminUpdateProfileFields(profileId, payload),
   getLandingAdminContent: async () => null,
   updateLandingAdminContent: async () => null,
   uploadAvatar: () => Promise.resolve({}),

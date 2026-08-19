@@ -9,6 +9,7 @@ const items = [
   { id: 'profiles',  label: 'Profiles',   path: '/admin/profiles' },
   { id: 'inventory', label: 'Inventario', path: '/admin/inventory' },
   { id: 'reviews',   label: 'Review Cards', path: '/admin/review-cards' },
+  { id: 'nexreview', label: 'NexReview',  path: '/admin/nexreview' },
   { id: 'emails',    label: 'Emails',     path: '/admin/emails' },
   { id: 'crm',       label: 'CRM',        path: '/admin/crm' },
   { id: 'team',      label: 'Equipo',     path: '/admin/team' },
