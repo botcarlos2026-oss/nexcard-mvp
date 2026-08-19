@@ -15,6 +15,7 @@ import {
 import { api } from '../services/api';
 import AdminShell from './AdminShell';
 import AdminBadge from './ui/AdminBadge';
+import AdminStat from './ui/AdminStat';
 import { Table, THead, TH, TR, TD } from './ui/AdminTable';
 
 const formatDate = (value) => {
@@ -72,6 +73,19 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
     });
   }, [rows, searchTerm, statusFilter]);
 
+  const fleetStats = useMemo(() => {
+    const archived = rows.filter((p) => Boolean(p.deleted_at));
+    const restorable = archived.filter((p) => p.can_restore && p.latest_version).length;
+    const unrecoverable = archived.length - restorable;
+    const active = rows.filter((p) => !p.deleted_at).length;
+    return [
+      { label: 'Activos', value: active, accent: 'emerald' },
+      { label: 'Archivados', value: archived.length, accent: archived.length > 0 ? 'amber' : null },
+      { label: 'Restaurables', value: restorable, accent: restorable > 0 ? 'blue' : null },
+      { label: 'Sin snapshot (no recuperables)', value: unrecoverable, accent: unrecoverable > 0 ? 'red' : null },
+    ];
+  }, [rows]);
+
   const availableStatuses = useMemo(() => {
     const values = new Set(rows.map((profile) => profile.status).filter(Boolean));
     return ['all', ...Array.from(values)];
@@ -126,6 +140,12 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
           <span>{feedback.message}</span>
         </div>
       )}
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {fleetStats.map((stat, i) => (
+          <AdminStat key={i} label={stat.label} value={stat.value} accent={stat.accent} />
+        ))}
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-zinc-500">
         <span className="rounded-full bg-zinc-800 border border-zinc-700 px-3 py-2">Total: {rows.length}</span>
@@ -195,7 +215,14 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
                         </div>
                         <div>
                           <p className="font-bold text-sm text-white">{profile.full_name || 'Sin nombre'}</p>
-                          <p className="text-xs text-zinc-400 font-medium">/{profile.slug}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-zinc-400 font-medium">/{profile.slug}</p>
+                            {!profile.deleted_at && (
+                              <a href={`/${profile.slug}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-emerald-400 hover:underline">
+                                Ver perfil
+                              </a>
+                            )}
+                          </div>
                           <p className="text-[11px] text-zinc-500 font-medium mt-1">ID: {profile.id}</p>
                         </div>
                       </div>
@@ -252,8 +279,8 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
                           type="button"
                           disabled={!canRestore || isBusy}
                           onClick={() => requestProfileAction(profile, 'restore')}
-                          className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${canRestore && !isBusy ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-emerald-600 hover:text-emerald-400' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
-                          title={canRestore ? `Restaurar usando v${profile.latest_version}` : 'Restore visible pero no habilitado'}
+                          className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${canRestore && !isBusy ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
+                          title={canRestore ? `Restaurar usando v${profile.latest_version}` : profile.deleted_at ? 'No hay una versión disponible para restaurar' : 'Solo perfiles archivados pueden restaurarse'}
                         >
                           {isBusy ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
                           Restore
@@ -262,7 +289,7 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
                           type="button"
                           disabled={!canArchive || isBusy}
                           onClick={() => requestProfileAction(profile, 'archive')}
-                          className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${canArchive && !isBusy ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
+                          className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${canArchive && !isBusy ? 'bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-red-600 hover:text-red-400' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
                           title={canArchive ? 'Archivar perfil' : 'Perfil ya archivado o no elegible'}
                         >
                           {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
@@ -309,14 +336,14 @@ const AdminProfilesDashboard = ({ profiles = [] }) => {
               <button
                 type="button"
                 onClick={() => setPendingAction(null)}
-                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
+                className="min-h-[44px] px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={confirmPendingAction}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors text-white ${pendingAction.action === 'archive' ? 'bg-red-600 hover:bg-red-500' : 'bg-emerald-500 hover:bg-emerald-400'}`}
+                className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-bold transition-colors text-white ${pendingAction.action === 'archive' ? 'bg-red-600 hover:bg-red-500' : 'bg-emerald-500 hover:bg-emerald-400'}`}
               >
                 {pendingAction.action === 'archive' ? 'Archivar' : 'Restaurar'}
               </button>
