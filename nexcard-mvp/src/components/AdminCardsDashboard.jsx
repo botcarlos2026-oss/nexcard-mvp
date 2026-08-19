@@ -2,24 +2,27 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CreditCard, Archive, ShieldBan, Link as LinkIcon, Loader2, CheckCircle2, AlertCircle, Search, Clock3, Filter, UserPlus, X, Zap, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
 import AdminShell from './AdminShell';
+import AdminStat from './ui/AdminStat';
+import AdminBadge from './ui/AdminBadge';
+import { Table, THead, TH, TR, TD } from './ui/AdminTable';
 
-const badgeClasses = {
-  printed: 'bg-zinc-800 text-zinc-200 border border-zinc-700',
-  assigned: 'bg-sky-950/60 text-sky-300 border border-sky-800',
-  active: 'bg-emerald-950/60 text-emerald-300 border border-emerald-800',
-  suspended: 'bg-amber-950/60 text-amber-300 border border-amber-800',
-  revoked: 'bg-red-950/60 text-red-300 border border-red-800',
-  archived: 'bg-zinc-900 text-zinc-300 border border-zinc-700',
-};
+const statusBadgeVariant = (status) => ({
+  printed: 'default',
+  assigned: 'info',
+  active: 'success',
+  suspended: 'warning',
+  revoked: 'danger',
+  archived: 'default',
+}[status] || 'default');
 
-const activationBadgeClasses = {
-  pending: 'bg-zinc-800 text-zinc-200 border border-zinc-700',
-  unassigned: 'bg-zinc-800 text-zinc-200 border border-zinc-700',
-  assigned: 'bg-sky-950/60 text-sky-300 border border-sky-800',
-  activated: 'bg-emerald-950/60 text-emerald-300 border border-emerald-800',
-  active: 'bg-emerald-950/60 text-emerald-300 border border-emerald-800',
-  revoked: 'bg-red-950/60 text-red-300 border border-red-800',
-};
+const activationBadgeVariant = (status) => ({
+  pending: 'default',
+  unassigned: 'default',
+  assigned: 'info',
+  activated: 'success',
+  active: 'success',
+  revoked: 'danger',
+}[status] || 'default');
 
 const formatLabel = (value) => (value ? String(value).replace(/_/g, ' ') : '-');
 
@@ -69,6 +72,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   const [assigningCard, setAssigningCard] = useState(null);
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const [expandedCardId, setExpandedCardId] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null); // { card, action } | null
   const previouslyFocusedRef = useRef(null);
   const firstFieldRef = useRef(null);
 
@@ -114,6 +118,19 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
     });
   }, [rows, searchTerm, statusFilter]);
 
+  const fleetStats = useMemo(() => {
+    const unassigned = rows.filter((c) => !c.profile_id && c.status !== 'revoked' && c.status !== 'archived').length;
+    const needsReassignCount = rows.filter(needsReassign).length;
+    const activeCount = rows.filter(isCardActive).length;
+    const inactiveCount = rows.filter((c) => c.status === 'revoked' || c.status === 'archived').length;
+    return [
+      { label: 'Sin asignar', value: unassigned, accent: unassigned > 0 ? 'blue' : null },
+      { label: 'Necesita reasignar', value: needsReassignCount, accent: needsReassignCount > 0 ? 'amber' : null },
+      { label: 'Activas', value: activeCount, accent: 'emerald' },
+      { label: 'Revocadas / Archivadas', value: inactiveCount, accent: null },
+    ];
+  }, [rows]);
+
   const availableStatuses = useMemo(() => {
     const values = new Set();
     rows.forEach((card) => {
@@ -129,10 +146,22 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   const canReassign = (card) => !card.deleted_at && needsReassign(card);
   const canActivate = (card) => !card.deleted_at && card.status !== 'revoked' && card.status !== 'archived' && card.profile_id && !isCardActive(card);
 
-  const runCardAction = async (card, action) => {
-    if (action === 'revoke' && !window.confirm(`¿Confirmas revocar la tarjeta ${card.card_code}? Esta acción bloquea la tarjeta y no se puede deshacer.`)) return;
-    if (action === 'archive' && !window.confirm(`¿Confirmas archivar la tarjeta ${card.card_code}? La tarjeta dejará de estar operativa.`)) return;
+  const requestCardAction = (card, action) => {
+    if (action === 'revoke' || action === 'archive') {
+      setPendingAction({ card, action });
+      return;
+    }
+    runCardAction(card, action);
+  };
 
+  const confirmPendingAction = async () => {
+    if (!pendingAction) return;
+    const { card, action } = pendingAction;
+    setPendingAction(null);
+    await runCardAction(card, action);
+  };
+
+  const runCardAction = async (card, action) => {
     setBusyCardId(card.id);
     setFeedback({ type: '', message: '' });
     try {
@@ -226,6 +255,12 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
           </div>
         )}
 
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {fleetStats.map((stat, i) => (
+            <AdminStat key={i} label={stat.label} value={stat.value} accent={stat.accent} />
+          ))}
+        </div>
+
         <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-zinc-400">
           <span className="rounded-full bg-zinc-900 px-3 py-2 shadow-sm border border-zinc-700 text-zinc-200">Total: {rows.length}</span>
           <span className="rounded-full bg-zinc-900 px-3 py-2 shadow-sm border border-zinc-700 text-zinc-200">Filtradas: {filteredRows.length}</span>
@@ -233,22 +268,18 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
           {searchTerm.trim() && <span className="rounded-full bg-emerald-600 px-3 py-2 shadow-sm text-white">Búsqueda activa</span>}
         </div>
 
-        <div className="bg-zinc-900 rounded-[32px] border border-zinc-800 shadow-sm overflow-hidden" data-cy="admin-cards-table">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1280px] text-left">
-              <thead>
-                <tr className="bg-zinc-950 text-zinc-500 text-[10px] uppercase tracking-widest font-black">
-                  <th className="px-8 py-4">Tarjeta</th>
-                  <th className="px-8 py-4">Estado</th>
-                  <th className="px-8 py-4">Activación</th>
-                  <th className="px-8 py-4">Perfil</th>
-                  <th className="px-8 py-4">Eliminada</th>
-                  <th className="px-8 py-4">Alertas</th>
-                  <th className="px-8 py-4">Historial</th>
-                  <th className="px-8 py-4">Último evento</th>
-                  <th className="px-8 py-4 text-right">Acciones</th>
-                </tr>
-              </thead>
+        <div data-cy="admin-cards-table">
+          <Table>
+            <THead>
+              <TH>Tarjeta</TH>
+              <TH>Estado</TH>
+              <TH>Perfil</TH>
+              <TH>Eliminada</TH>
+              <TH>Alertas</TH>
+              <TH>Historial</TH>
+              <TH>Último evento</TH>
+              <TH className="text-right">Acciones</TH>
+            </THead>
               <tbody className="divide-y divide-zinc-800">
                 {filteredRows.map((card) => {
                   const isBusy = busyCardId === card.id;
@@ -259,8 +290,8 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                   const flags = buildLifecycleFlags(card);
 
                   return (
-                    <tr key={card.id} className="hover:bg-zinc-800/40 transition-colors align-top">
-                      <td className="px-8 py-5">
+                    <TR key={card.id} className="align-top">
+                      <TD>
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-zinc-800 rounded-xl text-zinc-300"><CreditCard size={18} /></div>
                           <div>
@@ -271,29 +302,36 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                             </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-8 py-5"><span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${badgeClasses[card.status] || 'bg-zinc-100 text-zinc-700'}`}>{formatLabel(card.status)}</span></td>
-                      <td className="px-8 py-5"><span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${activationBadgeClasses[card.activation_status] || 'bg-zinc-100 text-zinc-700'}`}>{formatLabel(card.activation_status)}</span></td>
-                      <td className="px-8 py-5 text-sm font-medium text-zinc-300">
+                      </TD>
+                      <TD>
+                        <div className="flex flex-col items-start gap-1.5">
+                          <AdminBadge variant={statusBadgeVariant(card.status)}>{formatLabel(card.status)}</AdminBadge>
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-500">
+                            <span>Activación:</span>
+                            <AdminBadge variant={activationBadgeVariant(card.activation_status)}>{formatLabel(card.activation_status)}</AdminBadge>
+                          </div>
+                        </div>
+                      </TD>
+                      <TD className="text-sm font-medium text-zinc-300">
                         <div>
                           <p className="font-black text-zinc-100">{card.profile_name || 'Sin perfil asignado'}</p>
                           <p className="text-xs text-zinc-500">{card.profile_slug || card.profile_id || '—'}</p>
                           <div className="mt-2 flex flex-wrap gap-2">
                             {card.profile_id && !isCardActive(card) && card.status !== 'revoked' && card.status !== 'archived' ? (
-                              <span className="inline-flex rounded-full bg-amber-950/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-300 border border-amber-800">Usar reassign</span>
+                              <AdminBadge variant="warning">Usar reassign</AdminBadge>
                             ) : null}
                             {!card.profile_id && card.status !== 'revoked' && card.status !== 'archived' ? (
-                              <span className="inline-flex rounded-full bg-sky-950/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-sky-300 border border-sky-800">Lista para assign</span>
+                              <AdminBadge variant="info">Lista para assign</AdminBadge>
                             ) : null}
                           </div>
                           {card.profile_slug && <a href={`/${card.profile_slug}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-sky-400">Ver perfil</a>}
                         </div>
-                      </td>
-                      <td className="px-8 py-5 text-sm font-medium text-zinc-300">{card.deleted_at ? 'Sí' : 'No'}</td>
-                      <td className="px-8 py-5">
-                        <div className="flex flex-wrap gap-2">{flags.map((flag) => <span key={flag} className="inline-flex rounded-full bg-zinc-800 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-zinc-300 border border-zinc-700">{flag}</span>)}</div>
-                      </td>
-                      <td className="px-8 py-5">
+                      </TD>
+                      <TD className="text-sm font-medium text-zinc-300">{card.deleted_at ? 'Sí' : 'No'}</TD>
+                      <TD>
+                        <div className="flex flex-wrap gap-2">{flags.map((flag) => <AdminBadge key={flag} variant="default">{flag}</AdminBadge>)}</div>
+                      </TD>
+                      <TD>
                         <div className="space-y-2 text-xs font-medium text-zinc-400 min-w-[220px]">
                           <div className="flex items-start gap-2">
                             <Clock3 size={14} className="mt-0.5 text-zinc-400" />
@@ -304,8 +342,8 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                             </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-8 py-5">
+                      </TD>
+                      <TD>
                         <div className="min-w-[200px] text-sm">
                           <p className="font-black text-zinc-100">{lastEventLabel(card.last_event?.event_type)}</p>
                           <p className="text-xs font-medium text-zinc-400">{formatTimestamp(card.last_event?.created_at)}</p>
@@ -315,7 +353,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                               onClick={() => setExpandedCardId(expandedCardId === card.id ? null : card.id)}
                               aria-expanded={expandedCardId === card.id}
                               aria-controls={`card-history-${card.id}`}
-                              className="mt-2 text-[11px] font-black uppercase tracking-wide text-sky-400"
+                              className="mt-2 min-h-[44px] text-[11px] font-black uppercase tracking-wide text-sky-400"
                             >
                               {expandedCardId === card.id ? 'Ocultar historial' : 'Ver historial'}
                             </button>
@@ -331,8 +369,8 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                             </div>
                           )}
                         </div>
-                      </td>
-                      <td className="px-8 py-5">
+                      </TD>
+                      <TD>
                         <div className="flex justify-end items-center gap-2 flex-wrap">
                           <button type="button" onClick={() => openAssignModal(card)} disabled={assignDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-sky-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-sky-300 transition hover:bg-sky-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : canReassign(card) ? <RefreshCw size={14} /> : <UserPlus size={14} />}
@@ -342,28 +380,63 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
                             Activar
                           </button>
-                          <button type="button" onClick={() => runCardAction(card, 'revoke')} disabled={revokeDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-red-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-red-300 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
+                          <button type="button" onClick={() => requestCardAction(card, 'revoke')} disabled={revokeDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-red-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-red-300 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldBan size={14} />}
                             Revocar
                           </button>
-                          <button type="button" onClick={() => runCardAction(card, 'archive')} disabled={archiveDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-zinc-700 px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-200 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
+                          <button type="button" onClick={() => requestCardAction(card, 'archive')} disabled={archiveDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-zinc-700 px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-200 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
                             Archivar
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </TD>
+                    </TR>
                   );
                 })}
 
                 {filteredRows.length === 0 && (
-                  <tr><td colSpan={9} className="px-8 py-12 text-center text-sm font-semibold text-zinc-400">No hay tarjetas que coincidan con los filtros activos.</td></tr>
+                  <tr><td colSpan={8} className="px-8 py-12 text-center text-sm font-semibold text-zinc-400">No hay tarjetas que coincidan con los filtros activos.</td></tr>
                 )}
               </tbody>
-            </table>
-          </div>
+          </Table>
         </div>
       </div>
+
+      {pendingAction && (
+        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pending-card-action-title"
+            className="w-full max-w-sm rounded-[32px] bg-zinc-900 p-6 shadow-2xl border border-zinc-800"
+          >
+            <h3 id="pending-card-action-title" className="text-lg font-bold text-white">
+              {pendingAction.action === 'revoke' ? 'Revocar tarjeta' : 'Archivar tarjeta'}
+            </h3>
+            <p className="mt-2 text-sm font-medium text-zinc-400">
+              {pendingAction.action === 'revoke'
+                ? <>¿Confirmas revocar <span className="font-black text-white">{pendingAction.card.card_code}</span>? Esta acción bloquea la tarjeta y no se puede deshacer.</>
+                : <>¿Confirmas archivar <span className="font-black text-white">{pendingAction.card.card_code}</span>? La tarjeta dejará de estar operativa.</>}
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                className="px-4 py-3 rounded-2xl border border-zinc-700 text-zinc-200 font-bold text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmPendingAction}
+                className="px-5 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm"
+              >
+                {pendingAction.action === 'revoke' ? 'Revocar' : 'Archivar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {assigningCard && (
         <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -406,6 +479,18 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                   {profileRows.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name || profile.slug} ({profile.slug})</option>)}
                 </select>
               </label>
+
+              {selectedProfileId && (
+                <p className="rounded-xl bg-emerald-950/20 border border-emerald-900/40 px-4 py-3 text-sm font-medium text-emerald-300">
+                  Vincularás <span className="font-black text-white">{assigningCard.card_code}</span> a{' '}
+                  <span className="font-black text-white">
+                    {(() => {
+                      const profile = profileRows.find((p) => p.id === selectedProfileId);
+                      return profile ? (profile.full_name || profile.slug) : selectedProfileId;
+                    })()}
+                  </span>.
+                </p>
+              )}
 
               <div className="pt-4 flex items-center justify-end gap-3">
                 <button type="button" onClick={closeAssignModal} className="px-4 py-3 rounded-2xl border border-zinc-700 text-zinc-200 font-bold text-sm">Cancelar</button>
