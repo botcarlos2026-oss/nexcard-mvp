@@ -113,10 +113,13 @@ function HowItWorksCard({ step, badge, title, desc, icon: Icon, chips = [] }) {
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-950/50 text-emerald-300 shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
           <Icon size={24} />
         </div>
-        <div className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-950/50 px-4 py-3">
-          <div className="grid gap-2">
-            {chips.map((chip, i) => (
-              <div key={chip} className={`h-2 rounded-full ${i === 0 ? 'bg-zinc-700 w-5/6' : i === 1 ? 'bg-zinc-700/80 w-2/3' : 'bg-emerald-400/50 w-1/2'}`} />
+        <div className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+          <div className="grid gap-1.5">
+            {chips.map((chip) => (
+              <div key={chip} className="flex items-center gap-2 text-xs font-bold text-zinc-400">
+                <span className="w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                {chip}
+              </div>
             ))}
           </div>
         </div>
@@ -163,7 +166,7 @@ function HeroVisual() {
 
 function PricingCard({ plan, formatPrice, onCheckoutStart }) {
   return (
-    <article className={`pricing-card relative rounded-[22px] p-[22px] flex flex-col min-h-[350px] ${plan.highlight ? 'bg-emerald-950/70 border border-emerald-500 shadow-2xl shadow-emerald-950/30' : 'bg-zinc-900 border border-zinc-800'}`}>
+    <article className={`pricing-card relative rounded-[22px] p-[22px] flex flex-col min-h-[350px] bg-zinc-900 ${plan.highlight ? 'border-2 border-emerald-500 shadow-2xl shadow-emerald-950/30' : 'border border-zinc-800'}`}>
       {plan.badge && <span className="absolute -top-3 left-5 bg-emerald-500 text-white rounded-full px-3 py-1 text-xs font-black">{plan.badge}</span>}
       <h3 className="text-lg font-black mb-2">{plan.name}</h3>
       <p className="text-zinc-400 text-sm leading-relaxed min-h-[42px] mb-[18px]">{plan.description}</p>
@@ -190,9 +193,18 @@ function PricingCard({ plan, formatPrice, onCheckoutStart }) {
 
 export default function LandingPage({ content = {}, onCheckoutStart }) {
   const [slug, setSlug] = useState('');
+  const [slugError, setSlugError] = useState('');
   const openProfileSlug = () => {
     const path = buildSafeProfilePath(slug);
-    if (path) window.location.assign(path);
+    if (path) {
+      window.location.assign(path);
+      return;
+    }
+    setSlugError(
+      slug.trim()
+        ? 'Ese slug no parece válido. Usa solo letras minúsculas, números y guiones.'
+        : 'Escribe tu slug público para buscarlo.'
+    );
   };
   const [pricing, setPricing] = useState(() =>
     PRICING_FALLBACK.map((p) => buildPricingPlan({ ...p, price_cents: p.price }, { fallbackCards: PRICING_COPY_BY_SKU[p.sku]?.cards || 1 }))
@@ -232,10 +244,24 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     api.getActiveWheel().then(({ wheel }) => {
       if (wheel?.show_on_first_visit && (wheel?.wheel_prizes || []).filter(p => p.active).length >= 2) {
         setWheelData(wheel);
-        setTimeout(() => setShowWheel(true), 2000);
       }
     }).catch(() => {});
   }, []);
+
+  // Espera a que el visitante haya pasado el hero (scroll-depth) antes de
+  // interrumpir con la ruleta, en vez de un timer fijo apenas carga la página.
+  useEffect(() => {
+    if (!wheelData || showWheel) return;
+    const triggerY = window.innerHeight * 0.9;
+    let triggered = false;
+    const onScroll = () => {
+      if (triggered || window.scrollY < triggerY) return;
+      triggered = true;
+      setShowWheel(true);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [wheelData, showWheel]);
 
   useEffect(() => {
     const cards = document.querySelectorAll('.pricing-reveal');
@@ -259,7 +285,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     <div className="min-h-screen bg-zinc-950 text-white antialiased">
       <nav className="sticky top-0 z-30 bg-zinc-950/90 border-b border-zinc-800 backdrop-blur-xl">
         <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto min-h-[68px] flex items-center justify-between gap-4">
-          <a href="#top" className="text-[1.35rem] font-black tracking-[-0.04em] leading-none" style={BRAND_LOGO_STYLE}>Nex<span className="text-emerald-300">Card</span></a>
+          <a href="#top" className="text-[1.35rem] font-black tracking-[-0.04em] leading-none min-h-[44px] inline-flex items-center" style={BRAND_LOGO_STYLE}>Nex<span className="text-emerald-300">Card</span></a>
           <div className="flex items-center gap-5 text-sm text-zinc-400">
             <a href="#como" className="hidden md:inline hover:text-white transition-colors">Cómo funciona</a>
             <a href="#precios" className="hidden md:inline hover:text-white transition-colors">Precios</a>
@@ -303,7 +329,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             </SectionHead>
             <div className="grid md:grid-cols-2 gap-4">
               {FRICTION.map((group) => (
-                <article key={group.label} className={`rounded-[22px] border p-6 ${group.tone === 'green' ? 'border-emerald-500/40 bg-emerald-950/50' : 'border-zinc-800 bg-zinc-900'}`}>
+                <article key={group.label} className={`rounded-[22px] border p-6 bg-zinc-900 ${group.tone === 'green' ? 'border-emerald-500/40' : 'border-zinc-800'}`}>
                   <div className="flex items-center justify-between text-zinc-500 uppercase tracking-[0.14em] text-xs font-black mb-5">
                     <span>{group.label}</span>
                     <span>{group.status}</span>
@@ -362,17 +388,24 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 <p className="font-black text-lg">Busca tu perfil digital</p>
                 <p className="text-zinc-400 text-sm">Escribe tu slug público para abrirlo en este navegador.</p>
               </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && openProfileSlug()}
-                  placeholder="tu-slug"
-                  aria-label="Buscar perfil por slug"
-                  className="bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-44 min-h-[46px]"
-                />
-                <button onClick={openProfileSlug} className="btn-press px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-black min-h-[46px]">Ver perfil</button>
+              <div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={slug}
+                    onChange={(e) => { setSlug(e.target.value); setSlugError(''); }}
+                    onKeyDown={(e) => e.key === 'Enter' && openProfileSlug()}
+                    placeholder="tu-slug"
+                    aria-label="Buscar perfil por slug"
+                    aria-invalid={slugError ? true : undefined}
+                    aria-describedby={slugError ? 'slug-search-error' : undefined}
+                    className={`bg-zinc-950 border rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 w-44 min-h-[46px] ${slugError ? 'border-rose-500' : 'border-zinc-700'}`}
+                  />
+                  <button onClick={openProfileSlug} className="btn-press px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-black min-h-[46px]">Ver perfil</button>
+                </div>
+                {slugError && (
+                  <p id="slug-search-error" role="alert" className="text-rose-400 text-xs mt-1.5 font-semibold">{slugError}</p>
+                )}
               </div>
             </div>
           </div>
@@ -386,13 +419,13 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 <PricingCard key={plan.sku} plan={plan} formatPrice={formatPrice} onCheckoutStart={onCheckoutStart} />
               ))}
             </div>
-            <div className="mt-4 rounded-[22px] border border-emerald-500/40 bg-emerald-950/50 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+            <div className="mt-8 pt-6 border-t border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <strong className="text-lg">¿Necesitas más tarjetas para tu empresa?</strong>
-                <p className="text-zinc-400 mt-1">Diseñemos un plan a tu medida para ventas, atención o terreno.</p>
+                <p className="text-zinc-500 text-sm font-black uppercase tracking-[0.14em] mb-1">¿Necesitas más?</p>
+                <p className="text-zinc-400">¿Necesitas más tarjetas para tu empresa? Diseñemos un plan a tu medida para ventas, atención o terreno.</p>
               </div>
               <a
-                className="btn-press inline-flex items-center justify-center min-h-[46px] px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black"
+                className="btn-press inline-flex items-center justify-center min-h-[46px] px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black shrink-0"
                 href={CORPORATE_QUOTE_WHATSAPP_URL}
                 target="_blank"
                 rel="noreferrer"
@@ -441,7 +474,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                   <p className="text-sm text-zinc-400 leading-relaxed px-[18px] pb-[18px] -mt-1">{item.a}</p>
                 </details>
               ))}
-              <a href="https://wa.me/56993183021?text=Hola,%20tengo%20una%20pregunta%20sobre%20NexCard" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-emerald-300 hover:text-emerald-200 transition-colors text-sm font-black mt-5">
+              <a href="https://wa.me/56993183021?text=Hola,%20tengo%20una%20pregunta%20sobre%20NexCard" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-emerald-300 hover:text-emerald-200 transition-colors text-sm font-black mt-5 min-h-[44px]">
                 <MessageCircle size={16} />
                 ¿Tienes otra pregunta? Escríbenos por WhatsApp
               </a>
@@ -451,7 +484,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
         <section className="py-16 md:py-[78px]">
           <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
-            <div className="rounded-[28px] border border-emerald-500/35 bg-emerald-950/50 p-8 md:p-12 text-center">
+            <div className="rounded-[28px] border border-zinc-800 bg-zinc-900 p-8 md:p-12 text-center">
               <h2 className="text-[clamp(2.15rem,4.2vw,4rem)] font-bold tracking-[-0.06em] leading-none mb-5">Crear mi NexCard.</h2>
               <p className="max-w-2xl mx-auto text-zinc-400 leading-relaxed mb-7">Una tarjeta física premium, un perfil digital editable y una forma más rápida de compartir tus datos.</p>
                 <button onClick={onCheckoutStart} className="btn-base btn-press inline-flex items-center justify-center gap-2 min-h-[50px] px-6 rounded-xl btn-primary">
