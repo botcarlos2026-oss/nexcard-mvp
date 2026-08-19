@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Search,
   AlertTriangle,
@@ -18,8 +18,10 @@ const SalesChart = ({ orders }) => {
   const maxRevenue = Math.max(...days.map(d => d.revenue), 1);
   const formatCLP = (n) => n >= 1000 ? `$${Math.round(n/1000)}K` : `$${n}`;
 
+  const summary = days.map((d) => `${d.label}: ${formatCLP(d.revenue || 0)}`).join(', ');
+
   return (
-    <div className="flex items-end gap-3 h-32">
+    <div className="flex items-end gap-3 h-32" role="img" aria-label={`Ventas por día: ${summary}`}>
       {days.map((day, i) => (
         <div key={i} className="flex-1 flex flex-col items-center gap-1">
           <span className="text-xs font-bold text-zinc-500">{day.revenue > 0 ? formatCLP(day.revenue) : ''}</span>
@@ -47,6 +49,10 @@ const FunnelTrendChart = ({ data }) => {
     { key: 'activated', color: 'bg-fuchsia-500', label: 'Activated' },
   ];
 
+  const stageSummary = stages
+    .map((stage) => `${stage.label}: ${data.reduce((sum, day) => sum + (day[stage.key] || 0), 0)}`)
+    .join(', ');
+
   return (
     <div>
       <div className="grid grid-cols-5 gap-2 mb-4 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
@@ -57,7 +63,7 @@ const FunnelTrendChart = ({ data }) => {
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-3 items-end h-40">
+      <div className="grid grid-cols-7 gap-3 items-end h-40" role="img" aria-label={`Funnel de la semana, total por etapa: ${stageSummary}`}>
         {data.map((day) => (
           <div key={day.label} className="flex flex-col items-center gap-2 h-full">
             <div className="flex items-end gap-1 h-full w-full justify-center">
@@ -79,12 +85,18 @@ const FunnelTrendChart = ({ data }) => {
   );
 };
 
-const AdminDashboard = ({ dashboard }) => {
+const AdminDashboard = ({ dashboard, navigate }) => {
+  const go = (path) => (e) => {
+    if (!navigate) return; // no-op: plain <a href> handles it
+    e.preventDefault();
+    navigate(path);
+  };
   const [dashboardState, setDashboardState] = useState(dashboard);
   const [searchTerm, setSearchTerm] = useState('');
   const [globalSearch, setGlobalSearch] = useState('');
   const [globalResults, setGlobalResults] = useState(null);
   const [searching, setSearching] = useState(false);
+  const searchDebounceRef = useRef(null);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [lowStockDismissed, setLowStockDismissed] = useState(false);
   const [digestCopied, setDigestCopied] = useState(false);
@@ -438,7 +450,7 @@ const AdminDashboard = ({ dashboard }) => {
         : 'border-emerald-800 bg-emerald-950/20 text-emerald-200';
 
   return (
-    <AdminShell active="dashboard" title="NexCard Control Center" subtitle="Conversión, perfiles, pedidos y salud operativa desde un solo panel">
+    <AdminShell active="dashboard" navigate={navigate} title="NexCard Control Center" subtitle="Conversión, perfiles, pedidos y salud operativa desde un solo panel">
       {proactiveSummary && (
         <div className="mb-6">
           <div className={`rounded-xl border px-5 py-4 ${proactiveTone}`}>
@@ -489,7 +501,7 @@ const AdminDashboard = ({ dashboard }) => {
                   </div>
                 )}
               </div>
-              <a href="/admin/orders" className="text-xs font-bold underline underline-offset-2 shrink-0">Ir a órdenes</a>
+              <a href="/admin/orders" onClick={go('/admin/orders')} className="text-xs font-bold underline underline-offset-2 shrink-0">Ir a órdenes</a>
             </div>
           </div>
         </div>
@@ -524,8 +536,8 @@ const AdminDashboard = ({ dashboard }) => {
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <a href="/admin/inventory" className="text-xs font-bold text-amber-400 underline underline-offset-2 hover:text-amber-200">Ver inventario</a>
-              <button type="button" onClick={() => setLowStockDismissed(true)} className="text-amber-500 hover:text-amber-300 transition-colors">
+              <a href="/admin/inventory" onClick={go('/admin/inventory')} className="text-xs font-bold text-amber-400 underline underline-offset-2 hover:text-amber-200">Ver inventario</a>
+              <button type="button" onClick={() => setLowStockDismissed(true)} aria-label="Descartar aviso de stock bajo" className="text-amber-500 hover:text-amber-300 transition-colors">
                 <X size={16} />
               </button>
             </div>
@@ -541,15 +553,19 @@ const AdminDashboard = ({ dashboard }) => {
             type="text"
             value={globalSearch}
             onChange={(e) => {
-              setGlobalSearch(e.target.value);
-              handleGlobalSearch(e.target.value);
+              const value = e.target.value;
+              setGlobalSearch(value);
+              clearTimeout(searchDebounceRef.current);
+              searchDebounceRef.current = setTimeout(() => handleGlobalSearch(value), 300);
             }}
             placeholder="Buscar órdenes, clientes, perfiles..."
             className="flex-1 outline-none text-sm font-medium text-zinc-300 placeholder-zinc-500 bg-transparent"
           />
           {searching && <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin shrink-0" />}
           {globalSearch && !searching && (
-            <button onClick={() => { setGlobalSearch(''); setGlobalResults(null); }} className="text-zinc-500 hover:text-zinc-300">✕</button>
+            <button onClick={() => { setGlobalSearch(''); setGlobalResults(null); }} aria-label="Limpiar búsqueda" className="text-zinc-500 hover:text-zinc-300">
+              <X size={16} />
+            </button>
           )}
         </div>
 
@@ -563,7 +579,7 @@ const AdminDashboard = ({ dashboard }) => {
                   <div>
                     <p className="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 bg-zinc-800/50">Órdenes</p>
                     {globalResults.orders.map(o => (
-                      <a key={o.id} href="/admin/orders" className="flex items-center justify-between px-5 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800 last:border-0">
+                      <a key={o.id} href="/admin/orders" onClick={go('/admin/orders')} className="flex items-center justify-between px-5 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800 last:border-0">
                         <div>
                           <p className="font-bold text-sm text-white">{o.customer_name || 'Sin nombre'}</p>
                           <p className="text-xs text-zinc-400">{o.customer_email}</p>

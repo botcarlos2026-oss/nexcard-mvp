@@ -1,10 +1,10 @@
 import React from 'react';
 import AdminNav from './AdminNav';
 
-export default function AdminShell({ active, children, title, subtitle, actions }) {
+export default function AdminShell({ active, children, title, subtitle, actions, navigate }) {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <AdminNav active={active} />
+      <AdminNav active={active} navigate={navigate} />
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-6 md:py-8">
         {(title || actions) && (
           <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6 md:mb-8">

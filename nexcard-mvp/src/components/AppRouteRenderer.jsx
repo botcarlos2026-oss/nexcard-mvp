@@ -93,7 +93,7 @@ export default function AppRouteRenderer({
 
   if (path === '/login') return withSuspense(<AuthPage onAuthSuccess={handleAuthSuccess} pendingClaimToken={pendingClaimToken} pendingClaimEmail={pendingClaimEmail} authHashNotice={authHashNotice} />);
 
-  if (path === '/admin') return withSuspense(<AdminDashboard dashboard={adminData} />);
+  if (path === '/admin') return withSuspense(<AdminDashboard dashboard={adminData} navigate={navigate} />);
   if (path === '/admin/inventory') return withSuspense(<InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />);
   if (path === '/admin/cards') return withSuspense(<AdminCardsDashboard cards={cardsData.cards} profiles={cardsData.profiles} />);
   if (path === '/admin/profiles') return withSuspense(<AdminProfilesDashboard profiles={profilesAdminData} />);
