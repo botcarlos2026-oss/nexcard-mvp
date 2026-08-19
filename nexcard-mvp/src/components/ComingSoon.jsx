@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CheckCircle2, Gift, Rocket, Gem } from 'lucide-react';
 
 export default function ComingSoon() {
   const [email, setEmail] = useState('');
@@ -74,15 +75,19 @@ export default function ComingSoon() {
           <form onSubmit={handleSubmit} className="cs-element max-w-xl mx-auto">
             <div className="flex flex-col sm:flex-row gap-3 items-start">
               <div className="flex-1 w-full flex flex-col gap-1">
+                <label htmlFor="waitlist-email" className="sr-only">Email</label>
                 <input
+                  id="waitlist-email"
                   type="email"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
                   onBlur={(e) => setEmailError(validateEmail(e.target.value))}
                   placeholder="tu@email.com"
+                  aria-invalid={emailError ? true : undefined}
+                  aria-describedby={emailError ? 'waitlist-email-error' : undefined}
                   className={`w-full min-h-[56px] bg-zinc-900 border rounded-2xl px-5 py-4 text-white placeholder-zinc-500 focus:outline-none text-base transition-colors ${emailError ? 'border-red-500 focus:border-red-500' : 'border-zinc-700 focus:border-emerald-500'}`}
                 />
-                {emailError && <p className="text-red-400 text-xs px-1 text-left">{emailError}</p>}
+                {emailError && <p id="waitlist-email-error" role="alert" className="text-red-400 text-xs px-1 text-left">{emailError}</p>}
               </div>
               <button
                 type="submit"
@@ -92,14 +97,14 @@ export default function ComingSoon() {
                 {loading ? <><span className="spinner" />Guardando...</> : 'Notifícame'}
               </button>
             </div>
-            <p className="text-zinc-600 text-xs mt-3 text-center max-w-xl mx-auto">
+            <p className="text-zinc-500 text-xs mt-3 text-center max-w-xl mx-auto">
               Al registrarte aceptas recibir novedades de NexCard. Puedes cancelar cuando quieras.{' '}
-              <a href="/privacidad" className="text-zinc-500 hover:text-zinc-400 underline">Política de privacidad</a>
+              <a href="/privacidad" className="text-zinc-400 hover:text-zinc-300 underline">Política de privacidad</a>
             </p>
           </form>
         ) : (
           <div className="flex items-center justify-center gap-2 bg-emerald-950 border border-emerald-800 text-emerald-300 px-6 py-4 rounded-xl max-w-md mx-auto">
-            <span className="text-xl">✅</span>
+            <CheckCircle2 size={22} className="shrink-0" />
             <div className="text-left">
               <p className="font-bold text-sm">¡Listo! Te avisamos pronto.</p>
               <p className="text-xs text-emerald-400/70">{email}</p>
@@ -110,24 +115,24 @@ export default function ComingSoon() {
         {/* Beneficios de unirse */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-14">
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
-            <div className="text-3xl mb-3">🎁</div>
+            <Gift size={28} className="mx-auto mb-3 text-emerald-400" />
             <p className="text-white font-semibold mb-1 text-sm">50% off</p>
             <p className="text-zinc-500 text-xs">En tu primer pack si te suscribes hoy</p>
           </div>
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
-            <div className="text-3xl mb-3">🚀</div>
+            <Rocket size={28} className="mx-auto mb-3 text-emerald-400" />
             <p className="text-white font-semibold mb-1 text-sm">Acceso anticipado</p>
             <p className="text-zinc-500 text-xs">7 días antes del lanzamiento</p>
           </div>
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
-            <div className="text-3xl mb-3">💎</div>
+            <Gem size={28} className="mx-auto mb-3 text-emerald-400" />
             <p className="text-white font-semibold mb-1 text-sm">Personalización gratis</p>
             <p className="text-zinc-500 text-xs">Diseño personalizado sin costo</p>
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-zinc-600 text-xs mt-12">
+        <p className="text-zinc-500 text-xs mt-12">
           © 2026 NexCard · nexcard.cl
         </p>
 
