@@ -91,6 +91,7 @@ export default function OrdersFiltersBar({
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
           <input
             type="search"
+            aria-label="Buscar órdenes"
             placeholder="Buscar por ID, cliente, email o teléfono"
             value={searchTerm}
             onChange={(event) => onSearchTermChange(event.target.value)}
@@ -100,6 +101,7 @@ export default function OrdersFiltersBar({
         <label className="relative block">
           <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
           <select
+            aria-label="Filtrar por estado de pago"
             value={paymentFilter}
             onChange={(event) => onPaymentFilterChange(event.target.value)}
             className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-52"
@@ -112,6 +114,7 @@ export default function OrdersFiltersBar({
         <label className="relative block">
           <Clock3 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
           <select
+            aria-label="Filtrar por estado de fulfillment"
             value={fulfillmentFilter}
             onChange={(event) => onFulfillmentFilterChange(event.target.value)}
             className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
@@ -124,6 +127,7 @@ export default function OrdersFiltersBar({
         <label className="relative block">
           <QrCode className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
           <select
+            aria-label="Filtrar por auditoría QA"
             value={auditFilter}
             onChange={(event) => onAuditFilterChange(event.target.value)}
             className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
@@ -137,6 +141,7 @@ export default function OrdersFiltersBar({
             <label className="relative block">
               <AlertCircle className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
               <select
+                aria-label="Filtrar por motivo QA"
                 value={testReasonFilter}
                 onChange={(event) => onTestReasonFilterChange(event.target.value)}
                 className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"
@@ -156,6 +161,7 @@ export default function OrdersFiltersBar({
                 <label className="relative block">
                   <Clock3 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
                   <select
+                    aria-label="Filtrar por antigüedad del override"
                     value={overrideAgeFilter}
                     onChange={(event) => onOverrideAgeFilterChange(event.target.value)}
                     className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
@@ -168,6 +174,7 @@ export default function OrdersFiltersBar({
                 <label className="relative block">
                   <CheckCircle2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
                   <select
+                    aria-label="Filtrar por estado de revisión"
                     value={reviewStatusFilter}
                     onChange={(event) => onReviewStatusFilterChange(event.target.value)}
                     className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-56"
@@ -180,6 +187,7 @@ export default function OrdersFiltersBar({
                 <label className="relative block">
                   <ShieldAlert className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
                   <select
+                    aria-label="Filtrar por riesgo"
                     value={riskFilter}
                     onChange={(event) => onRiskFilterChange(event.target.value)}
                     className="w-full appearance-none px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors pl-9 sm:w-64"

@@ -438,7 +438,10 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
       />
 
       {feedback.message && (
-        <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-400' : 'border-red-800 bg-red-950/40 text-red-400'}`}>
+        <div
+          role={feedback.type === 'success' ? 'status' : 'alert'}
+          className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-400' : 'border-red-800 bg-red-950/40 text-red-400'}`}
+        >
           {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           <span>{feedback.message}</span>
         </div>
@@ -549,8 +552,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Pago</p>
+                  <label htmlFor="order-payment-status" className="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Pago</label>
                   <select
+                    id="order-payment-status"
                     value={selectedOrder.payment_status || ''}
                     onChange={(event) => transitionOrderState(selectedOrder.id, { payment_status: event.target.value, reason: 'Cambio manual de pago desde admin' }, `Estado de pago actualizado para ${selectedOrder.id}.`)}
                     disabled={busyOrderId === selectedOrder.id}
@@ -565,8 +569,9 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   <p className="text-xs text-zinc-500 mt-1">Pagado: {formatDate(selectedOrder.paidAt)}</p>
                 </div>
                 <div className="rounded-xl bg-zinc-800 border border-zinc-700 p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Operación</p>
+                  <label htmlFor="order-fulfillment-status" className="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Operación</label>
                   <select
+                    id="order-fulfillment-status"
                     value={selectedOrder.fulfillment_status || ''}
                     onChange={(event) => transitionOrderState(selectedOrder.id, { fulfillment_status: event.target.value, reason: 'Cambio manual operativo desde admin' }, `Estado operativo actualizado para ${selectedOrder.id}.`)}
                     disabled={busyOrderId === selectedOrder.id}
@@ -656,7 +661,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                         href={selectedOrder.bsale_document_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-blue-400 hover:underline font-bold"
+                        className="text-xs text-emerald-400 hover:underline font-bold"
                       >
                         Ver PDF →
                       </a>
@@ -728,7 +733,7 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                         href={`/seguimiento/${selectedOrder.id}/${selectedOrder.delivery_token}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold bg-blue-600 hover:bg-blue-500"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-xs font-bold bg-emerald-600 hover:bg-emerald-500"
                       >
                         <ExternalLink size={12} />
                         Ver seguimiento
@@ -810,22 +815,21 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
                   );
                 })()}
 
-                <div className="relative group/dispatch">
+                <div>
                   <button
                     type="button"
                     onClick={handleSaveShipping}
                     disabled={shippingBusy}
+                    aria-describedby={(!checklistDone.every(Boolean) || !draftShipping.tracking_code.trim()) ? 'dispatch-blocker-reason' : undefined}
                     className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-colors ${!getDispatchBlocker() ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-zinc-700 hover:bg-zinc-600'} disabled:opacity-50`}
                   >
                     {shippingBusy ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
                     Registrar envío y notificar cliente
                   </button>
                   {(!checklistDone.every(Boolean) || !draftShipping.tracking_code.trim()) && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/dispatch:block z-10">
-                      <div className="bg-zinc-800 border border-zinc-700 text-zinc-300 text-[11px] font-medium px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
-                        Completa el checklist y número de seguimiento
-                      </div>
-                    </div>
+                    <p id="dispatch-blocker-reason" className="mt-2 text-center text-[11px] font-semibold text-amber-300">
+                      Completa el checklist y número de seguimiento
+                    </p>
                   )}
                 </div>
                 <p className="text-xs font-medium text-zinc-500 text-center">
