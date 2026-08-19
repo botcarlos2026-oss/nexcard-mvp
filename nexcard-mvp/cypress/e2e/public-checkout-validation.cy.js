@@ -12,6 +12,7 @@ describe('Public checkout validation', () => {
   });
 
   it('shows required validation errors before submit', () => {
+    cy.get('input[name="acceptTerms"]').check({ force: true });
     cy.contains('button', /pagar con mercado pago/i).click();
     cy.contains(/por favor ingresa tu nombre completo/i).should('exist');
   });
