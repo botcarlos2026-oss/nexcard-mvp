@@ -22,11 +22,22 @@ import { trackClick } from '../utils/analyticsEngine';
 import { safeExternalUrl } from '../utils/safeExternalUrl';
 import LinkIcon from './LinkIcon';
 
+// WCAG relative luminance (0 = black, 1 = white), used to detect a too-dark theme_color.
+function getRelativeLuminance(hex) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!match) return 1;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(match[1].slice(i, i + 2), 16) / 255);
+  const toLinear = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
 const NexCardProfile = ({ data }) => {
   const [copiedField, setCopiedField] = useState(null);
   const [isBankOpen, setIsBankOpen] = useState(false);
   const [contactModal, setContactModal] = useState(false);
-  const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', company: '' });
+  // Kept intentionally short (name + one contact method) — a stranger who just met the profile
+  // owner shouldn't be asked for email, phone, and company before deciding this is worth sharing.
+  const [contactForm, setContactForm] = useState({ name: '', contact: '' });
   const [contactSent, setContactSent] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
   const previouslyFocusedRef = React.useRef(null);
@@ -59,6 +70,11 @@ const NexCardProfile = ({ data }) => {
 
   // Default theme settings
   const themeColor = data.theme_color || '#10B981';
+  // The primary CTA (WhatsApp / guardar contacto) uses the profile owner's own theme_color so it
+  // stays on-brand for them, but a dark/near-black theme_color makes it visually indistinguishable
+  // from the zinc-900 secondary buttons around it. Fall back to the product's own brand emerald so
+  // there is always exactly one clear primary action, regardless of the owner's color choice.
+  const primaryCtaColor = getRelativeLuminance(themeColor) < 0.25 ? '#10B981' : themeColor;
   const isDark = data.is_dark_mode !== undefined ? data.is_dark_mode : true;
   const slug = data.slug || 'carlos';
   const websiteValue = data.website || data.website_url || '';
@@ -196,7 +212,7 @@ const NexCardProfile = ({ data }) => {
                   target="_blank"
                   rel="noreferrer"
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-black/10 text-white"
-                  style={{ backgroundColor: themeColor }}
+                  style={{ backgroundColor: primaryCtaColor }}
                 >
                   <Phone size={20} />
                   {whatsappCtaLabel}
@@ -240,7 +256,7 @@ const NexCardProfile = ({ data }) => {
                 <button
                   onClick={handleSaveContact}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-black/10"
-                  style={{ backgroundColor: themeColor, color: '#fff' }}
+                  style={{ backgroundColor: primaryCtaColor, color: '#fff' }}
                 >
                   <UserPlus size={20} />
                   {saveContactLabel}
@@ -305,12 +321,8 @@ const NexCardProfile = ({ data }) => {
                   <div className="space-y-3">
                     <label htmlFor="connect-name" className="sr-only">Tu nombre</label>
                     <input id="connect-name" ref={firstFieldRef} type="text" placeholder="Tu nombre *" value={contactForm.name} onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
-                    <label htmlFor="connect-email" className="sr-only">Email</label>
-                    <input id="connect-email" type="email" placeholder="Email" value={contactForm.email} onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
-                    <label htmlFor="connect-phone" className="sr-only">Teléfono</label>
-                    <input id="connect-phone" type="tel" placeholder="Teléfono" value={contactForm.phone} onChange={e => setContactForm(p => ({ ...p, phone: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
-                    <label htmlFor="connect-company" className="sr-only">Empresa</label>
-                    <input id="connect-company" type="text" placeholder="Empresa" value={contactForm.company} onChange={e => setContactForm(p => ({ ...p, company: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                    <label htmlFor="connect-contact" className="sr-only">Email o teléfono</label>
+                    <input id="connect-contact" type="text" placeholder="Email o teléfono" value={contactForm.contact} onChange={e => setContactForm(p => ({ ...p, contact: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
                   </div>
                   <div className="flex gap-2 mt-4">
                     <button onClick={() => setContactModal(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold opacity-50 hover:opacity-80">Cancelar</button>
@@ -321,7 +333,16 @@ const NexCardProfile = ({ data }) => {
                         setContactLoading(true);
                         try {
                           if (supabase) {
-                            await supabase.from('crm_contacts').insert({ name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, source: 'nfc_tap', profile_id: data.id || null });
+                            const contact = contactForm.contact.trim();
+                            const isEmail = contact.includes('@');
+                            await supabase.from('crm_contacts').insert({
+                              name: contactForm.name,
+                              email: isEmail ? contact : null,
+                              phone: !isEmail && contact ? contact : null,
+                              company: null,
+                              source: 'nfc_tap',
+                              profile_id: data.id || null,
+                            });
                           }
                           setContactSent(true);
                         } catch { setContactSent(true); }
@@ -345,7 +366,7 @@ const NexCardProfile = ({ data }) => {
         {!isBusinessProfile && (
         <>
         {/* Social Grid */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="flex flex-wrap gap-3">
           {(data.whatsapp_enabled !== false && data.whatsapp) && (
             <a
               href={`https://wa.me/${data.whatsapp}`}
@@ -444,7 +465,9 @@ const NexCardProfile = ({ data }) => {
             </a>
           )}
 
-          {(data.website_enabled !== false && websiteValue) && (
+          {/* Business profiles already show this same URL as the primary "Ver sitio web" CTA above;
+              only repeat it here for individual profiles, which have no other website entry point. */}
+          {!isBusinessProfile && (data.website_enabled !== false && websiteValue) && (
             <a
               href={websiteHref}
               onClick={() => handleLinkClick('website')}
@@ -524,7 +547,9 @@ const NexCardProfile = ({ data }) => {
         <div className="pt-4">
           <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500 mb-4 px-2">Enlaces Útiles</h3>
           <div className="space-y-3">
-            {!isBusinessProfile && (data.calendar_url_enabled !== false && data.calendar_url) && (
+            {/* Individual profiles already show the calendar link in the primary CTA zone above; only
+                surface it here for business profiles, which have no other calendar entry point. */}
+            {isBusinessProfile && (data.calendar_url_enabled !== false && data.calendar_url) && (
               <a
                 href={safeExternalUrl(data.calendar_url)}
                 onClick={() => handleLinkClick('calendar')}
@@ -564,7 +589,7 @@ const NexCardProfile = ({ data }) => {
 
         {isBusinessProfile && (
           <>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="flex flex-wrap gap-3">
               {(data.instagram_enabled !== false && data.instagram) && (
                 <a
                   href={`https://instagram.com/${data.instagram}`}
