@@ -1,18 +1,23 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Phone, Mail, Users, StickyNote, MessageCircle, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Phone, Mail, Users, StickyNote, MessageCircle, CheckCircle2, AlertCircle, X, Pencil } from 'lucide-react';
 import { api } from '../services/api';
 import AdminShell from './AdminShell';
 import AdminStat from './ui/AdminStat';
+import AdminBadge from './ui/AdminBadge';
 
 const CLP = (n) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n || 0);
 
+const STALE_DAYS = 7;
+
+const CLOSED_STAGES = ['cerrado_ganado', 'cerrado_perdido'];
+
 const STAGES = [
-  { key: 'nuevo_lead',      label: 'Nuevo Lead',   color: 'bg-zinc-800 text-zinc-300 border border-zinc-700',        dot: 'bg-zinc-400' },
-  { key: 'contactado',      label: 'Contactado',   color: 'bg-blue-950/60 text-blue-300 border border-blue-800',     dot: 'bg-blue-400' },
-  { key: 'propuesta',       label: 'Propuesta',    color: 'bg-violet-950/60 text-violet-300 border border-violet-800', dot: 'bg-violet-400' },
-  { key: 'negociacion',     label: 'Negociación',  color: 'bg-amber-950/60 text-amber-300 border border-amber-800',  dot: 'bg-amber-400' },
-  { key: 'cerrado_ganado',  label: 'Ganado',       color: 'bg-emerald-950/60 text-emerald-300 border border-emerald-800', dot: 'bg-emerald-400' },
-  { key: 'cerrado_perdido', label: 'Perdido',      color: 'bg-red-950/60 text-red-300 border border-red-800',        dot: 'bg-red-400' },
+  { key: 'nuevo_lead',      label: 'Nuevo Lead',   variant: 'default', dot: 'bg-zinc-400' },
+  { key: 'contactado',      label: 'Contactado',   variant: 'info',    dot: 'bg-blue-400' },
+  { key: 'propuesta',       label: 'Propuesta',    variant: 'purple',  dot: 'bg-violet-400' },
+  { key: 'negociacion',     label: 'Negociación',  variant: 'warning', dot: 'bg-amber-400' },
+  { key: 'cerrado_ganado',  label: 'Ganado',       variant: 'success', dot: 'bg-emerald-400' },
+  { key: 'cerrado_perdido', label: 'Perdido',      variant: 'danger',  dot: 'bg-red-400' },
 ];
 
 const daysSince = (iso) => {
@@ -33,6 +38,9 @@ export default function CRMDashboard() {
   const [newDeal, setNewDeal] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
+  const [staleOnly, setStaleOnly] = useState(false);
+  const [pendingClose, setPendingClose] = useState(null); // { dealId, dealName, stageKey, source: 'drag'|'panel' } | null
+  const [lossReason, setLossReason] = useState('');
 
   const loadDeals = useCallback(async () => {
     try {
@@ -52,19 +60,50 @@ export default function CRMDashboard() {
       .catch((error) => setFeedback({ type: 'error', message: error.message || 'No fue posible cargar las actividades del deal.' }));
   }, [selected]);
 
-  const handleDrop = async (stageKey, e) => {
-    e.preventDefault();
-    if (!dragId || dragId === stageKey) return;
-    const deal = deals.find(d => d.id === dragId);
-    if (!deal || deal.stage === stageKey) return;
-    setDeals(prev => prev.map(d => d.id === dragId ? { ...d, stage: stageKey } : d));
+  const applyStageChange = useCallback(async (dealId, stageKey, extraPatch = {}) => {
+    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stage: stageKey, ...extraPatch } : d));
+    setSelected(prev => (prev && prev.id === dealId) ? { ...prev, stage: stageKey, ...extraPatch } : prev);
     try {
-      await api.updateCRMDeal(dragId, { stage: stageKey });
+      await api.updateCRMDeal(dealId, { stage: stageKey, ...extraPatch });
     } catch (error) {
       setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la etapa del deal.' });
       loadDeals();
     }
+  }, [loadDeals]);
+
+  const handleDrop = (stageKey, e) => {
+    e.preventDefault();
+    if (!dragId || dragId === stageKey) { setDragId(null); return; }
+    const deal = deals.find(d => d.id === dragId);
+    if (!deal || deal.stage === stageKey) { setDragId(null); return; }
+    if (CLOSED_STAGES.includes(stageKey)) {
+      setPendingClose({ dealId: dragId, dealName: deal.name, stageKey });
+    } else {
+      applyStageChange(dragId, stageKey);
+    }
     setDragId(null);
+  };
+
+  const requestStageChange = (dealId, dealName, stageKey) => {
+    if (CLOSED_STAGES.includes(stageKey)) {
+      setPendingClose({ dealId, dealName, stageKey });
+    } else {
+      applyStageChange(dealId, stageKey);
+    }
+  };
+
+  const confirmPendingClose = async () => {
+    if (!pendingClose) return;
+    const { dealId, stageKey } = pendingClose;
+    const extraPatch = {};
+    if (stageKey === 'cerrado_perdido' && lossReason.trim()) {
+      const currentDeal = deals.find(d => d.id === dealId);
+      const prefix = currentDeal?.notes ? `${currentDeal.notes}\n\n` : '';
+      extraPatch.notes = `${prefix}Motivo de pérdida: ${lossReason.trim()}`;
+    }
+    setPendingClose(null);
+    setLossReason('');
+    await applyStageChange(dealId, stageKey, extraPatch);
   };
 
   const metrics = {
@@ -79,11 +118,13 @@ export default function CRMDashboard() {
   const newDealButton = (
     <button
       onClick={() => setNewDeal({ name: '', amount_cents: '', stage: 'nuevo_lead', contact_name: '', contact_email: '', contact_phone: '', contact_company: '', notes: '' })}
-      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="min-h-[44px] px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       + Nuevo deal
     </button>
   );
+
+  const staleCount = deals.filter(d => !CLOSED_STAGES.includes(d.stage) && daysSince(d.updated_at) >= STALE_DAYS).length;
 
   return (
     <AdminShell active="crm" title="CRM · Pipeline" actions={newDealButton}>
@@ -106,6 +147,17 @@ export default function CRMDashboard() {
           <AdminStat label="Ganados este mes" value={metrics.wonMonth} accent="emerald" />
         </div>
 
+        <div>
+          <button
+            type="button"
+            onClick={() => setStaleOnly(v => !v)}
+            aria-pressed={staleOnly}
+            className={`min-h-[44px] inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition-colors ${staleOnly ? 'border-amber-700 bg-amber-950/30 text-amber-300' : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white'}`}
+          >
+            Requieren seguimiento ({staleCount})
+          </button>
+        </div>
+
         {loading ? (
           <div className="text-zinc-400 text-sm">Cargando...</div>
         ) : (
@@ -113,7 +165,7 @@ export default function CRMDashboard() {
           <div className="overflow-x-auto pb-4">
             <div className="flex gap-4 min-w-max">
               {STAGES.map(stage => {
-                const col = deals.filter(d => d.stage === stage.key);
+                const col = deals.filter(d => d.stage === stage.key && (!staleOnly || (!CLOSED_STAGES.includes(d.stage) && daysSince(d.updated_at) >= STALE_DAYS)));
                 return (
                   <div
                     key={stage.key}
@@ -126,7 +178,7 @@ export default function CRMDashboard() {
                         <div className={`w-2 h-2 rounded-full ${stage.dot}`} />
                         <span className="font-bold text-sm text-white">{stage.label}</span>
                       </div>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${stage.color}`}>{col.length}</span>
+                      <AdminBadge variant={stage.variant}>{col.length}</AdminBadge>
                     </div>
                     <div className="p-3 flex flex-col gap-2.5 min-h-[120px]">
                       {col.length === 0 && <p className="text-zinc-600 text-xs text-center py-6">Sin deals</p>}
@@ -169,18 +221,90 @@ export default function CRMDashboard() {
               setFeedback({ type: 'error', message: error.message || 'No fue posible agregar la actividad.' });
             } finally { setActLoading(false); }
           }}
-          onStageChange={async (stage) => {
-            setDeals(prev => prev.map(d => d.id === selected.id ? { ...d, stage } : d));
-            setSelected(prev => ({ ...prev, stage }));
+          onStageChange={(stage) => requestStageChange(selected.id, selected.name, stage)}
+          onSaveEdits={async (draft) => {
             try {
-              await api.updateCRMDeal(selected.id, { stage });
+              if (Number.isFinite(draft.amount_cents)) {
+                await api.updateCRMDeal(selected.id, { amount_cents: draft.amount_cents });
+              }
+              const contact = selected.crm_contacts;
+              if (draft.contact_name.trim()) {
+                if (contact?.id) {
+                  await api.updateCRMContact(contact.id, {
+                    name: draft.contact_name,
+                    email: draft.contact_email || null,
+                    phone: draft.contact_phone || null,
+                    company: draft.contact_company || null,
+                  });
+                } else {
+                  const newContact = await api.createCRMContact({
+                    name: draft.contact_name,
+                    email: draft.contact_email || null,
+                    phone: draft.contact_phone || null,
+                    company: draft.contact_company || null,
+                  });
+                  await api.updateCRMDeal(selected.id, { contact_id: newContact.id });
+                }
+              }
+              const result = await api.getCRMDeals();
+              setDeals(result.deals || []);
+              setSelected(prev => (result.deals || []).find(d => d.id === prev.id) || prev);
+              setFeedback({ type: 'success', message: 'Deal actualizado.' });
             } catch (error) {
-              setFeedback({ type: 'error', message: error.message || 'No fue posible actualizar la etapa del deal.' });
-              loadDeals();
+              setFeedback({ type: 'error', message: error.message || 'No fue posible guardar los cambios.' });
             }
           }}
           onClose={() => setSelected(null)}
         />
+      )}
+
+      {/* Modal confirmar cierre de deal */}
+      {pendingClose && (
+        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pending-close-title"
+            className="w-full max-w-sm rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl"
+          >
+            <h3 id="pending-close-title" className="text-lg font-bold text-white">
+              {pendingClose.stageKey === 'cerrado_ganado' ? 'Marcar deal como ganado' : 'Marcar deal como perdido'}
+            </h3>
+            <p className="mt-2 text-sm font-medium text-zinc-400">
+              ¿Confirmas mover <span className="font-bold text-white">{pendingClose.dealName}</span> a{' '}
+              <span className="font-bold text-white">{pendingClose.stageKey === 'cerrado_ganado' ? 'Ganado' : 'Perdido'}</span>?
+            </p>
+            {pendingClose.stageKey === 'cerrado_perdido' && (
+              <label className="block mt-3">
+                <span className="text-xs uppercase tracking-wide text-zinc-500 font-medium">Motivo (opcional)</span>
+                <input
+                  type="text"
+                  autoFocus
+                  value={lossReason}
+                  onChange={(e) => setLossReason(e.target.value)}
+                  placeholder="Ej: precio, eligió otra solución, sin respuesta..."
+                  className="mt-1.5 min-h-[44px] w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
+                />
+              </label>
+            )}
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => { setPendingClose(null); setLossReason(''); }}
+                className="min-h-[44px] px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmPendingClose}
+                className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-bold transition-colors text-white ${pendingClose.stageKey === 'cerrado_ganado' ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-red-600 hover:bg-red-500'}`}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal nuevo deal */}
@@ -218,6 +342,7 @@ export default function CRMDashboard() {
 function DealCard({ deal, stage, onDragStart, onClick }) {
   const contact = deal.crm_contacts;
   const days = daysSince(deal.updated_at);
+  const isStale = !CLOSED_STAGES.includes(deal.stage) && days >= STALE_DAYS;
   return (
     <div
       draggable
@@ -227,16 +352,16 @@ function DealCard({ deal, stage, onDragStart, onClick }) {
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       aria-label={`Ver detalle de ${deal.name}`}
-      className="bg-zinc-800 border border-zinc-700 rounded-xl p-3.5 cursor-pointer hover:border-zinc-600 hover:bg-zinc-750 transition-all select-none focus:outline-none focus:ring-1 focus:ring-emerald-500"
+      className="bg-zinc-800 border border-zinc-700 rounded-xl p-3.5 cursor-pointer hover:border-zinc-600 hover:bg-zinc-700 transition-all select-none focus:outline-none focus:ring-1 focus:ring-emerald-500"
     >
       <p className="font-bold text-sm text-white truncate">{deal.name}</p>
       {contact?.company && <p className="text-xs text-zinc-400 truncate mt-0.5">{contact.company}</p>}
       <div className="flex items-center justify-between mt-2.5 gap-2">
         <span className="text-sm font-bold text-zinc-200">{CLP(deal.amount_cents)}</span>
-        <span className="text-[10px] text-zinc-500 font-medium">{days}d</span>
+        <span className={`text-[10px] font-bold ${isStale ? 'text-amber-400' : 'text-zinc-500'}`}>{days}d{isStale ? ' · seguimiento' : ''}</span>
       </div>
       <div className="flex items-center justify-between mt-2">
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${stage.color}`}>{stage.label}</span>
+        <AdminBadge variant={stage.variant}>{stage.label}</AdminBadge>
         {contact?.phone && (
           <a
             href={`https://wa.me/56${contact.phone.replace(/\D/g, '')}`}
@@ -253,10 +378,34 @@ function DealCard({ deal, stage, onDragStart, onClick }) {
   );
 }
 
-function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onAddActivity, onStageChange, onClose }) {
+function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onAddActivity, onStageChange, onSaveEdits, onClose }) {
   const contact = deal.crm_contacts;
   const previouslyFocusedRef = useRef(null);
   const panelRef = useRef(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editDraft, setEditDraft] = useState(null);
+
+  const startEdit = () => {
+    setEditDraft({
+      amount_cents: String(deal.amount_cents || 0),
+      contact_name: contact?.name || '',
+      contact_email: contact?.email || '',
+      contact_phone: contact?.phone || '',
+      contact_company: contact?.company || '',
+    });
+    setEditMode(true);
+  };
+
+  const saveEdit = async () => {
+    setEditSaving(true);
+    try {
+      await onSaveEdits({ ...editDraft, amount_cents: parseInt(editDraft.amount_cents, 10) || 0 });
+      setEditMode(false);
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   useEffect(() => {
     previouslyFocusedRef.current = document.activeElement;
@@ -307,41 +456,125 @@ function DealPanel({ deal, activities, actForm, actLoading, onActFormChange, onA
             </select>
           </div>
 
-          {/* Info deal */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-3">
-              <p className="text-zinc-500 text-xs font-bold">Monto</p>
-              <p className="font-bold text-white">{CLP(deal.amount_cents)}</p>
-            </div>
-            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-3">
-              <p className="text-zinc-500 text-xs font-bold">Días en etapa</p>
-              <p className="font-bold text-white">{daysSince(deal.updated_at)}d</p>
-            </div>
-          </div>
-
-          {/* Contacto */}
-          {contact && (
-            <div className="border border-zinc-800 rounded-xl p-4">
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide mb-2">Contacto</p>
-              <p className="font-bold text-white">{contact.name}</p>
-              {contact.company && <p className="text-xs text-zinc-400">{contact.company}</p>}
-              {contact.email && <p className="text-xs text-zinc-500 mt-1">{contact.email}</p>}
-              {contact.phone && (
-                <a
-                  href={`https://wa.me/56${contact.phone.replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-bold mt-1"
+          {editMode ? (
+            <div className="border border-zinc-800 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Editar deal</p>
+              <label className="block">
+                <span className="text-xs uppercase tracking-wide text-zinc-500 font-medium">Monto (CLP)</span>
+                <input
+                  type="number"
+                  aria-label="Monto en CLP"
+                  value={editDraft.amount_cents}
+                  onChange={(e) => setEditDraft(p => ({ ...p, amount_cents: e.target.value }))}
+                  className="mt-1 min-h-[44px] w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
+                />
+              </label>
+              <p className="text-xs uppercase tracking-wide text-zinc-500 font-medium pt-1">Contacto</p>
+              <input
+                type="text"
+                placeholder="Nombre del contacto"
+                aria-label="Nombre del contacto"
+                value={editDraft.contact_name}
+                onChange={(e) => setEditDraft(p => ({ ...p, contact_name: e.target.value }))}
+                className="min-h-[44px] w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="email"
+                  placeholder="Email"
+                  aria-label="Email del contacto"
+                  value={editDraft.contact_email}
+                  onChange={(e) => setEditDraft(p => ({ ...p, contact_email: e.target.value }))}
+                  className="min-h-[44px] w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
+                />
+                <input
+                  type="tel"
+                  placeholder="Teléfono"
+                  aria-label="Teléfono del contacto"
+                  value={editDraft.contact_phone}
+                  onChange={(e) => setEditDraft(p => ({ ...p, contact_phone: e.target.value }))}
+                  className="min-h-[44px] w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Empresa"
+                aria-label="Empresa del contacto"
+                value={editDraft.contact_company}
+                onChange={(e) => setEditDraft(p => ({ ...p, contact_company: e.target.value }))}
+                className="min-h-[44px] w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
+              />
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditMode(false)}
+                  className="min-h-[44px] flex-1 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
                 >
-                  <MessageCircle size={14} aria-hidden="true" /> {contact.phone}
-                </a>
-              )}
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={saveEdit}
+                  disabled={editSaving}
+                  className="min-h-[44px] flex-1 px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors"
+                >
+                  {editSaving ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* Info deal */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-3">
+                  <p className="text-zinc-500 text-xs font-bold">Monto</p>
+                  <p className="font-bold text-white">{CLP(deal.amount_cents)}</p>
+                </div>
+                <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-3">
+                  <p className="text-zinc-500 text-xs font-bold">Días en etapa</p>
+                  <p className="font-bold text-white">{daysSince(deal.updated_at)}d</p>
+                </div>
+              </div>
+
+              {/* Contacto */}
+              <div className="border border-zinc-800 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Contacto</p>
+                  <button
+                    type="button"
+                    onClick={startEdit}
+                    aria-label={contact ? 'Editar contacto y monto' : 'Agregar contacto'}
+                    className="inline-flex min-w-[44px] min-h-[44px] items-center justify-center text-zinc-500 hover:text-emerald-400"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
+                {contact ? (
+                  <>
+                    <p className="font-bold text-white">{contact.name}</p>
+                    {contact.company && <p className="text-xs text-zinc-400">{contact.company}</p>}
+                    {contact.email && <p className="text-xs text-zinc-500 mt-1">{contact.email}</p>}
+                    {contact.phone && (
+                      <a
+                        href={`https://wa.me/56${contact.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-bold mt-1"
+                      >
+                        <MessageCircle size={14} aria-hidden="true" /> {contact.phone}
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-zinc-500">Sin contacto asociado.</p>
+                )}
+              </div>
+            </>
           )}
 
           {/* Notas */}
           {deal.notes && (
-            <div className="bg-amber-950/40 border border-amber-900/50 rounded-xl p-3 text-sm text-zinc-300">{deal.notes}</div>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-3 text-sm text-zinc-300 whitespace-pre-line">{deal.notes}</div>
           )}
 
           {/* Actividades */}

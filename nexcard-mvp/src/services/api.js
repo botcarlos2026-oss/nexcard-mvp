@@ -375,6 +375,8 @@ export const api = {
 
   createCRMContact: async (contact) => crmApi.createCRMContact(contact),
 
+  updateCRMContact: async (id, payload) => crmApi.updateCRMContact(id, payload),
+
   updateCRMDeal: async (id, payload) => crmApi.updateCRMDeal(id, payload),
 
   getCRMActivities: async (dealId) => crmApi.getCRMActivities(dealId),
