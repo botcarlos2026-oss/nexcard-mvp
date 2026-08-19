@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CreditCard, Archive, ShieldBan, Link as LinkIcon, Loader2, CheckCircle2, AlertCircle, Search, Clock3, Filter, UserPlus, X, Zap, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
 import AdminShell from './AdminShell';
@@ -8,7 +8,7 @@ const badgeClasses = {
   assigned: 'bg-sky-950/60 text-sky-300 border border-sky-800',
   active: 'bg-emerald-950/60 text-emerald-300 border border-emerald-800',
   suspended: 'bg-amber-950/60 text-amber-300 border border-amber-800',
-  revoked: 'bg-rose-950/60 text-rose-300 border border-rose-800',
+  revoked: 'bg-red-950/60 text-red-300 border border-red-800',
   archived: 'bg-zinc-900 text-zinc-300 border border-zinc-700',
 };
 
@@ -18,7 +18,7 @@ const activationBadgeClasses = {
   assigned: 'bg-sky-950/60 text-sky-300 border border-sky-800',
   activated: 'bg-emerald-950/60 text-emerald-300 border border-emerald-800',
   active: 'bg-emerald-950/60 text-emerald-300 border border-emerald-800',
-  revoked: 'bg-rose-950/60 text-rose-300 border border-rose-800',
+  revoked: 'bg-red-950/60 text-red-300 border border-red-800',
 };
 
 const formatLabel = (value) => (value ? String(value).replace(/_/g, ' ') : '-');
@@ -69,6 +69,8 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   const [assigningCard, setAssigningCard] = useState(null);
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const [expandedCardId, setExpandedCardId] = useState(null);
+  const previouslyFocusedRef = useRef(null);
+  const firstFieldRef = useRef(null);
 
   useEffect(() => {
     setRows(cards);
@@ -77,6 +79,20 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   useEffect(() => {
     setProfileRows(profiles);
   }, [profiles]);
+
+  useEffect(() => {
+    if (!assigningCard) return;
+    previouslyFocusedRef.current = document.activeElement;
+    firstFieldRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') closeAssignModal();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, [assigningCard]);
 
   const filteredRows = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -114,6 +130,9 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
   const canActivate = (card) => !card.deleted_at && card.status !== 'revoked' && card.status !== 'archived' && card.profile_id && !isCardActive(card);
 
   const runCardAction = async (card, action) => {
+    if (action === 'revoke' && !window.confirm(`¿Confirmas revocar la tarjeta ${card.card_code}? Esta acción bloquea la tarjeta y no se puede deshacer.`)) return;
+    if (action === 'archive' && !window.confirm(`¿Confirmas archivar la tarjeta ${card.card_code}? La tarjeta dejará de estar operativa.`)) return;
+
     setBusyCardId(card.id);
     setFeedback({ type: '', message: '' });
     try {
@@ -182,12 +201,12 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
-              <input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por código, token, profile o evento" className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 py-3 pl-10 pr-4 text-sm font-medium text-zinc-100 shadow-sm outline-none transition focus:border-emerald-500 sm:w-80" />
+              <input type="search" aria-label="Buscar tarjetas" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por código, token, profile o evento" className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 py-3 pl-10 pr-4 text-sm font-medium text-zinc-100 shadow-sm outline-none transition focus:border-emerald-500 sm:w-80" />
             </label>
 
             <label className="relative block">
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={16} />
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full appearance-none rounded-2xl border border-zinc-700 bg-zinc-900 py-3 pl-10 pr-10 text-sm font-medium text-zinc-100 shadow-sm outline-none transition focus:border-emerald-500 sm:w-52">
+              <select aria-label="Filtrar por estado de tarjeta" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full appearance-none rounded-2xl border border-zinc-700 bg-zinc-900 py-3 pl-10 pr-10 text-sm font-medium text-zinc-100 shadow-sm outline-none transition focus:border-emerald-500 sm:w-52">
                 {availableStatuses.map((status) => (
                   <option key={status} value={status}>{status === 'all' ? 'Todos los status' : formatLabel(status)}</option>
                 ))}
@@ -198,7 +217,10 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
     >
       <div className="max-w-7xl">
         {feedback.message && (
-          <div className={`mb-6 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-300' : 'border-rose-800 bg-rose-950/40 text-rose-300'}`}>
+          <div
+            role={feedback.type === 'success' ? 'status' : 'alert'}
+            className={`mb-6 flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-300' : 'border-red-800 bg-red-950/40 text-red-300'}`}
+          >
             {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
             <span>{feedback.message}</span>
           </div>
@@ -245,7 +267,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                             <p className="font-black text-sm">{card.card_code}</p>
                             <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
                               <span>{card.public_token || 'sin token'}</span>
-                              {card.public_token && <LinkIcon size={14} title="Token activo" />}
+                              {card.public_token && <LinkIcon size={14} aria-label="Token activo" role="img" />}
                             </div>
                           </div>
                         </div>
@@ -288,12 +310,18 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                           <p className="font-black text-zinc-100">{lastEventLabel(card.last_event?.event_type)}</p>
                           <p className="text-xs font-medium text-zinc-400">{formatTimestamp(card.last_event?.created_at)}</p>
                           {card.events?.length > 0 && (
-                            <button type="button" onClick={() => setExpandedCardId(expandedCardId === card.id ? null : card.id)} className="mt-2 text-[11px] font-black uppercase tracking-wide text-sky-400">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedCardId(expandedCardId === card.id ? null : card.id)}
+                              aria-expanded={expandedCardId === card.id}
+                              aria-controls={`card-history-${card.id}`}
+                              className="mt-2 text-[11px] font-black uppercase tracking-wide text-sky-400"
+                            >
                               {expandedCardId === card.id ? 'Ocultar historial' : 'Ver historial'}
                             </button>
                           )}
                           {expandedCardId === card.id && card.events?.length > 0 && (
-                            <div className="mt-3 space-y-2 rounded-2xl bg-zinc-950 border border-zinc-800 p-3">
+                            <div id={`card-history-${card.id}`} className="mt-3 space-y-2 rounded-2xl bg-zinc-950 border border-zinc-800 p-3">
                               {card.events.map((event, index) => (
                                 <div key={`${card.id}-event-${index}`} className="text-xs">
                                   <p className="font-black text-zinc-100">{lastEventLabel(event.event_type)}</p>
@@ -306,19 +334,19 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex justify-end items-center gap-2 flex-wrap">
-                          <button type="button" onClick={() => openAssignModal(card)} disabled={assignDisabled} className="inline-flex items-center gap-2 rounded-xl border border-sky-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-sky-300 transition hover:bg-sky-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
+                          <button type="button" onClick={() => openAssignModal(card)} disabled={assignDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-sky-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-sky-300 transition hover:bg-sky-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : canReassign(card) ? <RefreshCw size={14} /> : <UserPlus size={14} />}
                             {canReassign(card) ? 'Reasignar' : 'Asignar'}
                           </button>
-                          <button type="button" onClick={() => runCardAction(card, 'activate')} disabled={activateDisabled} className="inline-flex items-center gap-2 rounded-xl border border-emerald-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-300 transition hover:bg-emerald-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
+                          <button type="button" onClick={() => runCardAction(card, 'activate')} disabled={activateDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-emerald-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-emerald-300 transition hover:bg-emerald-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
                             Activar
                           </button>
-                          <button type="button" onClick={() => runCardAction(card, 'revoke')} disabled={revokeDisabled} className="inline-flex items-center gap-2 rounded-xl border border-rose-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-rose-300 transition hover:bg-rose-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
+                          <button type="button" onClick={() => runCardAction(card, 'revoke')} disabled={revokeDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-red-800 px-3 py-2 text-xs font-black uppercase tracking-wide text-red-300 transition hover:bg-red-950/40 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <ShieldBan size={14} />}
                             Revocar
                           </button>
-                          <button type="button" onClick={() => runCardAction(card, 'archive')} disabled={archiveDisabled} className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-200 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
+                          <button type="button" onClick={() => runCardAction(card, 'archive')} disabled={archiveDisabled} className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-zinc-700 px-3 py-2 text-xs font-black uppercase tracking-wide text-zinc-200 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500 disabled:hover:bg-transparent">
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
                             Archivar
                           </button>
@@ -339,13 +367,24 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
 
       {assigningCard && (
         <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded-[32px] bg-zinc-900 p-6 shadow-2xl border border-zinc-800">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assign-card-modal-title"
+            className="w-full max-w-lg rounded-[32px] bg-zinc-900 p-6 shadow-2xl border border-zinc-800"
+          >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-bold text-white">{needsReassign(assigningCard) ? 'Reasignar tarjeta' : 'Asignar tarjeta'}</h3>
+                <h3 id="assign-card-modal-title" className="text-2xl font-bold text-white">{needsReassign(assigningCard) ? 'Reasignar tarjeta' : 'Asignar tarjeta'}</h3>
                 <p className="text-sm text-zinc-400 font-medium">{needsReassign(assigningCard) ? 'Cambia el perfil de una tarjeta ya asignada, sin permitir cards activas.' : 'Vincula la tarjeta a un perfil real para operar lifecycle con contexto.'}</p>
               </div>
-              <button onClick={closeAssignModal} className="p-2 text-zinc-400 hover:text-white transition-colors"><X size={20} /></button>
+              <button
+                onClick={closeAssignModal}
+                aria-label="Cerrar"
+                className="inline-flex min-w-[44px] min-h-[44px] items-center justify-center text-zinc-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
             </div>
 
             <div className="space-y-4">
@@ -357,7 +396,12 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
 
               <label className="block">
                 <span className="text-xs font-black uppercase tracking-widest text-zinc-400 ml-1">Perfil</span>
-                <select value={selectedProfileId} onChange={(event) => setSelectedProfileId(event.target.value)} className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none focus:ring-2 focus:ring-sky-500/20">
+                <select
+                  ref={firstFieldRef}
+                  value={selectedProfileId}
+                  onChange={(event) => setSelectedProfileId(event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
                   <option value="">Selecciona un perfil</option>
                   {profileRows.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name || profile.slug} ({profile.slug})</option>)}
                 </select>
@@ -365,7 +409,7 @@ const AdminCardsDashboard = ({ cards = [], profiles = [] }) => {
 
               <div className="pt-4 flex items-center justify-end gap-3">
                 <button type="button" onClick={closeAssignModal} className="px-4 py-3 rounded-2xl border border-zinc-700 text-zinc-200 font-bold text-sm">Cancelar</button>
-                <button type="button" onClick={handleAssign} disabled={!selectedProfileId || busyCardId === assigningCard.id} className="px-5 py-3 rounded-2xl bg-sky-600 text-white font-bold text-sm shadow-lg shadow-sky-950/50 inline-flex items-center gap-2 disabled:opacity-60">
+                <button type="button" onClick={handleAssign} disabled={!selectedProfileId || busyCardId === assigningCard.id} className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm shadow-lg shadow-emerald-950/50 inline-flex items-center gap-2 disabled:opacity-60">
                   {busyCardId === assigningCard.id ? <Loader2 size={16} className="animate-spin" /> : needsReassign(assigningCard) ? <RefreshCw size={16} /> : <UserPlus size={16} />}
                   {needsReassign(assigningCard) ? 'Reasignar tarjeta' : 'Asignar tarjeta'}
                 </button>
