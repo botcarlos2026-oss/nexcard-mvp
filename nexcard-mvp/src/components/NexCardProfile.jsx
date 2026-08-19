@@ -29,6 +29,22 @@ const NexCardProfile = ({ data }) => {
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', company: '' });
   const [contactSent, setContactSent] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
+  const previouslyFocusedRef = React.useRef(null);
+  const firstFieldRef = React.useRef(null);
+
+  useEffect(() => {
+    if (!contactModal) return;
+    previouslyFocusedRef.current = document.activeElement;
+    firstFieldRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setContactModal(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, [contactModal]);
 
   useEffect(() => {
     if (data?.card_type === 'review' && data?.review_url) {
@@ -39,7 +55,7 @@ const NexCardProfile = ({ data }) => {
     if (data?.slug && supabase) {
       // Scan tracking deshabilitado temporalmente — esquema de tabla pendiente de unificar
     }
-  }, [data?.card_type, data?.review_url, data?.slug, data?.id]);
+  }, [data?.card_type, data?.review_url, data?.slug]);
 
   // Default theme settings
   const themeColor = data.theme_color || '#10B981';
@@ -122,8 +138,9 @@ const NexCardProfile = ({ data }) => {
         {!data.cover_image_url && (
            <div className="absolute inset-0 opacity-20 bg-gradient-to-r from-black/0 via-black/10 to-black/30"></div>
         )}
-        <button 
+        <button
           onClick={handleShare}
+          aria-label="Compartir perfil"
           className="absolute top-4 right-4 p-2 rounded-full bg-black/20 text-white hover:bg-black/30 transition-colors backdrop-blur-md"
         >
           <Share2 size={20} />
@@ -154,7 +171,7 @@ const NexCardProfile = ({ data }) => {
         <p className="mt-1 text-lg opacity-80 font-medium">{data.profession}</p>
         
         {data.company && (
-          <p className="mt-1 text-sm font-bold text-blue-500">
+          <p className={`mt-1 text-sm font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-600'}`}>
             {data.company}
           </p>
         )}
@@ -268,7 +285,13 @@ const NexCardProfile = ({ data }) => {
         {/* Modal Conectemos */}
         {contactModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setContactModal(false)}>
-            <div className={`w-full max-w-sm rounded-2xl p-6 ${isDark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`} onClick={e => e.stopPropagation()}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="connect-modal-heading"
+              className={`w-full max-w-sm rounded-2xl p-6 ${isDark ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`}
+              onClick={e => e.stopPropagation()}
+            >
               {contactSent ? (
                 <div className="text-center py-4">
                   <div className="text-4xl mb-3">✅</div>
@@ -278,12 +301,16 @@ const NexCardProfile = ({ data }) => {
                 </div>
               ) : (
                 <>
-                  <h3 className="font-semibold text-lg mb-4">Conectemos</h3>
+                  <h3 id="connect-modal-heading" className="font-semibold text-lg mb-4">Conectemos</h3>
                   <div className="space-y-3">
-                    <input type="text" placeholder="Tu nombre *" value={contactForm.name} onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
-                    <input type="email" placeholder="Email" value={contactForm.email} onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
-                    <input type="tel" placeholder="Teléfono" value={contactForm.phone} onChange={e => setContactForm(p => ({ ...p, phone: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
-                    <input type="text" placeholder="Empresa" value={contactForm.company} onChange={e => setContactForm(p => ({ ...p, company: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                    <label htmlFor="connect-name" className="sr-only">Tu nombre</label>
+                    <input id="connect-name" ref={firstFieldRef} type="text" placeholder="Tu nombre *" value={contactForm.name} onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                    <label htmlFor="connect-email" className="sr-only">Email</label>
+                    <input id="connect-email" type="email" placeholder="Email" value={contactForm.email} onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                    <label htmlFor="connect-phone" className="sr-only">Teléfono</label>
+                    <input id="connect-phone" type="tel" placeholder="Teléfono" value={contactForm.phone} onChange={e => setContactForm(p => ({ ...p, phone: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
+                    <label htmlFor="connect-company" className="sr-only">Empresa</label>
+                    <input id="connect-company" type="text" placeholder="Empresa" value={contactForm.company} onChange={e => setContactForm(p => ({ ...p, company: e.target.value }))} className={`w-full rounded-xl px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`} />
                   </div>
                   <div className="flex gap-2 mt-4">
                     <button onClick={() => setContactModal(false)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold opacity-50 hover:opacity-80">Cancelar</button>
@@ -325,39 +352,43 @@ const NexCardProfile = ({ data }) => {
               onClick={() => handleLinkClick('whatsapp')}
               target="_blank"
               rel="noreferrer"
+              aria-label="WhatsApp"
               className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-green-950 border-green-900' : 'bg-green-50 border-green-100'}`}
             >
               <Phone size={24} className="text-green-500" />
             </a>
           )}
           {(data.linkedin_enabled !== false && data.linkedin) && (
-            <a 
+            <a
               href={data.linkedin.startsWith('http') ? data.linkedin : `https://linkedin.com/in/${data.linkedin}`}
               onClick={() => handleLinkClick('linkedin')}
               target="_blank"
               rel="noreferrer"
+              aria-label="LinkedIn"
               className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
             >
               <Linkedin size={24} className="text-blue-600" />
             </a>
           )}
           {(data.instagram_enabled !== false && data.instagram) && (
-            <a 
+            <a
               href={`https://instagram.com/${data.instagram}`}
               onClick={() => handleLinkClick('instagram')}
               target="_blank"
               rel="noreferrer"
+              aria-label="Instagram"
               className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
             >
               <Instagram size={24} className="text-pink-500" />
             </a>
           )}
           {(data.facebook_enabled !== false && data.facebook) && (
-            <a 
+            <a
               href={data.facebook.startsWith('http') ? data.facebook : `https://facebook.com/${data.facebook}`}
               onClick={() => handleLinkClick('facebook')}
               target="_blank"
               rel="noreferrer"
+              aria-label="Facebook"
               className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
             >
               <Facebook size={24} className="text-blue-500" />
@@ -435,8 +466,10 @@ const NexCardProfile = ({ data }) => {
         {/* Bank Details Accordion */}
         {data.bank_enabled !== false && (
           <div>
-            <button 
+            <button
               onClick={() => setIsBankOpen(!isBankOpen)}
+              aria-expanded={isBankOpen}
+              aria-controls="bank-details-panel"
               className={`w-full flex items-center justify-between p-4 rounded-2xl shadow-sm border transition-all ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
             >
               <span className={`font-bold flex items-center gap-3 ${isDark ? 'text-white' : 'text-zinc-900'}`}>
@@ -450,7 +483,7 @@ const NexCardProfile = ({ data }) => {
             </button>
             
             {isBankOpen && (
-              <div className={`mt-2 p-5 rounded-2xl shadow-sm border space-y-3 animate-in slide-in-from-top-2 duration-300 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+              <div id="bank-details-panel" className={`mt-2 p-5 rounded-2xl shadow-sm border space-y-3 animate-in slide-in-from-top-2 duration-300 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
                 {[
                   { label: 'Banco', value: data.bank_name, field: 'bank_name' },
                   { label: 'Tipo', value: data.bank_type, field: 'bank_type' },
@@ -466,7 +499,8 @@ const NexCardProfile = ({ data }) => {
                     </div>
                     <button
                       onClick={() => handleCopy(row.value, row.field)}
-                      className={`shrink-0 p-1.5 rounded-lg transition-colors ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700'}`}
+                      aria-label={`Copiar ${row.label}`}
+                      className={`shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors ${isDark ? 'hover:bg-zinc-800 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700'}`}
                     >
                       {copiedField === row.field ? <Check size={14} /> : <Copy size={14} />}
                     </button>
@@ -532,33 +566,36 @@ const NexCardProfile = ({ data }) => {
           <>
             <div className="grid grid-cols-4 gap-3">
               {(data.instagram_enabled !== false && data.instagram) && (
-                <a 
+                <a
                   href={`https://instagram.com/${data.instagram}`}
                   onClick={() => handleLinkClick('instagram')}
                   target="_blank"
                   rel="noreferrer"
+                  aria-label="Instagram"
                   className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
                 >
                   <Instagram size={24} className="text-pink-500" />
                 </a>
               )}
               {(data.facebook_enabled !== false && data.facebook) && (
-                <a 
+                <a
                   href={data.facebook.startsWith('http') ? data.facebook : `https://facebook.com/${data.facebook}`}
                   onClick={() => handleLinkClick('facebook')}
                   target="_blank"
                   rel="noreferrer"
+                  aria-label="Facebook"
                   className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
                 >
                   <Facebook size={24} className="text-blue-500" />
                 </a>
               )}
               {(data.linkedin_enabled !== false && data.linkedin) && (
-                <a 
+                <a
                   href={data.linkedin.startsWith('http') ? data.linkedin : `https://linkedin.com/in/${data.linkedin}`}
                   onClick={() => handleLinkClick('linkedin')}
                   target="_blank"
                   rel="noreferrer"
+                  aria-label="LinkedIn"
                   className={`flex items-center justify-center p-3 rounded-2xl shadow-sm border hover:scale-105 transition-transform ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
                 >
                   <Linkedin size={24} className="text-blue-600" />
