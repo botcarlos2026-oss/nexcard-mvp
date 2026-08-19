@@ -17,7 +17,7 @@ export default function Cart({ onProceedCheckout, onBack }) {
         <p className="text-zinc-400 mb-8">Agrega productos para comenzar</p>
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
+          className="btn-base btn-press flex items-center gap-2 px-6 min-h-[48px] rounded-lg btn-primary"
         >
           <ArrowLeft size={18} />
           Volver al catálogo
@@ -50,7 +50,7 @@ export default function Cart({ onProceedCheckout, onBack }) {
           {items.map((item, index) => (
             <div
               key={item.product_id}
-              className={`flex items-center gap-4 p-4 sm:p-5 ${
+              className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 sm:p-5 ${
                 index < items.length - 1 ? 'border-b border-zinc-800' : ''
               }`}
             >
@@ -65,41 +65,43 @@ export default function Cart({ onProceedCheckout, onBack }) {
                 </p>
               </div>
 
-              {/* Cantidad */}
-              <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1 shrink-0">
+              <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+                {/* Cantidad */}
+                <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1 shrink-0">
+                  <button
+                    onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                    className="w-11 h-11 flex items-center justify-center hover:bg-zinc-700 rounded text-lg font-bold transition-colors"
+                    aria-label="Reducir cantidad"
+                  >
+                    −
+                  </button>
+                  <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
+                  <button
+                    onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                    className="w-11 h-11 flex items-center justify-center hover:bg-zinc-700 rounded text-lg font-bold transition-colors"
+                    aria-label="Aumentar cantidad"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Subtotal */}
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-zinc-500 hidden sm:block">Subtotal</p>
+                  <p className="font-bold text-sm sm:text-base">
+                    ${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}
+                  </p>
+                </div>
+
+                {/* Eliminar */}
                 <button
-                  onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
-                  className="w-7 h-7 flex items-center justify-center hover:bg-zinc-700 rounded text-lg font-bold transition-colors"
-                  aria-label="Reducir cantidad"
+                  onClick={() => removeItem(item.product_id)}
+                  className="w-11 h-11 flex items-center justify-center hover:bg-red-900/40 rounded-lg text-zinc-500 hover:text-red-400 transition-colors shrink-0"
+                  aria-label={`Eliminar ${item.product_name}`}
                 >
-                  −
-                </button>
-                <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
-                <button
-                  onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                  className="w-7 h-7 flex items-center justify-center hover:bg-zinc-700 rounded text-lg font-bold transition-colors"
-                  aria-label="Aumentar cantidad"
-                >
-                  +
+                  <Trash2 size={18} />
                 </button>
               </div>
-
-              {/* Subtotal */}
-              <div className="text-right shrink-0 hidden sm:block">
-                <p className="text-xs text-zinc-500">Subtotal</p>
-                <p className="font-bold">
-                  ${(item.unit_price_cents * item.quantity).toLocaleString('es-CL')}
-                </p>
-              </div>
-
-              {/* Eliminar */}
-              <button
-                onClick={() => removeItem(item.product_id)}
-                className="p-2 hover:bg-red-900/40 rounded-lg text-zinc-500 hover:text-red-400 transition-colors shrink-0"
-                aria-label={`Eliminar ${item.product_name}`}
-              >
-                <Trash2 size={18} />
-              </button>
             </div>
           ))}
         </div>
@@ -123,7 +125,7 @@ export default function Cart({ onProceedCheckout, onBack }) {
         {/* Botón checkout */}
         <button
           onClick={onProceedCheckout}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold py-4 rounded-xl transition-colors text-lg shadow-lg shadow-emerald-900/30"
+          className="btn-base btn-press w-full min-h-[56px] rounded-xl font-bold text-lg btn-primary shadow-lg shadow-emerald-900/30"
         >
           Proceder al Checkout →
         </button>
