@@ -6,12 +6,13 @@ export default function CardPreview({
   jobTitle = 'Tu Cargo',
   company = '',
   primaryColor = '#10B981',
+  showAccent = true,
   size = 'full',
 }) {
   const width = size === 'thumb' ? 170 : 340;
   const height = size === 'thumb' ? 108 : 216;
 
-  const svg = generateCardSVG(template, { name, jobTitle, company, primaryColor });
+  const svg = generateCardSVG(template, { name, jobTitle, company, primaryColor, showAccent });
 
   return (
     <div
