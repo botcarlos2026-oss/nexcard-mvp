@@ -88,6 +88,18 @@ export function createCrmApi({ supabase, hasSupabase }) {
       return data;
     },
 
+    createCRMContact: async (contact) => {
+      const { data, error } = await supabase.from('crm_contacts').insert(contact).select().single();
+      if (error) throw error;
+      return data;
+    },
+
+    updateCRMContact: async (id, payload) => {
+      const { data, error } = await supabase.from('crm_contacts').update(payload).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+
     updateCRMDeal: async (id, payload) => {
       const { error } = await supabase
         .from('crm_deals')
