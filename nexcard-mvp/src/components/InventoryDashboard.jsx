@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
   Package,
   Printer,
@@ -55,10 +55,26 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
   const [dispatchSaving, setDispatchSaving] = useState(false);
   const [dispatchFeedback, setDispatchFeedback] = useState({ type: '', message: '' });
   const [editingMinStock, setEditingMinStock] = useState({}); // { [itemId]: draftValue }
+  const previouslyFocusedRef = useRef(null);
+  const firstFieldRef = useRef(null);
 
   useEffect(() => {
     api.getDispatchConfig().then(setDispatchConfigs).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    previouslyFocusedRef.current = document.activeElement;
+    firstFieldRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, [isModalOpen]);
 
   const handleAddDispatchConfig = async (e) => {
     e.preventDefault();
@@ -77,7 +93,8 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
     }
   };
 
-  const handleDeleteDispatchConfig = async (id) => {
+  const handleDeleteDispatchConfig = async (id, label) => {
+    if (!window.confirm(`¿Confirmas eliminar "${label}" de la configuración de despacho? Esta acción no se puede deshacer.`)) return;
     try {
       const updated = await api.deleteDispatchConfig(id);
       setDispatchConfigs(updated);
@@ -93,8 +110,8 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
     try {
       const { items: updated } = await api.updateInventoryItem(itemId, { min_stock: value });
       setRows(updated);
-    } catch {
-      // silencioso
+    } catch (err) {
+      setFeedback({ type: 'error', message: err.message || 'No fue posible actualizar el stock mínimo.' });
     }
     setEditingMinStock(prev => { const n = { ...prev }; delete n[itemId]; return n; });
   };
@@ -175,7 +192,10 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
       }
     >
       {feedback.message && (
-        <div className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-400' : 'border-red-800 bg-red-950/40 text-red-400'}`}>
+        <div
+          role={feedback.type === 'success' ? 'status' : 'alert'}
+          className={`mb-6 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${feedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-400' : 'border-red-800 bg-red-950/40 text-red-400'}`}
+        >
           {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
           <span>{feedback.message}</span>
         </div>
@@ -218,7 +238,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                     <span className="text-xs font-bold text-zinc-400">{item.category}</span>
                   </TD>
                   <TD>
-                    <span className="text-xs font-bold text-blue-400">{item.sku || 'Sin SKU'}</span>
+                    <span className="text-xs font-bold text-zinc-300">{item.sku || 'Sin SKU'}</span>
                   </TD>
                   <TD>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -236,6 +256,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                       <input
                         type="number"
                         min="0"
+                        aria-label={`Editar stock mínimo de ${item.item}`}
                         value={editingMinStock[item.id]}
                         onChange={e => setEditingMinStock(prev => ({ ...prev, [item.id]: e.target.value }))}
                         onBlur={() => handleSaveMinStock(item.id)}
@@ -247,8 +268,8 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                       <button
                         type="button"
                         onClick={() => setEditingMinStock(prev => ({ ...prev, [item.id]: String(item.min_stock || 0) }))}
-                        className={`text-sm font-bold px-3 py-1 rounded-lg border border-dashed transition-colors ${(item.min_stock || 0) > 0 ? 'border-amber-700 text-amber-400 bg-amber-950/30 hover:bg-amber-950/50' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'}`}
-                        title="Click para editar stock mínimo"
+                        aria-label={`Editar stock mínimo de ${item.item}, actual: ${(item.min_stock || 0) > 0 ? item.min_stock : 'sin definir'}`}
+                        className={`min-h-[44px] text-sm font-bold px-3 py-1 rounded-lg border border-dashed transition-colors ${(item.min_stock || 0) > 0 ? 'border-amber-700 text-amber-400 bg-amber-950/30 hover:bg-amber-950/50' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300'}`}
                       >
                         {(item.min_stock || 0) > 0 ? item.min_stock : '—'}
                       </button>
@@ -263,7 +284,8 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                   <TD className="text-right">
                     <button
                       onClick={() => { setForm((prev) => ({ ...prev, inventory_item_id: item.id })); setIsModalOpen(true); }}
-                      className="p-2 text-zinc-500 hover:text-white transition-colors"
+                      aria-label={`Registrar movimiento para ${item.item}`}
+                      className="inline-flex min-w-[44px] min-h-[44px] items-center justify-center text-zinc-500 hover:text-white transition-colors"
                     >
                       <Settings size={20} />
                     </button>
@@ -319,9 +341,6 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
           <div>
             <h4 className="text-lg font-bold text-white">Operación de stock</h4>
             <p className="text-zinc-400 font-medium text-sm">MVP transaccional activo: entradas, salidas y ajustes manuales con rastro.</p>
-            <div className="mt-2 w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 w-[72%]"></div>
-            </div>
           </div>
         </div>
         <div className="flex gap-4 shrink-0">
@@ -340,7 +359,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
       {/* Panel: Configuración de insumos por despacho */}
       <AdminCard className="mt-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 rounded-xl bg-zinc-800 text-blue-400">
+          <div className="p-3 rounded-xl bg-zinc-800 text-zinc-300">
             <Truck size={22} />
           </div>
           <div>
@@ -350,7 +369,10 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
         </div>
 
         {dispatchFeedback.message && (
-          <div className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${dispatchFeedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-400' : 'border-red-800 bg-red-950/40 text-red-400'}`}>
+          <div
+            role={dispatchFeedback.type === 'success' ? 'status' : 'alert'}
+            className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${dispatchFeedback.type === 'success' ? 'border-emerald-800 bg-emerald-950/40 text-emerald-400' : 'border-red-800 bg-red-950/40 text-red-400'}`}
+          >
             {dispatchFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
             <span>{dispatchFeedback.message}</span>
           </div>
@@ -371,7 +393,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                 {dispatchConfigs.map((config) => (
                   <TR key={config.id}>
                     <TD className="font-bold text-white">{config.inventory_items?.item || '—'}</TD>
-                    <TD><span className="text-xs font-bold text-blue-400">{config.inventory_items?.sku || '—'}</span></TD>
+                    <TD><span className="text-xs font-bold text-zinc-300">{config.inventory_items?.sku || '—'}</span></TD>
                     <TD className="font-bold text-white">{config.quantity_per_dispatch}</TD>
                     <TD className="text-zinc-400">{config.description || '—'}</TD>
                     <TD>
@@ -381,8 +403,9 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
                     </TD>
                     <TD>
                       <button
-                        onClick={() => handleDeleteDispatchConfig(config.id)}
-                        className="p-2 text-zinc-500 hover:text-red-400 transition-colors"
+                        onClick={() => handleDeleteDispatchConfig(config.id, config.inventory_items?.item || 'este insumo')}
+                        aria-label={`Eliminar ${config.inventory_items?.item || 'insumo'} de despacho`}
+                        className="inline-flex min-w-[44px] min-h-[44px] items-center justify-center text-zinc-500 hover:text-red-400 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -447,13 +470,22 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
       {/* Modal registrar movimiento */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-zinc-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inventory-movement-modal-title"
+            className="w-full max-w-xl rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl"
+          >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-bold text-white">Registrar movimiento</h3>
+                <h3 id="inventory-movement-modal-title" className="text-xl font-bold text-white">Registrar movimiento</h3>
                 <p className="text-sm text-zinc-400 font-medium">Entrada, salida o ajuste manual con actualización inmediata de stock.</p>
               </div>
-              <button onClick={closeModal} className="p-2 text-zinc-500 hover:text-white transition-colors">
+              <button
+                onClick={closeModal}
+                aria-label="Cerrar"
+                className="inline-flex min-w-[44px] min-h-[44px] items-center justify-center text-zinc-500 hover:text-white transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -462,6 +494,7 @@ const InventoryDashboard = ({ items = [], movements = [] }) => {
               <label className="block">
                 <span className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Item</span>
                 <select
+                  ref={firstFieldRef}
                   value={form.inventory_item_id}
                   onChange={(event) => handleChange('inventory_item_id', event.target.value)}
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
