@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Loader2, ShieldCheck, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
 import SafeErrorState from './common/SafeErrorState';
+import { trackEvent } from '../utils/ga4';
 
 const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
   const [loading, setLoading] = useState(true);
@@ -41,9 +42,11 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
 
     setBusy(true);
     setError('');
+    trackEvent('activation_started');
     try {
       const result = await api.claimProfile(token);
       setClaimData(result);
+      trackEvent('activation_completed');
       if (result.requires_profile_setup) {
         onContinueSetup?.({ token, reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '', claimResult: result });
       }

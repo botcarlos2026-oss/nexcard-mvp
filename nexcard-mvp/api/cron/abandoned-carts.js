@@ -1,3 +1,5 @@
+import { alertTelegram } from '../_lib/alertTelegram.js';
+
 export default async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -14,6 +16,7 @@ export default async function handler(req, res) {
       }
     );
   } catch (error) {
+    await alertTelegram('cron/abandoned-carts: send-abandoned-cart inalcanzable', error);
     return res.status(502).json({ success: false, error: `send-abandoned-cart unreachable: ${error.message}` });
   }
 
@@ -22,6 +25,10 @@ export default async function handler(req, res) {
   const data = isJson ? (() => { try { return JSON.parse(rawBody); } catch { return null; } })() : null;
 
   if (!response.ok || data === null) {
+    await alertTelegram(
+      'cron/abandoned-carts: respuesta inválida de send-abandoned-cart',
+      `HTTP ${response.status}: ${rawBody.slice(0, 300)}`
+    );
     return res.status(502).json({
       success: false,
       error: `send-abandoned-cart returned ${response.status} non-JSON/error response`,

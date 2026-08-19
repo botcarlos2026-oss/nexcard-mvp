@@ -8,6 +8,7 @@ import { useCheckoutFlow } from './hooks/useCheckoutFlow';
 import { useAppBootstrap } from './hooks/useAppBootstrap';
 import { getCurrentAdminAccess } from './utils/adminAccess';
 import { parseAuthHashError, getAuthHashErrorMessage } from './utils/authFlow';
+import { trackPageView, trackEvent } from './utils/ga4';
 
 const getReservedSlugFromClaimResult = (result = {}) => (
   result?.reserved_slug || result?.order?.card_customization?.desired_slug || ''
@@ -68,6 +69,10 @@ function App() {
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
+
+  useEffect(() => {
+    trackPageView(path);
+  }, [path]);
 
   useEffect(() => {
     const authHashError = parseAuthHashError(window.location.hash);
@@ -278,6 +283,7 @@ function App() {
       handleClaimAuthRequired={handleClaimAuthRequired}
       handleContinueSetup={handleContinueSetup}
       handleCheckoutStart={() => {
+        trackEvent('hero_cta_clicked');
         startNewCheckout();
         handleCheckoutStart();
       }}

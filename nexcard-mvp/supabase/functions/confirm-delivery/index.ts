@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { alertTelegram } from "../_shared/alertTelegram.ts";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
@@ -109,6 +110,7 @@ serve(async (req) => {
     });
   } catch (err) {
     log('error', 'confirm_delivery_exception', { message: err.message });
+    await alertTelegram('confirm-delivery: excepción no manejada', err);
     return new Response(JSON.stringify({ status: 'error', error: err.message }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },

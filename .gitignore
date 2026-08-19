@@ -11,3 +11,5 @@ test_final.py
 cypress/downloads/
 server/data/db.json
 server/data/seed.json
+.vercel
+.env*

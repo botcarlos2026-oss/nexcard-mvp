@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/abandoned-carts",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/operational-watchdog",
+      "schedule": "15 * * * *"
     }
   ],
   "rewrites": [
@@ -20,7 +24,7 @@
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://www.mercadopago.cl https://www.mercadopago.com https://sdk.mercadopago.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://ghiremuuyprohdqfrxsy.supabase.co https://api.mercadopago.com https://www.mercadopago.cl https://www.mercadopago.com https://cloudflareinsights.com; frame-src https://www.mercadopago.cl https://www.mercadopago.com; object-src 'none'; base-uri 'self'; form-action 'self' https://www.mercadopago.cl https://www.mercadopago.com; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' https://www.mercadopago.cl https://www.mercadopago.com https://sdk.mercadopago.com https://static.cloudflareinsights.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://ghiremuuyprohdqfrxsy.supabase.co https://api.mercadopago.com https://www.mercadopago.cl https://www.mercadopago.com https://cloudflareinsights.com https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://o4511929720700928.ingest.us.sentry.io; frame-src https://www.mercadopago.cl https://www.mercadopago.com; object-src 'none'; base-uri 'self'; form-action 'self' https://www.mercadopago.cl https://www.mercadopago.com; frame-ancestors 'none'"
         }
       ]
     }

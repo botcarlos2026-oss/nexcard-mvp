@@ -7,6 +7,8 @@ const CLIENT_ENV_WHITELIST = [
   'REACT_APP_SUPABASE_URL',
   'REACT_APP_SUPABASE_ANON_KEY',
   'REACT_APP_DISABLE_SUPABASE',
+  'REACT_APP_GA4_ID',
+  'REACT_APP_SENTRY_DSN',
 ];
 
 export default defineConfig(({ mode }) => {
@@ -41,6 +43,7 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined;
             if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('@sentry')) return 'vendor-sentry';
             if (id.includes('lucide-react')) return 'vendor-icons';
             if (id.includes('recharts')) return 'vendor-charts';
             if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'vendor-react';
