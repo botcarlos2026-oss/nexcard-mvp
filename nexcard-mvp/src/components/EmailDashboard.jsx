@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Users, BarChart2, Send, Clock, Download, Eye, X, ShoppingCart } from 'lucide-react';
-import { supabase } from '../services/supabaseClient';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Users, BarChart2, Send, Clock, Download, Eye, X, ShoppingCart, Mail } from 'lucide-react';
 import { api } from '../services/api';
 import { templateShipping, templateFollowup, templateUpsell, templateWaitlistLaunch } from '../utils/emailTemplates';
 import AdminShell from './AdminShell';
@@ -8,9 +7,6 @@ import AdminStat from './ui/AdminStat';
 import AdminCard from './ui/AdminCard';
 import AdminBadge from './ui/AdminBadge';
 import { Table, THead, TH, TR, TD } from './ui/AdminTable';
-
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 const EMAIL_TYPE_LABELS = {
   order_confirmation: 'Confirmación de orden',
@@ -30,6 +26,10 @@ const formatDate = (iso) => {
   return new Date(iso).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
+const UNRESOLVED_TOKEN_RE = /\{[a-z_]+\}/gi;
+
+const findUnresolvedTokens = (text) => [...new Set((text.match(UNRESOLVED_TOKEN_RE) || []))];
+
 export default function EmailDashboard() {
   const [activeTab, setActiveTab] = useState('stats');
   const [recipientTab, setRecipientTab] = useState('clientes');
@@ -47,43 +47,68 @@ export default function EmailDashboard() {
   const [showPreview, setShowPreview] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState(null);
+  const [pendingSend, setPendingSend] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [pendingTemplate, setPendingTemplate] = useState(null); // { label, fn } | null
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState(null); // { email } | { error }
 
   // Filters
   const [logTypeFilter, setLogTypeFilter] = useState('all');
 
   const [abandonedCarts, setAbandonedCarts] = useState([]);
   const [sendingReminder, setSendingReminder] = useState(null);
+  const [reminderError, setReminderError] = useState('');
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
-      const [logRes, unsubRes, ordersRes, waitlistRes, cartsData] = await Promise.all([
-        supabase.from('email_log').select('*').order('sent_at', { ascending: false }).limit(50),
-        supabase.from('email_unsubscribe').select('email'),
-        supabase.from('orders').select('customer_email').not('customer_email', 'is', null),
-        supabase.from('waitlist').select('email').not('email', 'is', null),
+      const [dashboardData, cartsData] = await Promise.all([
+        api.getEmailDashboardData(),
         api.getAbandonedCarts().catch(() => []),
       ]);
 
-      const unsubEmails = new Set((unsubRes.data || []).map(u => u.email.toLowerCase()));
+      const { emailLog: log, unsubscribes: unsub, orderEmails, waitlistEmails: waitlistRows } = dashboardData;
+      const unsubEmails = new Set(unsub.map(u => u.email.toLowerCase()));
 
-      setEmailLog(logRes.data || []);
-      setUnsubscribes(unsubRes.data || []);
+      setEmailLog(log);
+      setUnsubscribes(unsub);
       setAbandonedCarts(cartsData || []);
 
-      const uniqueClients = [...new Set((ordersRes.data || []).map(o => o.customer_email?.toLowerCase()).filter(Boolean))];
+      const uniqueClients = [...new Set(orderEmails.map(o => o.customer_email?.toLowerCase()).filter(Boolean))];
       setClientEmails(uniqueClients.filter(e => !unsubEmails.has(e)));
 
-      const uniqueWaitlist = [...new Set((waitlistRes.data || []).map(w => w.email?.toLowerCase()).filter(Boolean))];
+      const uniqueWaitlist = [...new Set(waitlistRows.map(w => w.email?.toLowerCase()).filter(Boolean))];
       setWaitlistEmails(uniqueWaitlist.filter(e => !unsubEmails.has(e)));
+    } catch (err) {
+      setLoadError(err.message || 'No fue posible cargar los datos de email marketing.');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const previewPreviouslyFocusedRef = useRef(null);
+  const previewCloseRef = useRef(null);
+
+  useEffect(() => {
+    if (!showPreview) return;
+    previewPreviouslyFocusedRef.current = document.activeElement;
+    previewCloseRef.current?.focus();
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setShowPreview(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previewPreviouslyFocusedRef.current?.focus?.();
+    };
+  }, [showPreview]);
 
   const getRecipientList = () => {
     if (audience === 'clientes') return clientEmails;
@@ -104,76 +129,65 @@ export default function EmailDashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSendCampaign = async () => {
+  const requestSendCampaign = () => {
+    setFormError('');
     if (!subject.trim() || !body.trim()) {
-      setSendResult({ error: 'Completa el asunto y el cuerpo del email.' });
+      setFormError('Completa el asunto y el cuerpo del email.');
+      return;
+    }
+    const unresolvedTokens = [...findUnresolvedTokens(subject), ...findUnresolvedTokens(body)];
+    if (unresolvedTokens.length > 0) {
+      setFormError(`El email tiene placeholders sin reemplazar: ${unresolvedTokens.join(', ')}. Reemplázalos con texto real antes de enviar — no se personalizan por destinatario.`);
       return;
     }
     const recipients = getRecipientList();
     if (recipients.length === 0) {
-      setSendResult({ error: 'No hay destinatarios activos para esta audiencia.' });
+      setFormError('No hay destinatarios activos para esta audiencia.');
       return;
     }
+    setPendingSend(true);
+  };
 
-    const confirmed = window.confirm(`¿Enviar a ${recipients.length} destinatarios?`);
-    if (!confirmed) return;
-
+  const confirmSendCampaign = async () => {
+    setPendingSend(false);
+    const recipients = getRecipientList();
     setSending(true);
     setSendResult(null);
-    let sent = 0;
-    let skipped = 0;
-    let errors = 0;
-    let rateLimited = 0;
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-
-    if (!token) {
+    try {
+      const result = await api.sendCampaignToRecipients(recipients, { subject, html: body });
+      setSendResult(result);
+      load();
+    } catch (err) {
+      setSendResult({ error: err.message || 'No fue posible enviar la campaña.' });
+    } finally {
       setSending(false);
-      setSendResult({ error: 'Debes iniciar sesión como admin para enviar campañas.' });
+    }
+  };
+
+  const requestTemplate = (template) => {
+    if (subject.trim() || body.trim()) {
+      setPendingTemplate(template);
       return;
     }
+    template.fn();
+  };
 
-    const sendOne = async (email, attempt = 1) => {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-campaign-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ to: email, subject, html: body, email_type: 'campaign' }),
-      });
-      // Rate limit: esperar y reintentar hasta 3 veces con backoff
-      if (res.status === 429 && attempt <= 3) {
-        const backoff = attempt * 2000;
-        await new Promise(r => setTimeout(r, backoff));
-        return sendOne(email, attempt + 1);
-      }
-      return res;
-    };
+  const confirmApplyTemplate = () => {
+    pendingTemplate?.fn();
+    setPendingTemplate(null);
+  };
 
-    for (const email of recipients) {
-      try {
-        const res = await sendOne(email);
-        if (res.status === 429) {
-          rateLimited++;
-        } else {
-          const data = await res.json();
-          if (data.success) sent++;
-          else if (data.skipped_reason) skipped++;
-          else errors++;
-        }
-      } catch {
-        errors++;
-      }
-      // Delay 100ms entre envíos para no superar rate limit de Resend
-      await new Promise(r => setTimeout(r, 100));
+  const handleSendTest = async () => {
+    setTestSending(true);
+    setTestResult(null);
+    try {
+      const result = await api.sendTestEmail({ subject, html: body });
+      setTestResult(result);
+    } catch (err) {
+      setTestResult({ error: err.message || 'No fue posible enviar la prueba.' });
+    } finally {
+      setTestSending(false);
     }
-
-    setSending(false);
-    setSendResult({ sent, skipped, errors, rateLimited });
-    load();
   };
 
   // Stats
@@ -210,13 +224,21 @@ export default function EmailDashboard() {
     <AdminShell active="emails" title="Email Marketing" subtitle="Campañas, historial y bajas — Ley 19.628">
       <div className="space-y-6">
 
+        {loadError && (
+          <div role="alert" className="flex items-center gap-3 rounded-xl border border-red-800 bg-red-950/40 px-4 py-3 text-sm font-semibold text-red-400">
+            <span>{loadError}</span>
+          </div>
+        )}
+
         {/* Tabs */}
-        <div className="flex gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-1.5 w-fit flex-wrap">
+        <div role="tablist" aria-label="Secciones de email marketing" className="flex gap-2 bg-zinc-900 border border-zinc-800 rounded-xl p-1.5 w-fit flex-wrap">
           {TABS.map(tab => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+              className={`flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-lg font-bold text-sm transition-all ${
                 activeTab === tab.id
                   ? 'bg-zinc-800 text-white'
                   : 'text-zinc-500 hover:text-zinc-300'
@@ -272,10 +294,11 @@ export default function EmailDashboard() {
                 <button
                   key={t.id}
                   onClick={() => setRecipientTab(t.id)}
-                  className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+                  aria-pressed={recipientTab === t.id}
+                  className={`min-h-[44px] px-4 py-2 rounded-lg font-bold text-sm transition-colors border ${
                     recipientTab === t.id
-                      ? 'bg-emerald-500 text-white'
-                      : 'px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors'
+                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                      : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white'
                   }`}
                 >
                   {t.label}
@@ -292,7 +315,7 @@ export default function EmailDashboard() {
                   const list = recipientTab === 'clientes' ? clientEmails : waitlistEmails;
                   exportCSV(list, `nexcard-${recipientTab}-${Date.now()}.csv`);
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
+                className="min-h-[44px] flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
               >
                 <Download size={14} />
                 Exportar CSV
@@ -318,6 +341,8 @@ export default function EmailDashboard() {
             <h2 className="text-base font-bold text-white mb-6">Enviar campaña</h2>
 
             <div className="space-y-5">
+              <AdminStat label="Destinatarios seleccionados" value={recipientCount} accent={recipientCount > 0 ? 'emerald' : null} />
+
               {/* Audiencia */}
               <div>
                 <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Audiencia</label>
@@ -329,11 +354,12 @@ export default function EmailDashboard() {
                   ].map(opt => (
                     <button
                       key={opt.id}
-                      onClick={() => setAudience(opt.id)}
-                      className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+                      onClick={() => { setAudience(opt.id); setFormError(''); setSendResult(null); }}
+                      aria-pressed={audience === opt.id}
+                      className={`min-h-[44px] px-4 py-2 rounded-lg font-bold text-sm transition-colors border ${
                         audience === opt.id
-                          ? 'bg-emerald-500 text-white'
-                          : 'px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors'
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
+                          : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white'
                       }`}
                     >
                       {opt.label}
@@ -348,7 +374,7 @@ export default function EmailDashboard() {
                 <input
                   type="text"
                   value={subject}
-                  onChange={e => setSubject(e.target.value)}
+                  onChange={e => { setSubject(e.target.value); setFormError(''); setSendResult(null); setTestResult(null); }}
                   placeholder="Asunto del email..."
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors"
                 />
@@ -359,7 +385,7 @@ export default function EmailDashboard() {
                 <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Cuerpo (HTML básico)</label>
                 <textarea
                   value={body}
-                  onChange={e => setBody(e.target.value)}
+                  onChange={e => { setBody(e.target.value); setFormError(''); setSendResult(null); setTestResult(null); }}
                   rows={8}
                   placeholder="<p>Hola, ...</p>"
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-colors resize-y font-mono"
@@ -369,6 +395,7 @@ export default function EmailDashboard() {
               {/* Templates rápidos */}
               <div>
                 <label className="block text-xs uppercase tracking-wide text-zinc-500 font-medium mb-1.5">Templates rápidos</label>
+                <p className="text-xs text-zinc-500 mb-2">Estos templates traen placeholders (<code className="text-zinc-400">{'{nombre}'}</code>, <code className="text-zinc-400">{'{email}'}</code>...) que debes reemplazar con texto real — no se personalizan por destinatario en una campaña masiva.</p>
                 <div className="flex flex-wrap gap-2">
                   {[
                     { label: 'Despacho', fn: () => { setSubject('Tu pedido NexCard fue despachado'); setBody(templateShipping({ customer_email: '{email}', customer_name: '{nombre}', id: '{order_id}' }, '{tracking}')); } },
@@ -378,8 +405,8 @@ export default function EmailDashboard() {
                   ].map(t => (
                     <button
                       key={t.label}
-                      onClick={t.fn}
-                      className="px-3 py-1.5 bg-emerald-950/50 border border-emerald-900 text-emerald-400 rounded-lg font-bold text-xs hover:bg-emerald-900/50 transition-colors"
+                      onClick={() => requestTemplate(t)}
+                      className="min-h-[44px] px-3 py-1.5 bg-emerald-950/50 border border-emerald-900 text-emerald-400 rounded-lg font-bold text-xs hover:bg-emerald-900/50 transition-colors"
                     >
                       {t.label}
                     </button>
@@ -387,28 +414,48 @@ export default function EmailDashboard() {
                 </div>
               </div>
 
-              {/* Preview + Enviar */}
+              {/* Preview + Prueba + Enviar */}
               <div className="flex gap-3 pt-2 flex-wrap">
                 <button
                   onClick={() => setShowPreview(true)}
                   disabled={!body.trim()}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-h-[44px] flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Eye size={15} />
                   Preview
                 </button>
                 <button
-                  onClick={handleSendCampaign}
+                  onClick={handleSendTest}
+                  disabled={testSending || !subject.trim() || !body.trim()}
+                  className="min-h-[44px] flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Mail size={15} />
+                  {testSending ? 'Enviando prueba...' : 'Enviar prueba a mi correo'}
+                </button>
+                <button
+                  onClick={requestSendCampaign}
                   disabled={sending || !subject.trim() || !body.trim()}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-h-[44px] flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send size={15} />
                   {sending ? 'Enviando...' : `Enviar a ${recipientCount} destinatarios`}
                 </button>
               </div>
 
+              {testResult && (
+                <div role={testResult.error ? 'alert' : 'status'} className={`rounded-xl p-4 text-sm font-medium ${testResult.error ? 'bg-red-950/50 text-red-400 border border-red-900' : 'bg-emerald-950/50 text-emerald-400 border border-emerald-900'}`}>
+                  {testResult.error ? testResult.error : <>Prueba enviada a <strong>{testResult.email}</strong>.</>}
+                </div>
+              )}
+
+              {formError && (
+                <div role="alert" className="rounded-xl p-4 text-sm font-medium bg-red-950/50 text-red-400 border border-red-900">
+                  {formError}
+                </div>
+              )}
+
               {sendResult && (
-                <div className={`rounded-xl p-4 text-sm font-medium ${sendResult.error ? 'bg-red-950/50 text-red-400 border border-red-900' : 'bg-emerald-950/50 text-emerald-400 border border-emerald-900'}`}>
+                <div role={sendResult.error ? 'alert' : 'status'} className={`rounded-xl p-4 text-sm font-medium ${sendResult.error ? 'bg-red-950/50 text-red-400 border border-red-900' : 'bg-emerald-950/50 text-emerald-400 border border-emerald-900'}`}>
                   {sendResult.error ? sendResult.error : (
                     <>Campaña enviada: <strong>{sendResult.sent}</strong> enviados · <strong>{sendResult.skipped}</strong> bajas · <strong>{sendResult.errors}</strong> errores{sendResult.rateLimited > 0 && <> · <strong>{sendResult.rateLimited}</strong> límite de tasa (reintentos agotados)</>}</>
                   )}
@@ -480,23 +527,14 @@ export default function EmailDashboard() {
             if (sendingReminder) return;
             setSendingReminder(cart.id);
             try {
-              const { data: { session } } = await supabase.auth.getSession();
-              const token = session?.access_token;
-              const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
-              const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
-              const res = await fetch(`${SUPABASE_URL}/functions/v1/send-abandoned-cart`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
-                  'apikey': SUPABASE_ANON_KEY,
-                },
-                body: JSON.stringify({ cartId: cart.id }),
-              });
-              const data = await res.json();
-              if (data.success || data.skipped) load();
-            } catch {
-              // silencioso
+              const data = await api.sendAbandonedCartReminder(cart.id);
+              if (data.success || data.skipped) {
+                load();
+              } else {
+                setReminderError(data.error || 'No fue posible enviar el recordatorio.');
+              }
+            } catch (err) {
+              setReminderError(err.message || 'No fue posible enviar el recordatorio.');
             } finally {
               setSendingReminder(null);
             }
@@ -524,6 +562,11 @@ export default function EmailDashboard() {
 
           return (
             <div className="space-y-6">
+              {reminderError && (
+                <div role="alert" className="flex items-center gap-3 rounded-xl border border-red-800 bg-red-950/40 px-4 py-3 text-sm font-semibold text-red-400">
+                  <span>{reminderError}</span>
+                </div>
+              )}
               {/* Stats */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <AdminStat label="Carritos (7 días)" value={abandoned.length} />
@@ -562,7 +605,7 @@ export default function EmailDashboard() {
                               <p className="truncate">{items.map(i => i.product_name).join(', ')}</p>
                               <p className="text-xs text-zinc-500">{items.reduce((s, i) => s + i.quantity, 0)} unidad{items.reduce((s, i) => s + i.quantity, 0) !== 1 ? 'es' : ''}</p>
                             </TD>
-                            <TD className="font-bold text-white">${cart.total_cents.toLocaleString('es-CL')}</TD>
+                            <TD className="font-bold text-white">${(cart.total_cents || 0).toLocaleString('es-CL')}</TD>
                             <TD className="whitespace-nowrap">{timeLabel}</TD>
                             <TD>
                               <AdminBadge variant={cartStatusVariant(cart.status)}>
@@ -574,7 +617,7 @@ export default function EmailDashboard() {
                                 <button
                                   onClick={() => handleSendReminder(cart)}
                                   disabled={sendingReminder === cart.id}
-                                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                                  className="min-h-[44px] px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                 >
                                   {sendingReminder === cart.id ? 'Enviando...' : 'Enviar recordatorio'}
                                 </button>
@@ -598,10 +641,20 @@ export default function EmailDashboard() {
       {/* Preview Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="email-preview-title"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+          >
             <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <h3 className="font-bold text-white">Preview del email</h3>
-              <button onClick={() => setShowPreview(false)} className="text-zinc-400 hover:text-white">
+              <h3 id="email-preview-title" className="font-bold text-white">Preview del email</h3>
+              <button
+                ref={previewCloseRef}
+                onClick={() => setShowPreview(false)}
+                aria-label="Cerrar"
+                className="inline-flex min-w-[44px] min-h-[44px] items-center justify-center text-zinc-400 hover:text-white"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -616,6 +669,72 @@ export default function EmailDashboard() {
                 className="w-full h-96 border border-zinc-700 rounded-xl"
                 sandbox="allow-same-origin"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar reemplazo de borrador con template */}
+      {pendingTemplate && (
+        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-template-title"
+            className="w-full max-w-sm rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl"
+          >
+            <h3 id="confirm-template-title" className="text-lg font-bold text-white">Reemplazar borrador</h3>
+            <p className="mt-2 text-sm font-medium text-zinc-400">
+              Ya tienes texto en el asunto o el cuerpo. Usar el template <span className="font-bold text-white">"{pendingTemplate.label}"</span> reemplazará lo que escribiste. ¿Continuar?
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingTemplate(null)}
+                className="min-h-[44px] px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmApplyTemplate}
+                className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-bold transition-colors text-white bg-emerald-500 hover:bg-emerald-400"
+              >
+                Reemplazar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar envío de campaña */}
+      {pendingSend && (
+        <div className="fixed inset-0 z-50 bg-zinc-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-send-campaign-title"
+            className="w-full max-w-sm rounded-2xl bg-zinc-900 border border-zinc-800 p-6 shadow-2xl"
+          >
+            <h3 id="confirm-send-campaign-title" className="text-lg font-bold text-white">Enviar campaña</h3>
+            <p className="mt-2 text-sm font-medium text-zinc-400">
+              ¿Confirmas enviar este email a <span className="font-bold text-white">{recipientCount} destinatarios</span>? Esta acción no se puede deshacer.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingSend(false)}
+                className="min-h-[44px] px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmSendCampaign}
+                className="min-h-[44px] px-4 py-2 rounded-lg text-sm font-bold transition-colors text-white bg-emerald-500 hover:bg-emerald-400"
+              >
+                Enviar
+              </button>
             </div>
           </div>
         </div>
