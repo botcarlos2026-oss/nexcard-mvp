@@ -353,6 +353,12 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     return { scans: data || [] };
   };
 
+  const adminUpdateProfileFields = async (profileId, payload) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const { error } = await supabase.from('profiles').update(payload).eq('id', profileId);
+    if (error) throw new Error(error.message);
+  };
+
   return {
     previewProfileClaim,
     checkProfileSlugAvailability,
@@ -365,5 +371,6 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     archiveProfile,
     restoreProfileVersion,
     getCardScans,
+    adminUpdateProfileFields,
   };
 }
