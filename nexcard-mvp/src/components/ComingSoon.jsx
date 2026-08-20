@@ -117,7 +117,7 @@ export default function ComingSoon() {
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
             <Rocket size={28} className="mx-auto mb-3 text-emerald-400" />
             <p className="text-white font-semibold mb-1 text-sm">Acceso anticipado</p>
-            <p className="text-zinc-500 text-xs">7 días antes del lanzamiento</p>
+            <p className="text-zinc-500 text-xs">24 horas antes del lanzamiento</p>
           </div>
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 text-center">
             <Gem size={28} className="mx-auto mb-3 text-emerald-400" />

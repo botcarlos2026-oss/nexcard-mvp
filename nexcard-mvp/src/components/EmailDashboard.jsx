@@ -44,6 +44,7 @@ export default function EmailDashboard() {
   const [audience, setAudience] = useState('clientes');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [emailType, setEmailType] = useState('campaign');
   const [showPreview, setShowPreview] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState(null);
@@ -154,7 +155,7 @@ export default function EmailDashboard() {
     setSending(true);
     setSendResult(null);
     try {
-      const result = await api.sendCampaignToRecipients(recipients, { subject, html: body });
+      const result = await api.sendCampaignToRecipients(recipients, { subject, html: body, emailType });
       setSendResult(result);
       load();
     } catch (err) {
@@ -170,10 +171,12 @@ export default function EmailDashboard() {
       return;
     }
     template.fn();
+    setEmailType(template.emailType || 'campaign');
   };
 
   const confirmApplyTemplate = () => {
     pendingTemplate?.fn();
+    setEmailType(pendingTemplate?.emailType || 'campaign');
     setPendingTemplate(null);
   };
 
@@ -398,10 +401,10 @@ export default function EmailDashboard() {
                 <p className="text-xs text-zinc-500 mb-2">Estos templates traen placeholders (<code className="text-zinc-400">{'{nombre}'}</code>, <code className="text-zinc-400">{'{email}'}</code>...) que debes reemplazar con texto real — no se personalizan por destinatario en una campaña masiva.</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { label: 'Despacho', fn: () => { setSubject('Tu pedido NexCard fue despachado'); setBody(templateShipping({ customer_email: '{email}', customer_name: '{nombre}', id: '{order_id}' }, '{tracking}')); } },
-                    { label: 'Seguimiento', fn: () => { setSubject('Como va tu NexCard?'); setBody(templateFollowup({ customer_email: '{email}', customer_name: '{nombre}' })); } },
-                    { label: 'Upsell', fn: () => { setSubject('10% OFF en tu proxima NexCard'); setBody(templateUpsell({ customer_email: '{email}', customer_name: '{nombre}' })); } },
-                    { label: 'Lanzamiento waitlist', fn: () => { setSubject('NexCard ya esta disponible!'); setBody(templateWaitlistLaunch('{email}')); } },
+                    { label: 'Despacho', emailType: 'shipping', fn: () => { setSubject('Tu pedido NexCard fue despachado'); setBody(templateShipping({ customer_email: '{email}', customer_name: '{nombre}', id: '{order_id}' }, '{tracking}')); } },
+                    { label: 'Seguimiento', emailType: 'followup', fn: () => { setSubject('Como va tu NexCard?'); setBody(templateFollowup({ customer_email: '{email}', customer_name: '{nombre}' })); } },
+                    { label: 'Upsell', emailType: 'upsell', fn: () => { setSubject('10% OFF en tu proxima NexCard'); setBody(templateUpsell({ customer_email: '{email}', customer_name: '{nombre}' })); } },
+                    { label: 'Lanzamiento waitlist', emailType: 'waitlist_launch', fn: () => { setSubject('NexCard ya esta disponible!'); setBody(templateWaitlistLaunch('{email}')); } },
                   ].map(t => (
                     <button
                       key={t.label}
