@@ -1,6 +1,6 @@
 import { alertTelegram } from '../_lib/alertTelegram.js';
 
-export default async function handler(req, res) {
+async function run(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -47,4 +47,25 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json(data);
+}
+
+export default async function handler(req, res) {
+  try {
+    return await run(req, res);
+  } catch (error) {
+    // Red de seguridad final: sin esto, cualquier excepción no prevista tumba
+    // la invocación entera (502 crudo de Cloudflare, sin rastro del motivo real).
+    console.error('cron/abandoned-carts crashed', error);
+    try {
+      await alertTelegram('cron/abandoned-carts: excepción no manejada', error);
+    } catch {
+      // no-op
+    }
+    return res.status(500).json({
+      success: false,
+      crashed: true,
+      error: error?.message || String(error),
+      stack: (error?.stack || '').split('\n').slice(0, 6).join('\n'),
+    });
+  }
 }
