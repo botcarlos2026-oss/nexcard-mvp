@@ -19,3 +19,14 @@ cypress/downloads/
 .hermes/
 strix_runs/
 supabase/.temp/
+
+# Keys / certificates — never commit these
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+credentials.json
+service-account*.json

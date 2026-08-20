@@ -95,6 +95,13 @@ function hashPassword(password, salt = randomBytes(16).toString('hex')) {
   return `scrypt:${salt}:${hash}`;
 }
 
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 function verifyPassword(password, user) {
   if (!user) return false;
   if (user.password_hash) {
@@ -104,7 +111,7 @@ function verifyPassword(password, user) {
     const stored = Buffer.from(storedHash, 'hex');
     return candidate.length === stored.length && timingSafeEqual(candidate, stored);
   }
-  return typeof user.password === 'string' && user.password === password;
+  return typeof user.password === 'string' && safeEqual(password, user.password);
 }
 
 function sanitizeStoredUser(user) {
@@ -164,7 +171,7 @@ async function requireAdmin(req, res, next) {
     }
   }
 
-  if (localAdminSecret && req.header('x-nexcard-local-admin') === localAdminSecret) {
+  if (localAdminSecret && safeEqual(req.header('x-nexcard-local-admin') || '', localAdminSecret)) {
     return next();
   }
   return res.status(403).json({ error: 'Acceso admin requerido' });
@@ -269,16 +276,22 @@ function ensureSmokeFixtures(db) {
   db.content = db.content || { landing: {} };
   db.content.landing = db.content.landing || {};
 
-  const adminUser = {
-    id: 'user-admin-e2e-local',
-    email: 'admin@nexcard.local',
-    password_hash: hashPassword(process.env.NEXCARD_LOCAL_ADMIN_PASSWORD || 'nexcard-local-admin'),
-    role: 'admin',
-  };
+  if (!process.env.NEXCARD_LOCAL_ADMIN_PASSWORD) {
+    console.warn(
+      'NEXCARD_LOCAL_ADMIN_PASSWORD no está seteada — se omite la creación del admin de smoke tests (admin@nexcard.local). Setea la variable para habilitarlo.'
+    );
+  } else {
+    const adminUser = {
+      id: 'user-admin-e2e-local',
+      email: 'admin@nexcard.local',
+      password_hash: hashPassword(process.env.NEXCARD_LOCAL_ADMIN_PASSWORD),
+      role: 'admin',
+    };
 
-  if (!db.users.some((user) => user.email === adminUser.email)) {
-    db.users.push(adminUser);
-    changed = true;
+    if (!db.users.some((user) => user.email === adminUser.email)) {
+      db.users.push(adminUser);
+      changed = true;
+    }
   }
 
   const smokeProfile = {
