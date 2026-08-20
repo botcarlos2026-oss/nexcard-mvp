@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
@@ -211,7 +212,7 @@ serve(async (req) => {
 </body>
 </html>`;
 
-    const resendResponse = await fetch('https://api.resend.com/emails', {
+    const resendResponse = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
@@ -231,7 +232,7 @@ serve(async (req) => {
       log('error', 'resend_customer_email_failed', { order_id: order.id, status: resendResponse.status, resend_error: resendData });
       return new Response(
         JSON.stringify({ success: false, error: resendData }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -256,7 +257,7 @@ serve(async (req) => {
     }
 
     const internalSubject = `🛒 Nueva orden pagada — ${customerName} $${moneyCLP(order.amount_cents)}`;
-    const internalResponse = await fetch('https://api.resend.com/emails', {
+    const internalResponse = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
@@ -297,7 +298,7 @@ serve(async (req) => {
 
     // Emitir boleta/factura Bsale (NO-OP hasta configurar BSALE_ACCESS_TOKEN)
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/emit-bsale-document`, {
+      await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/emit-bsale-document`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,

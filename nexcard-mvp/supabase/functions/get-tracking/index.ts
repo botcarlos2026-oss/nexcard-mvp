@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
@@ -45,7 +46,7 @@ async function fetchBlueExpress(trackingCode: string): Promise<TrackingResult> {
   }
 
   // Step 1 — obtain OAuth token
-  const tokenRes = await fetch('https://developers.bx.cl/auth/token', {
+  const tokenRes = await fetchWithTimeout('https://developers.bx.cl/auth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -64,7 +65,7 @@ async function fetchBlueExpress(trackingCode: string): Promise<TrackingResult> {
   const { access_token } = await tokenRes.json();
 
   // Step 2 — fetch shipment status
-  const trackRes = await fetch(
+  const trackRes = await fetchWithTimeout(
     `https://developers.bx.cl/tracking/shipments/${encodeURIComponent(trackingCode)}`,
     { headers: { Authorization: `Bearer ${access_token}` } },
   );

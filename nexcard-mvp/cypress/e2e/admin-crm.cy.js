@@ -1,10 +1,18 @@
 /// <reference types="cypress" />
 
-// Covers CRM Pipeline Kanban board at /admin/crm
+// Covers the CRM deals pipeline at /admin/crm.
+//
+// This spec previously described an order-fulfillment-style Kanban ('Nueva', 'En
+// producción', 'Lista', 'Enviada', 'Entregada', a 'cancelada' section) that does not
+// match what src/components/CRMDashboard.jsx actually renders — a sales pipeline over
+// crm_deals with a distinct STAGES array (leads → won/lost), unrelated to order
+// fulfillment status. Rewritten against the real component (title "CRM · Pipeline",
+// STAGES = Nuevo Lead/Contactado/Propuesta/Negociación/Ganado/Perdido) rather than
+// against order-status vocabulary.
 
-const KANBAN_COLUMNS = ['Nueva', 'En producción', 'Lista', 'Enviada', 'Entregada'];
+const PIPELINE_STAGES = ['Nuevo Lead', 'Contactado', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'];
 
-describe('Admin CRM — Pipeline de órdenes', () => {
+describe('Admin CRM — Pipeline de deals', () => {
   beforeEach(() => {
     cy.viewport(1280, 720);
     cy.loginUI();
@@ -12,30 +20,29 @@ describe('Admin CRM — Pipeline de órdenes', () => {
   });
 
   it('loads /admin/crm and shows the pipeline title', () => {
-    cy.contains('h1', /CRM — Pipeline de órdenes/i).should('exist');
+    cy.contains('h1', /Pipeline/i).should('exist');
   });
 
-  it('shows all 5 Kanban columns', () => {
-    KANBAN_COLUMNS.forEach((column) => {
-      cy.contains(column).should('exist');
+  it('shows all 6 pipeline stages', () => {
+    PIPELINE_STAGES.forEach((stage) => {
+      cy.contains(stage).should('exist');
     });
   });
 
-  it('shows the cancelled orders section (may be collapsed)', () => {
-    // The cancelled section can be rendered collapsed; we only assert it exists in the DOM
-    cy.contains(/cancelada[s]?/i).should('exist');
+  it('shows the closed (won/lost) stages', () => {
+    // Ganado/Perdido are the closed-deal stages; equivalent to what the old spec
+    // called the "cancelled" section, but in real deal-pipeline vocabulary.
+    cy.contains(/ganado/i).should('exist');
+    cy.contains(/perdido/i).should('exist');
   });
 
-  it('shows advance-state buttons with the next status label', () => {
-    // Each advance button should carry the name of the target state.
-    // We verify that at least the set of forward-state labels appears somewhere
-    // in the interactive controls on the page.
-    const forwardStates = ['En producción', 'Lista', 'Enviada', 'Entregada'];
+  it('shows advance-state buttons with the next stage label', () => {
+    // Each advance button should carry the name of the target stage. We only assert
+    // when a matching button actually exists, since it depends on there being a deal
+    // in that source stage.
+    const forwardStages = ['Contactado', 'Propuesta', 'Negociación', 'Ganado'];
 
-    forwardStates.forEach((label) => {
-      // Buttons may not exist if no cards are in that column, so we only
-      // assert the label pattern is present when the column itself has cards.
-      // A softer check: if any such button exists, it must contain the label.
+    forwardStages.forEach((label) => {
       cy.get('body').then(($body) => {
         const buttons = $body.find(`button:contains("${label}")`);
         if (buttons.length > 0) {

@@ -1,14 +1,16 @@
 export function createInventoryApi({ supabase, hasSupabase }) {
   const getInventorySnapshot = async () => {
-    const { data: items } = await supabase
+    const { data: items, error: itemsError } = await supabase
       .from('inventory_items')
       .select('*')
       .order('created_at', { ascending: true });
-    const { data: movements } = await supabase
+    if (itemsError) throw new Error(itemsError.message || 'Error al cargar inventario');
+    const { data: movements, error: movementsError } = await supabase
       .from('inventory_movements')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50);
+    if (movementsError) throw new Error(movementsError.message || 'Error al cargar movimientos');
     return { items: items || [], movements: movements || [] };
   };
 
@@ -101,10 +103,11 @@ export function createInventoryApi({ supabase, hasSupabase }) {
 
   const checkLowStock = async () => {
     if (!hasSupabase) return { lowStockItems: [] };
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('inventory_items')
       .select('sku, name, item, stock, min_stock')
       .gt('min_stock', 0);
+    if (error) throw new Error(error.message || 'Error al revisar stock bajo');
     const lowStockItems = (data || []).filter((i) => (i.stock || 0) <= (i.min_stock || 0));
     return { lowStockItems };
   };

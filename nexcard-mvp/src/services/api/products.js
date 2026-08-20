@@ -11,9 +11,12 @@ export const filterPublicProducts = (products = [], { includeTestProducts = fals
   return (products || []).filter((product) => !isPrelaunchTestProduct(product));
 };
 
-export function createProductsApi({ supabase, hasSupabase }) {
+export function createProductsApi({ supabase, hasSupabase, request }) {
   const getProducts = async (options = {}) => {
-    if (!hasSupabase) throw new Error('Supabase no configurado');
+    if (!hasSupabase) {
+      const products = await request('/products');
+      return filterPublicProducts(products || [], options);
+    }
     const { data, error } = await supabase
       .from('products')
       .select('*')

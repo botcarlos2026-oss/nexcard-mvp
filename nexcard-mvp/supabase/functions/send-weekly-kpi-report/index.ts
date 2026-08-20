@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const encoder = new TextEncoder();
 
@@ -216,7 +217,7 @@ serve(async (req) => {
 
     const subject = `📊 KPI semanal NexCard — ${funnel.paid_orders_30d} pagadas (${fmtCLP(currentMonthRevenue)} mes)`;
 
-    const resendRes = await fetch('https://api.resend.com/emails', {
+    const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,

@@ -126,7 +126,25 @@ serve(async (req) => {
       claimed_profile_id: profile?.id || null,
     };
 
-    await admin.from('profile_claims').update(updatePayload).eq('id', claim.id);
+    // Guard the write with the status read earlier so two near-simultaneous claims on
+    // the same token can't both pass the ownership check above and then both write:
+    // only the request whose read is still accurate wins the update; the other gets 0
+    // rows affected and is rejected as a conflict instead of silently overwriting
+    // claimed_by_user_id.
+    const { data: claimUpdateResult } = await admin
+      .from('profile_claims')
+      .update(updatePayload)
+      .eq('id', claim.id)
+      .eq('status', claim.status)
+      .select('id')
+      .maybeSingle();
+
+    if (!claimUpdateResult) {
+      return new Response(JSON.stringify({ error: 'Este link ya fue utilizado por otra cuenta' }), {
+        status: 409,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
 
     if (profile?.id && slugReservation?.status === 'reserved' && slugReservation.slug === profile.slug) {
       await admin

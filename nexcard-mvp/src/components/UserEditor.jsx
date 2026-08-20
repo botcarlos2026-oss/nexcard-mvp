@@ -8,6 +8,7 @@ import {
   LogOut,
   Image as ImageIcon,
   CheckCircle2,
+  AlertCircle,
   ChevronRight,
   Settings,
   TrendingUp,
@@ -16,12 +17,14 @@ import {
 import { uploadAvatar, uploadCover } from '../utils/imageEngine';
 import { getClerkUserId } from '../services/supabaseClient';
 import { detectLinkType } from '../utils/linkIcons';
+import { getErrorMessage } from '../services/api';
 import LinkIcon from './LinkIcon';
 
 const UserEditor = ({ data, onSave, onLogout }) => {
   const [profile, setProfile] = useState(data);
   const [activeTab, setActiveTab] = useState('stats');
   const [showSavedAlert, setShowSavedAlert] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,10 +70,16 @@ const UserEditor = ({ data, onSave, onLogout }) => {
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(profile);
-    setSaving(false);
-    setShowSavedAlert(true);
-    setTimeout(() => setShowSavedAlert(false), 3000);
+    setSaveError('');
+    try {
+      await onSave(profile);
+      setShowSavedAlert(true);
+      setTimeout(() => setShowSavedAlert(false), 3000);
+    } catch (err) {
+      setSaveError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs = [
@@ -112,6 +121,13 @@ const UserEditor = ({ data, onSave, onLogout }) => {
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700 animate-in slide-in-from-top-2">
             <CheckCircle2 size={20} />
             <span className="font-bold text-sm">Cambios guardados correctamente en NexCard.</span>
+          </div>
+        )}
+
+        {saveError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 animate-in slide-in-from-top-2">
+            <AlertCircle size={20} />
+            <span className="font-bold text-sm">{saveError}</span>
           </div>
         )}
 

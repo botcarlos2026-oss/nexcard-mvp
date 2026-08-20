@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Copy, CheckCircle, ExternalLink, ToggleLeft, ToggleRight, Pencil, X, Check } from 'lucide-react';
-import { api } from '../services/api';
+import { api, getErrorMessage } from '../services/api';
 import AdminShell from './AdminShell';
 import AdminStat from './ui/AdminStat';
 import AdminCard from './ui/AdminCard';
@@ -63,10 +63,15 @@ export default function ReviewCardsDashboard() {
       return;
     }
     setSaving(true);
-    await api.updateReviewCard(id, { google_review_url: editUrl });
-    setSaving(false);
-    setEditingId(null);
-    reload();
+    try {
+      await api.updateReviewCard(id, { google_review_url: editUrl });
+      setEditingId(null);
+      reload();
+    } catch (err) {
+      alert(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleFormChange = (e) => {

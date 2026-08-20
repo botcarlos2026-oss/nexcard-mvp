@@ -1,5 +1,13 @@
+import { timingSafeEqual } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { alertTelegram } from '../_lib/alertTelegram.js';
+
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 const SUPABASE_URL = 'https://ghiremuuyprohdqfrxsy.supabase.co';
 const PENDING_HOURS_THRESHOLD = 2;
@@ -118,7 +126,8 @@ const pingHeartbeat = async () => {
 };
 
 export default async function handler(req, res) {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || !safeEqual(req.headers.authorization || '', `Bearer ${cronSecret}`)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
