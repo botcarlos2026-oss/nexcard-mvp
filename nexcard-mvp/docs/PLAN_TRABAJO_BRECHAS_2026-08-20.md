@@ -12,6 +12,30 @@
 
 ---
 
+## Estado de ejecución — 2026-08-20 (misma tarde)
+
+Primera pasada de ejecución sobre este plan, en PR #98 (`fix/gaps-plan-execution-20260820`), sin mergear.
+
+**Completadas:**
+- **T-02** (sincronía Vercel↔Supabase): ambos stores comparados por nombre. `SUPABASE_SERVICE_ROLE_KEY` existe en los dos, pero el `updated_at` de Supabase (2026-08-18) es ~2 días más viejo que el de Vercel (~16h antes de la revisión) — señal de posible desincronía, no confirmable sin ver los valores. **Hallazgo nuevo:** `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` NO existen del lado de Supabase Edge Functions (solo en Vercel) — `_shared/alertTelegram.ts` está silenciosamente no-operativo en las edge functions hoy (falla cerrado, sin romper nada, pero sin alertar tampoco). `HEARTBEAT_URL` sí existe en Vercel (contradice una nota vieja de Obsidian que lo daba como pendiente).
+- **T-03** (triage E2E): 2 de 7 specs arregladas de punta a punta (`logout.cy.js` — causa raíz real encontrada: el panel admin no tenía botón de logout en ningún lado, se agregó en `AdminNav.jsx`; `wizard.cy.js` — parcial, ver commit). Las otras 5 (`admin-orders`, `admin-inventory`, `admin-profiles`×2, `public-checkout-validation`) quedan con el mismo diagnóstico que ya tenía el documento de auditoría, sin más avance por límite de tiempo de esta pasada.
+- **T-06/07/08/09/10/17/22** (observabilidad/config externa): confirmado que ninguno es inspeccionable vía CLI en este entorno (Supabase Auth config, Sentry, GA4, UptimeRobot, Vercel Analytics, backups de DB) — genuinamente requieren dashboard. Lo único verificable indirectamente fue T-09/T-10 vía la comparación de env vars de T-02 (ver arriba).
+- **T-11** (CI): agregado `lint` (bloqueante) y `E2E smoke` (no bloqueante — cero secrets de repo configurados hoy, `gh secret list` vacío; necesita `CYPRESS_LOGIN_EMAIL`/`CYPRESS_LOGIN_PASSWORD` antes de poder ser bloqueante).
+- **T-12** (CORS): aplicado en las 2 funciones, desplegado a producción y verificado en vivo.
+- **T-15** (OG dinámico): confirmado funcionando correctamente en producción con un perfil real.
+- **T-18** (contenido legal): revisado — Términos y Privacidad mencionan correctamente Ley 19.496 y Ley 19.628, productos reales, proceso de compra/devolución coherente con lo que el producto hace hoy.
+- **T-19** (impresión física): `PrintTestGenerator.jsx` es una herramienta de calibración de tipografía/trazos para la impresora Fargo DTC1500 — genera SVGs de prueba, no imprime tarjetas reales de cliente.
+- **T-21** (housekeeping): `migrations_backup/` eliminado. `npm outdated` revisado (17 paquetes desactualizados, ninguno vulnerabilidad, varios son major version bumps que necesitan su propia sesión de testing dedicada). **El `.docx` sí se pudo abrir** (con `textutil` de macOS) — ver hallazgo grande abajo.
+- **T-23** (SPF/DKIM/DMARC): confirmado con dos resolvers DNS independientes (Google 8.8.8.8, Cloudflare 1.1.1.1) — **DKIM configurado correctamente vía Resend, pero CERO registros SPF, DMARC, o MX en `nexcard.cl`.** Sin MX, `hola@nexcard.cl` (usado como remitente en todo el código) no puede recibir respuestas — cualquiera que responda a un email transaccional real rebota.
+
+**Hallazgo grande no planificado — `5-entregables/nexcard_informe_errores.docx`:** resultó ser un informe de errores de **abril 2026** (mucho más viejo que todo lo demás revisado), 17 problemas, nunca actualizado desde entonces. De los 12 marcados "Pendiente", se verificaron 10 contra el código actual y **ya están arreglados** (guard de rutas admin, bug de `register()` que llamaba a `login()`, `uploadAvatar` ahora usa Supabase Storage real, generación de slug en el wizard, archivos viejos del agente `openclaw` ya no están en el repo, `.DS_Store` no trackeado, `trackClick` ya inserta en Supabase, filtro de campos null en vCard, memory leak de `object URL` moot porque ya no se usan). **2 sin verificar** por tiempo: si `navigate()` en `App.jsx` todavía tiene el bug de orden de declaración (muy probablemente no, el archivo se refactorizó a fondo desde entonces), y si `wa_clicks`/`vcard_clicks` en el dashboard admin siguen siendo una multiplicación fija de `view_count` o ya se calculan de verdad desde la tabla `events`.
+
+**No intentado, correctamente fuera de alcance de un agente:** T-01, T-04, T-05, T-20, T-24, T-25 (🙋, sin cambios).
+
+**Deliberadamente no forzado:** T-13, T-14, T-16 (a11y/performance/mobile) — necesitan herramientas (axe-core, Lighthouse, captura de navegador real) no configuradas en esta sesión; quedan para una pasada dedicada.
+
+---
+
 ## Leyenda de cada tarea
 
 - 🤖 **Ejecutable de punta a punta por el agente** — investigar y, si aplica, corregir código. Trabajar en una rama nueva (`fix/<tema>-<fecha>`, nunca directo sobre `main`), abrir PR al terminar, no mergear.

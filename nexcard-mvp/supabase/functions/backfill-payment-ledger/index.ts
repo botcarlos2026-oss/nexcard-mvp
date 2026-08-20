@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
-
-const CORS = {
-  'Access-Control-Allow-Origin': 'null',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-ops-secret',
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
@@ -27,7 +23,7 @@ function requireOpsSecret(req: Request): Response | null {
     log('warn', 'unauthorized_ops_call', { path: new URL(req.url).pathname });
     return new Response(JSON.stringify({ success: false, error: 'No autorizado' }), {
       status: 401,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
   return null;
@@ -51,7 +47,8 @@ const isEligible = (order: any) => {
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  const corsHeaders = getCorsHeaders(req);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const unauthorized = requireOpsSecret(req);
   if (unauthorized) return unauthorized;
@@ -62,7 +59,7 @@ serve(async (req) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({ success: false, error: 'Supabase env faltante' }), {
         status: 500,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -257,13 +254,13 @@ serve(async (req) => {
 
     return new Response(JSON.stringify(responsePayload), {
       status: 200,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     log('error', 'payment_ledger_backfill_failed', { message: error?.message || String(error), stack: error?.stack || null });
     return new Response(JSON.stringify({ success: false, error: 'internal_error' }), {
       status: 500,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
