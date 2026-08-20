@@ -212,7 +212,10 @@ Sigue pendiente igual: **antes de lanzar, correr manualmente el flujo `/preview 
 
 ### AP-05 · PR #95 sin mergear a `main`
 
-`gh pr view` confirma: PR #95 ("security: close payment/RLS bypass gaps from Cyber Neo audit"), estado `OPEN`, `MERGEABLE`, CI `SUCCESS`, Vercel preview `SUCCESS`. Contiene 2 commits que **no** están en `origin/main` (que sí está al día con todo lo demás, incluida toda la campaña de hardening del 19-20 de agosto):
+- **Estado:** ✅ **RESUELTO** — PR #95 mergeado a `main` 2026-08-20T16:02:18Z (merge commit `5843997`), CI verde post-merge. El PR de esta misma auditoría (#96, ver [Estado de ejecución](#estado-de-ejecución--2026-08-20-post-auditoría)) se retargeteó de la rama de #95 a `main` y también se mergeó (`b0568da`, 2026-08-20T16:04:49Z), CI verde. Ambos deploys deberían haberse disparado en Vercel automáticamente al mergear a `main`.
+- Pendiente opcional de housekeeping: borrar la rama `fix/cyber-neo-payment-audit-hardening-20260820`, ya completamente contenida en `main` y sin PRs pendientes sobre ella.
+
+`gh pr view` confirma (estado previo al merge, para referencia): PR #95 ("security: close payment/RLS bypass gaps from Cyber Neo audit"), estado `OPEN`, `MERGEABLE`, CI `SUCCESS`, Vercel preview `SUCCESS`. Contiene 2 commits que **no** están en `origin/main` (que sí está al día con todo lo demás, incluida toda la campaña de hardening del 19-20 de agosto):
 - `9dfa0b1` — versiona en git las 4 migraciones SQL que el audit Cyber Neo ya aplicó directo a producción (RLS + grants). Sin mergear, el historial del repo no coincide con el estado real de la base — riesgo si algún día se necesita reconstruir/replantar el schema desde migraciones.
 - `093073f` — timing-safe comparisons + patrones de `.gitignore` en `server/index.js` (CN-004/006/007/011). Bajo riesgo real porque `server/index.js` se autobloquea en producción, pero mientras no esté en `main`, cualquiera que trabaje en local sigue expuesto a las comparaciones no-timing-safe ya corregidas.
 - **Acción:** mergear PR #95.
@@ -306,7 +309,7 @@ Efecto secundario del propio fix de seguridad CN-004 (bien hecho — antes usaba
 1. [ ] **Decidir** Bsale/SII antes de lanzar con venta real (AP-01)
 2. [ ] Revisar el diff de esta sesión y decidir si mergear (`NEXCARD-MP-TEST-1000` se dejó intacto a propósito, AP-02)
 3. [ ] Probar a mano en navegador real el flujo `/preview → catálogo → carrito → checkout` contra producción (AP-03) — el fix de E2E no reemplaza esta confirmación
-4. [ ] Mergear PR #95 (AP-05) — y decidir si el diff de esta sesión va en el mismo PR o en uno nuevo
+4. [x] Mergear PR #95 (AP-05) — hecho, y PR #96 (esta sesión) también mergeado a `main` por separado
 5. [ ] Mañana 08-21: ejecutar la rotación de credenciales CN-002 + borrar copias en `/private/tmp` (AP-06)
 6. [ ] Decidir force-push de la historia purgada (AP-07)
 7. [ ] Agregar `lint` + smoke E2E al CI (AP-08)
