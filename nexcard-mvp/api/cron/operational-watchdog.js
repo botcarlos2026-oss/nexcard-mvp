@@ -136,7 +136,10 @@ export default async function handler(req, res) {
     alerts = await fetchAlerts(supabase);
   } catch (error) {
     await alertTelegram('operational-watchdog: fallo consultando orders', error);
-    return res.status(502).json({ error: `Fallo consultando orders: ${error.message}` });
+    // 500, no 502: Cloudflare reemplaza el body de una respuesta 502/503/504 del
+    // origen por su propia página de error genérica, aunque la función haya
+    // respondido bien — nos deja ciegos desde afuera (visto en vivo en abandoned-carts).
+    return res.status(500).json({ error: `Fallo consultando orders: ${error.message}` });
   }
 
   const message = buildMessage(alerts);
@@ -164,7 +167,7 @@ export default async function handler(req, res) {
   try {
     await sendTelegramMessage(message);
   } catch (error) {
-    return res.status(502).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 
   await supabase
