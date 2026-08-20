@@ -10,7 +10,9 @@ describe('Setup Wizard', () => {
   });
 
   it('completes wizard personal flow', () => {
-    cy.contains(/uso personal/i).click();
+    // Product repositioned from "Uso Personal"/"Empresa" to "Perfil Profesional"/
+    // "Perfil Negocio" in May 2026 (see CLAUDE.md) — this spec asserted the old copy.
+    cy.contains(/perfil profesional/i).click();
     cy.get('[data-cy=wizard-name]').type('Test Persona');
     cy.findByRole('button', { name: /siguiente/i }).click();
     cy.findByRole('button', { name: /siguiente/i }).click();

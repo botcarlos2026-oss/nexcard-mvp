@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { LogOut } from 'lucide-react';
+import { api, setStoredAuth } from '../services/api';
 
 const items = [
   { id: 'dashboard', label: 'Dashboard', path: '/admin' },
@@ -30,6 +32,23 @@ export default function AdminNav({ active, navigate }) {
   const scrollRef = useRef(null);
   const [showFade, setShowFade] = useState(false);
 
+  // Admin never had a working logout control — handleLogout in App.jsx was only ever
+  // wired to UserEditor's onLogout prop, never passed down to the admin routes.
+  // Self-contained here (calls api.logout()/setStoredAuth directly) instead of prop-
+  // drilling through AppRouteRenderer/AdminShell for every admin dashboard.
+  const handleAdminLogout = async () => {
+    try {
+      await api.logout();
+    } finally {
+      setStoredAuth(null);
+      if (navigate) {
+        navigate('/login');
+      } else {
+        window.location.href = '/login';
+      }
+    }
+  };
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -47,8 +66,8 @@ export default function AdminNav({ active, navigate }) {
 
   return (
     <nav aria-label="Navegación admin" className="sticky top-0 z-40 bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800 px-4 md:px-6 py-3">
-      <div className="max-w-[1400px] mx-auto relative">
-        <div ref={scrollRef} className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+      <div className="max-w-[1400px] mx-auto relative flex items-center gap-2">
+        <div ref={scrollRef} className="flex items-center gap-1 overflow-x-auto scrollbar-hide flex-1 min-w-0">
           <a
             {...linkProps('/')}
             className="flex items-center gap-2 px-3 py-1.5 text-white font-bold text-sm flex-shrink-0 mr-4"
@@ -73,9 +92,20 @@ export default function AdminNav({ active, navigate }) {
         {showFade && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute top-0 right-0 h-full w-10 bg-gradient-to-l from-zinc-950 to-transparent"
+            className="pointer-events-none absolute top-0 right-16 h-full w-10 bg-gradient-to-l from-zinc-950 to-transparent"
           />
         )}
+        <button
+          type="button"
+          onClick={handleAdminLogout}
+          data-cy="admin-logout"
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
+        >
+          <LogOut size={16} />
+          <span className="hidden md:inline">Cerrar sesión</span>
+        </button>
       </div>
     </nav>
   );

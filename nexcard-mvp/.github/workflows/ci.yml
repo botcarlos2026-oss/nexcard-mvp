@@ -21,12 +21,28 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
+      - name: Lint
+        run: npm run lint
       - name: Build
         run: npm run build
       - name: Unit tests
         run: npm test
       - name: Audit high+
         run: npm audit --audit-level=high
+      - name: E2E smoke
+        # Non-blocking for now: needs CYPRESS_LOGIN_EMAIL / CYPRESS_LOGIN_PASSWORD
+        # (a real Supabase test account, admin role) added as repo secrets first —
+        # none exist yet (`gh secret list` is empty as of 2026-08-20). Once added,
+        # drop `continue-on-error` to make this blocking, matching the rest of the
+        # gate. Also needs REACT_APP_SUPABASE_URL/ANON_KEY if the smoke suite is to
+        # exercise real Supabase auth rather than the local mock server.
+        continue-on-error: true
+        env:
+          CYPRESS_login_email: ${{ secrets.CYPRESS_LOGIN_EMAIL }}
+          CYPRESS_login_password: ${{ secrets.CYPRESS_LOGIN_PASSWORD }}
+          REACT_APP_SUPABASE_URL: ${{ secrets.REACT_APP_SUPABASE_URL }}
+          REACT_APP_SUPABASE_ANON_KEY: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY }}
+        run: npm run test:e2e:smoke
       - name: Dist secret scan
         run: |
           node - <<'NODE'
