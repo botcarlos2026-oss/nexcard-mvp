@@ -22,23 +22,24 @@ export default function ComingSoon() {
     setLoading(true);
     setSubmitError('');
     try {
-      const { supabase } = await import('../services/supabaseClient');
-      // No encadenar .select() acá: la tabla waitlist solo tiene policy INSERT para
-      // anon (WITH CHECK true), sin policy SELECT — pedir la fila de vuelta
-      // (Prefer: return=representation, lo que agrega .select()) rompe el insert
-      // completo con "new row violates row-level security policy", verificado en
-      // vivo. Agregar SELECT público para anon en su lugar filtraría toda la
-      // waitlist a cualquiera con la anon key — no es la solución.
-      const { error } = await supabase
-        .from('waitlist')
-        .insert([{ email: email.trim().toLowerCase() }]);
-      if (error && error.code !== '23505') {
-        throw error;
+      // Vía /api/waitlist (mismo origen), no supabase.from() directo desde el
+      // navegador: una llamada cross-origin a *.supabase.co es justo el patrón que
+      // bloqueadores de terceros interceptan — confirmado en vivo con un registro
+      // real que falló así en el navegador de un usuario mientras el mismo insert
+      // funcionaba sin problema desde el servidor. Same-origin casi nunca se bloquea.
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'No se pudo guardar');
       }
       setSubmitted(true);
     } catch (err) {
-      // No asumir éxito ante un error real (de red, RLS, lo que sea) — antes esto
-      // mostraba "¡Listo!" igual, dejando emails que nunca se guardaron sin que
+      // No asumir éxito ante un error real (de red, servidor, lo que sea) — antes
+      // esto mostraba "¡Listo!" igual, dejando emails que nunca se guardaron sin que
       // nadie se enterara.
       console.warn('Waitlist error:', err);
       setSubmitError('No pudimos guardar tu email. Intenta de nuevo o escríbenos a hola@nexcard.cl.');
