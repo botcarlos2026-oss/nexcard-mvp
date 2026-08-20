@@ -5,13 +5,23 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    await alertTelegram('cron/abandoned-carts: SUPABASE_SERVICE_ROLE_KEY no configurado', 'La variable de entorno falta en Vercel');
+    return res.status(500).json({ success: false, error: 'SUPABASE_SERVICE_ROLE_KEY no configurado' });
+  }
+
   let response;
   try {
     response = await fetch(
       'https://ghiremuuyprohdqfrxsy.supabase.co/functions/v1/send-abandoned-cart',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
+        },
         body: JSON.stringify({ trigger: 'cron' })
       }
     );
