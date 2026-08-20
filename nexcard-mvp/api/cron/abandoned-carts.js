@@ -27,7 +27,10 @@ async function run(req, res) {
     );
   } catch (error) {
     await alertTelegram('cron/abandoned-carts: send-abandoned-cart inalcanzable', error);
-    return res.status(502).json({ success: false, error: `send-abandoned-cart unreachable: ${error.message}` });
+    // 500, no 502: Cloudflare reemplaza el body de cualquier respuesta 502/503/504
+    // del origen por su propia página de error genérica, aunque la función haya
+    // respondido correctamente — nos deja ciegos desde afuera aunque adentro esté bien.
+    return res.status(500).json({ success: false, error: `send-abandoned-cart unreachable: ${error.message}` });
   }
 
   const rawBody = await response.text().catch(() => '');
@@ -39,7 +42,7 @@ async function run(req, res) {
       'cron/abandoned-carts: respuesta inválida de send-abandoned-cart',
       `HTTP ${response.status}: ${rawBody.slice(0, 300)}`
     );
-    return res.status(502).json({
+    return res.status(500).json({
       success: false,
       error: `send-abandoned-cart returned ${response.status} non-JSON/error response`,
       body: rawBody.slice(0, 500),
