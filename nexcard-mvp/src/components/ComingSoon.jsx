@@ -6,6 +6,7 @@ export default function ComingSoon() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const validateEmail = (value) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -19,8 +20,15 @@ export default function ComingSoon() {
     const error = validateEmail(email);
     if (error) { setEmailError(error); return; }
     setLoading(true);
+    setSubmitError('');
     try {
       const { supabase } = await import('../services/supabaseClient');
+      // No encadenar .select() acá: la tabla waitlist solo tiene policy INSERT para
+      // anon (WITH CHECK true), sin policy SELECT — pedir la fila de vuelta
+      // (Prefer: return=representation, lo que agrega .select()) rompe el insert
+      // completo con "new row violates row-level security policy", verificado en
+      // vivo. Agregar SELECT público para anon en su lugar filtraría toda la
+      // waitlist a cualquiera con la anon key — no es la solución.
       const { error } = await supabase
         .from('waitlist')
         .insert([{ email: email.trim().toLowerCase() }]);
@@ -29,8 +37,11 @@ export default function ComingSoon() {
       }
       setSubmitted(true);
     } catch (err) {
+      // No asumir éxito ante un error real (de red, RLS, lo que sea) — antes esto
+      // mostraba "¡Listo!" igual, dejando emails que nunca se guardaron sin que
+      // nadie se enterara.
       console.warn('Waitlist error:', err);
-      setSubmitted(true);
+      setSubmitError('No pudimos guardar tu email. Intenta de nuevo o escríbenos a hola@nexcard.cl.');
     } finally {
       setLoading(false);
     }
@@ -97,6 +108,9 @@ export default function ComingSoon() {
                 {loading ? <><span className="spinner" />Guardando...</> : 'Notifícame'}
               </button>
             </div>
+            {submitError && (
+              <p role="alert" className="text-red-400 text-xs mt-3 text-center max-w-xl mx-auto">{submitError}</p>
+            )}
             <p className="text-zinc-500 text-xs mt-3 text-center max-w-xl mx-auto">
               Al registrarte aceptas recibir novedades de NexCard. Puedes cancelar cuando quieras.{' '}
               <a href="/privacidad" className="text-zinc-400 hover:text-zinc-300 underline">Política de privacidad</a>
