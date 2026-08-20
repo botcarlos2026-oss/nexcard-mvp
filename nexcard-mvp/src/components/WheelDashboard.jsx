@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, BarChart2, X, Loader2, RefreshCw } from 'lucide-react';
 import AdminShell from './AdminShell';
-import { api } from '../services/api';
+import { api, getErrorMessage } from '../services/api';
 
 const PRIZE_TYPES = [
   { value: 'discount_percent', label: '% Descuento' },
@@ -213,10 +213,10 @@ function StatsModal({ wheel, onClose }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getWheelStats(wheel.id).then(({ spins }) => {
-      setStats(spins);
-      setLoading(false);
-    });
+    api.getWheelStats(wheel.id)
+      .then(({ spins }) => setStats(spins))
+      .catch(() => setStats(null))
+      .finally(() => setLoading(false));
   }, [wheel.id]);
 
   const prizeCounts = stats?.reduce((acc, s) => {
@@ -319,9 +319,11 @@ export default function WheelDashboard() {
     try {
       await api.deleteWheel(id);
       setWheels(prev => prev.filter(w => w.id !== id));
+      setDeleteId(null);
+    } catch (err) {
+      alert(getErrorMessage(err));
     } finally {
       setSaving(false);
-      setDeleteId(null);
     }
   };
 

@@ -1,7 +1,16 @@
+import { timingSafeEqual } from 'node:crypto';
 import { alertTelegram } from '../_lib/alertTelegram.js';
 
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 async function run(req, res) {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || !safeEqual(req.headers.authorization || '', `Bearer ${cronSecret}`)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -22,7 +31,8 @@ async function run(req, res) {
           'Authorization': `Bearer ${serviceRoleKey}`,
           'apikey': serviceRoleKey,
         },
-        body: JSON.stringify({ trigger: 'cron' })
+        body: JSON.stringify({ trigger: 'cron' }),
+        signal: AbortSignal.timeout(8000),
       }
     );
   } catch (error) {

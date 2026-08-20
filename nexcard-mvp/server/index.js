@@ -354,6 +354,12 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'nexcard-local-api', timestamp: new Date().toISOString() });
 });
 
+app.get('/api/products', (_req, res) => {
+  const db = readDb();
+  const products = (db.products || []).filter((product) => product.status === 'active');
+  res.json(products);
+});
+
 app.post('/api/auth/login', loginLimiter, (req, res) => {
   const { email, password } = req.body || {};
   const db = readDb();

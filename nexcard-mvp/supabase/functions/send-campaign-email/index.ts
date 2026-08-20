@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const LEGAL_FOOTER = (email: string) => `
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #27272a;text-align:center">
@@ -105,11 +106,19 @@ serve(async (req) => {
       );
     }
 
-    // Inyectar footer legal en el HTML
-    const fullHTML = html.replace('</body>', `${LEGAL_FOOTER(to)}</body>`);
+    // Inyectar footer legal en el HTML. Si el HTML no trae un </body> literal (ej. un
+    // fragmento en vez de un documento completo), el .replace no-opea en silencio y el
+    // email sale sin link de baja — en vez de eso, agregar el footer al final igual.
+    const hasBodyTag = html.includes('</body>');
+    const fullHTML = hasBodyTag
+      ? html.replace('</body>', `${LEGAL_FOOTER(to)}</body>`)
+      : `${html}${LEGAL_FOOTER(to)}`;
+    if (!hasBodyTag) {
+      console.warn(JSON.stringify({ level: 'warn', event: 'campaign_email_missing_body_tag', to }));
+    }
 
     // Enviar via Resend
-    const resendResponse = await fetch('https://api.resend.com/emails', {
+    const resendResponse = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const ADMIN_RECIPIENTS = [
   'carlos.alvarez.contreras@gmail.com',
@@ -92,6 +93,7 @@ serve(async (req) => {
       .select('id, created_at, provider_message_id')
       .eq('alert_key', alertKey)
       .eq('payload_hash', payloadHash)
+      .neq('status', 'failed') // a prior failed attempt must not block a genuine retry
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -142,7 +144,7 @@ serve(async (req) => {
     let status = dryRun ? 'dry_run' : 'sent';
 
     if (!dryRun) {
-      const resendRes = await fetch('https://api.resend.com/emails', {
+      const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${RESEND_API_KEY}`,

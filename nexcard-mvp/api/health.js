@@ -4,10 +4,13 @@ const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://ghiremuuypro
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 const CHECK_TIMEOUT_MS = 5000;
 
-const withTimeout = (promise, ms) => Promise.race([
-  promise,
-  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
-]);
+const withTimeout = (promise, ms) => {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('timeout')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+};
 
 export default async function handler(req, res) {
   const startedAt = Date.now();
@@ -40,5 +43,9 @@ export default async function handler(req, res) {
   };
 
   res.setHeader('Cache-Control', 'no-store');
-  return res.status(healthy ? 200 : 503).json(payload);
+  // Always 200: Cloudflare replaces the response body of any 502/503/504 from our own
+  // app with its own generic error page, which would hide this diagnostic payload
+  // during exactly the incident it's meant to help debug (see api/cron/* for the same
+  // fix). The `status` field in the payload carries the real health state instead.
+  return res.status(200).json(payload);
 }

@@ -61,8 +61,10 @@ export function createAdminDashboardApi({
       && !['failed', 'cancelled', 'refunded'].includes(order.payment_status)
       && !order.activation_completed
     );
-    const { data: profiles } = await supabase.from('profiles').select('*');
-    const { data: products } = await supabase.from('products').select('id, name, sku');
+    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('*');
+    if (profilesError) throw new Error(profilesError.message || 'Error al cargar perfiles');
+    const { data: products, error: productsError } = await supabase.from('products').select('id, name, sku');
+    if (productsError) throw new Error(productsError.message || 'Error al cargar productos');
     const { orders, error } = await (async () => {
       try {
         const result = await fetchOrders();

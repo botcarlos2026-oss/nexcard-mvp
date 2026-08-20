@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
@@ -134,6 +135,11 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    if (cart.reminder_sent_at) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'already_sent' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     await sendReminderEmail(supabase, cart, RESEND_API_KEY, access.mode);
 
@@ -229,7 +235,7 @@ async function sendReminderEmail(supabase: any, cart: any, RESEND_API_KEY: strin
 </body>
 </html>`;
 
-  const resendRes = await fetch('https://api.resend.com/emails', {
+  const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${RESEND_API_KEY}`,

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const encoder = new TextEncoder();
 function timingSafeEqual(a: string, b: string) {
@@ -320,7 +321,7 @@ serve(async (req) => {
     let dispatchResult: any = null;
     const dryRun = Number(routing.dry_run_default || 0) === 1;
     if (shouldSend && Number(routing.enabled || 0) === 1 && Number(routing.auto_dispatch || 0) === 1) {
-      const invokeRes = await fetch(`${SUPABASE_URL}/functions/v1/send-executive-alert`, {
+      const invokeRes = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/send-executive-alert`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,

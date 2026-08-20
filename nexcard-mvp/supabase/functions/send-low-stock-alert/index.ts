@@ -1,10 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
 };
+
+const escapeHtml = (value: unknown): string => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
 
 async function requireInternalAlertAccess(req: Request, supabaseUrl: string, serviceRoleKey: string, anonKey: string, CORS: Record<string, string>) {
   const authHeader = req.headers.get('Authorization') || '';
@@ -72,10 +80,10 @@ serve(async (req) => {
 
     const rowsHTML = items.map(i => `
       <tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #fef3c7;font-weight:700">${i.name || i.sku || '—'}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #fef3c7;font-family:monospace;font-size:12px;color:#6b7280">${i.sku || '—'}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #fef3c7;text-align:center;font-weight:900;color:#dc2626">${i.stock}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #fef3c7;text-align:center;color:#92400e">${i.min_stock}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #fef3c7;font-weight:700">${escapeHtml(i.name || i.sku || '—')}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #fef3c7;font-family:monospace;font-size:12px;color:#6b7280">${escapeHtml(i.sku || '—')}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #fef3c7;text-align:center;font-weight:900;color:#dc2626">${escapeHtml(i.stock)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #fef3c7;text-align:center;color:#92400e">${escapeHtml(i.min_stock)}</td>
       </tr>
     `).join('');
 
@@ -119,7 +127,7 @@ serve(async (req) => {
 </body>
 </html>`;
 
-    const resendRes = await fetch('https://api.resend.com/emails', {
+    const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,

@@ -95,28 +95,34 @@ export function useCheckoutFlow() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, folio, customer_email, payment_method, payment_status, paid_at, fulfillment_status, amount_cents, currency, created_at, updated_at')
-        .eq('id', paymentVerificationOrderId)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('id, folio, customer_email, payment_method, payment_status, paid_at, fulfillment_status, amount_cents, currency, created_at, updated_at')
+          .eq('id', paymentVerificationOrderId)
+          .single();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (error || !data) {
-        stopVerifyingAsPending('No pudimos verificar el pago automáticamente. Revisaremos tu orden.');
-        return;
+        if (error || !data) {
+          stopVerifyingAsPending('No pudimos verificar el pago automáticamente. Revisaremos tu orden.');
+          return;
+        }
+
+        const isPaid = data.payment_status === 'paid';
+        updateVerificationState({
+          ...data,
+          isVerifyingPayment: false,
+          payment_verification_message: isPaid
+            ? 'Pago confirmado por NexCard.'
+            : 'Tu pago aún no aparece confirmado. Si Mercado Pago ya te descontó, la confirmación puede tardar unos minutos.',
+        });
+        setPaymentVerificationOrderId(null);
+      } catch (err) {
+        if (!cancelled) {
+          stopVerifyingAsPending('No pudimos verificar el pago automáticamente. Revisaremos tu orden.');
+        }
       }
-
-      const isPaid = data.payment_status === 'paid';
-      updateVerificationState({
-        ...data,
-        isVerifyingPayment: false,
-        payment_verification_message: isPaid
-          ? 'Pago confirmado por NexCard.'
-          : 'Tu pago aún no aparece confirmado. Si Mercado Pago ya te descontó, la confirmación puede tardar unos minutos.',
-      });
-      setPaymentVerificationOrderId(null);
     };
 
     verifyPaymentStatus();

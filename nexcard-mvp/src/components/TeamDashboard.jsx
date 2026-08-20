@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, ChevronUp, ChevronDown, Linkedin, Mail, Loader2, X } from 'lucide-react';
 import AdminShell from './AdminShell';
-import { api } from '../services/api';
+import { api, getErrorMessage } from '../services/api';
 
 const EMPTY_FORM = {
   name: '',
@@ -138,6 +138,8 @@ export default function TeamDashboard() {
     try {
       await api.updateTeamMember(member.id, { active: !member.active });
       setMembers(prev => prev.map(m => m.id === member.id ? { ...m, active: !m.active } : m));
+    } catch (err) {
+      alert(getErrorMessage(err));
     } finally {
       setSaving(null);
     }
@@ -148,9 +150,11 @@ export default function TeamDashboard() {
     try {
       await api.deleteTeamMember(id);
       setMembers(prev => prev.filter(m => m.id !== id));
+      setDeleteId(null);
+    } catch (err) {
+      alert(getErrorMessage(err));
     } finally {
       setSaving(null);
-      setDeleteId(null);
     }
   };
 

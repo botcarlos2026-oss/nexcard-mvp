@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.104.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { fetchWithTimeout } from "../_shared/fetchWithTimeout.ts";
 
 const log = (level: 'info' | 'warn' | 'error', event: string, data?: Record<string, unknown>) => {
   console.log(JSON.stringify({ level, event, data, ts: new Date().toISOString() }));
@@ -119,6 +120,26 @@ serve(async (req) => {
       });
     }
 
+    // Idempotency guard: unlike its siblings (send-abandoned-cart checks reminder_sent_at,
+    // send-profile-activation checks claim.status), this function had no check at all —
+    // a retried/double-clicked admin "mark as shipped" would email the customer twice.
+    const { data: alreadySent } = await supabase
+      .from('email_log')
+      .select('id')
+      .eq('order_id', orderId)
+      .eq('email_type', 'shipping')
+      .eq('status', 'sent')
+      .limit(1)
+      .maybeSingle();
+
+    if (alreadySent) {
+      log('info', 'shipping_email_already_sent', { order_id: orderId });
+      return new Response(JSON.stringify({ skipped: true, reason: 'already_sent' }), {
+        status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
     const carrierName   = CARRIER_NAMES[order.carrier] || order.carrier || 'Courier';
     const trackingUrl   = `${APP_URL}/seguimiento/${orderId}/${order.delivery_token}`;
     const confirmUrl    = `${APP_URL}/confirmar/${orderId}/${order.delivery_token}`;
@@ -193,7 +214,7 @@ serve(async (req) => {
       html,
     };
 
-    const resendRes = await fetch('https://api.resend.com/emails', {
+    const resendRes = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,

@@ -121,7 +121,7 @@ async function request(path, options = {}) {
   return response.json();
 }
 
-const productsApi = createProductsApi({ supabase, hasSupabase });
+const productsApi = createProductsApi({ supabase, hasSupabase, request });
 const ordersApi = createOrdersApi({ supabase, hasSupabase, getClerkUserId, request });
 const fetchOrders = ordersApi.getOrders;
 const paymentsApi = createPaymentsApi({ supabase, hasSupabase, fetchOrders });
