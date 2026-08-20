@@ -17,7 +17,7 @@ export function createEmailsApi({ supabase, getCurrentUserEmail }) {
     };
   };
 
-  const sendCampaignToRecipients = async (recipients, { subject, html }) => {
+  const sendCampaignToRecipients = async (recipients, { subject, html, emailType = 'campaign' }) => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) {
@@ -39,7 +39,7 @@ export function createEmailsApi({ supabase, getCurrentUserEmail }) {
           'Authorization': `Bearer ${token}`,
           'apikey': SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ to: email, subject, html, email_type: 'campaign' }),
+        body: JSON.stringify({ to: email, subject, html, email_type: emailType }),
       });
       // Rate limit: esperar y reintentar hasta 3 veces con backoff
       if (res.status === 429 && attempt <= 3) {
