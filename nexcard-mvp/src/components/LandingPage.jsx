@@ -164,14 +164,47 @@ function HeroVisual() {
   );
 }
 
+function CommerceVisualSummary() {
+  return (
+    <aside className="rounded-[22px] border border-zinc-800 bg-zinc-900 p-5 md:p-6 lg:sticky lg:top-24">
+      <div className="relative h-[255px] md:h-[285px] mb-5 overflow-visible">
+        <div className="absolute inset-x-3 top-8 h-[205px] rounded-[34px] border border-white/10 bg-stone-500/15 rotate-[2deg]" />
+        <div className="absolute right-0 top-0 w-[136px] h-[256px] rounded-[30px] border-[8px] border-zinc-800 bg-zinc-950 rotate-[5deg] p-3 pt-9 shadow-2xl shadow-black/45">
+          <span className="absolute top-1.5 left-1/2 h-4 w-12 -translate-x-1/2 rounded-b-xl bg-zinc-800" />
+          <span className="block h-8 rounded-xl border border-emerald-500/20 bg-emerald-500/20 mb-3" />
+          <span className="block h-2.5 w-4/5 rounded-full bg-zinc-800 mb-2.5" />
+          <span className="block h-2.5 w-3/5 rounded-full bg-zinc-800 mb-4" />
+          <span className="block h-8 rounded-xl border border-emerald-500/20 bg-emerald-500/10" />
+        </div>
+        <div className="absolute left-0 top-[82px] h-[180px] w-[min(315px,82vw)] rounded-[26px] border border-white/15 bg-gradient-to-br from-zinc-800 to-black p-5 -rotate-[7deg] shadow-2xl shadow-black/55">
+          <div className="h-7 w-11 rounded-lg bg-yellow-700" />
+          <div className="absolute right-5 top-5 text-xs font-black tracking-[0.18em] text-emerald-300">NFC</div>
+          <div className="absolute bottom-5 left-5 text-2xl font-black tracking-[-0.06em]">Nex<span className="text-emerald-300">Card</span></div>
+        </div>
+      </div>
+      <h3 className="text-[1.85rem] font-bold leading-[0.98] tracking-[-0.06em] mb-4">Decisión guiada, no grilla de productos.</h3>
+      <ul className="grid gap-3 text-sm text-zinc-300 leading-relaxed">
+        <li><CheckCircle size={16} className="inline mr-2 text-emerald-300" />Pack recomendado visible sin gritar.</li>
+        <li><CheckCircle size={16} className="inline mr-2 text-emerald-300" />Precio por unidad para justificar el salto.</li>
+        <li><CheckCircle size={16} className="inline mr-2 text-emerald-300" />Beneficios concretos antes del botón.</li>
+      </ul>
+    </aside>
+  );
+}
+
 function PricingCard({ plan, formatPrice, onCheckoutStart }) {
   return (
-    <article className={`pricing-card relative rounded-[22px] p-[22px] flex flex-col min-h-[350px] bg-zinc-900 ${plan.highlight ? 'border-2 border-emerald-500 shadow-2xl shadow-emerald-950/30' : 'border border-zinc-800'}`}>
-      {plan.badge && <span className="absolute -top-3 left-5 bg-emerald-500 text-white rounded-full px-3 py-1 text-xs font-black">{plan.badge}</span>}
-      <h3 className="text-lg font-black mb-2">{plan.name}</h3>
-      <p className="text-zinc-400 text-sm leading-relaxed min-h-[42px] mb-[18px]">{plan.description}</p>
-      <div className="text-3xl font-black tracking-[-0.05em] mb-1">${formatPrice(plan.price)}</div>
-      <p className="text-emerald-300 text-sm font-black min-h-[20px]">{plan.save || `$${formatPrice(plan.perUnit)} por tarjeta · ${plan.cards} unidades`}</p>
+    <article className={`relative rounded-[22px] border p-[22px] flex flex-col min-h-[380px] bg-zinc-900 transition-colors hover:border-emerald-500/40 ${plan.highlight ? 'border-emerald-500/70 shadow-2xl shadow-emerald-950/30 bg-gradient-to-b from-emerald-500/10 to-zinc-900' : 'border-zinc-800'}`}>
+      {plan.badge && <span className="absolute -top-3 left-5 bg-emerald-500 text-zinc-950 rounded-full px-3 py-1 text-xs font-black">{plan.badge}</span>}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-[1.65rem] font-bold leading-none tracking-[-0.06em] mb-2">{plan.name}</h3>
+          <p className="text-zinc-400 text-sm leading-relaxed">{plan.description}</p>
+        </div>
+        <div className="grid h-14 min-w-14 place-items-center rounded-[19px] border border-emerald-500/25 bg-emerald-500/10 text-xl font-black text-emerald-200">{plan.cards}</div>
+      </div>
+      <div className="mt-6 text-4xl font-black tracking-[-0.065em]">${formatPrice(plan.price)} <span className="text-sm font-bold tracking-normal text-zinc-500">CLP</span></div>
+      <p className="text-emerald-300 text-sm font-black mt-1 min-h-[20px]">{plan.save || `$${formatPrice(plan.perUnit)} por tarjeta aprox.`}</p>
       <ul className="grid gap-[10px] my-[22px] flex-1 text-sm text-zinc-300">
         {(plan.features || []).map((feat, i) => (
           <li key={i} className="flex items-start gap-2">
@@ -185,7 +218,7 @@ function PricingCard({ plan, formatPrice, onCheckoutStart }) {
       onClick={onCheckoutStart}
       className={`btn-base btn-press w-full min-h-[48px] rounded-xl font-black ${plan.highlight ? 'btn-primary' : 'btn-secondary'}`}
       >
-        {plan.cta || 'Comprar pack'}
+        {plan.highlight ? 'Elegir pack recomendado' : (plan.cta || 'Elegir pack')}
       </button>
     </article>
   );
@@ -278,8 +311,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     return () => observer.disconnect();
   }, [pricing]);
 
-  const heroTitle = content.hero_title || 'Tu última tarjeta de presentación. Elegante, eterna y digital.';
-  const heroLead = content.hero_subtitle || 'Pasa tus datos de contacto, redes sociales y datos de transferencia a un solo toque (NFC). Cambia tu información en tiempo real cuando quieras, sin volver a imprimir jamás.';
+  const heroTitle = content.hero_title || 'Tu tarjeta profesional sigue viva después de imprimirla.';
+  const heroLead = content.hero_subtitle || 'Comparte contacto, WhatsApp, redes y datos de transferencia con un toque. Si cambias de cargo, teléfono o banco, editas tu perfil online y la tarjeta física sigue vigente.';
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white antialiased">
@@ -313,9 +346,9 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 <a href="#friccion" className="inline-flex items-center justify-center min-h-[48px] px-6 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-black transition-colors">Ver la diferencia</a>
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-2 mt-6 text-sm text-zinc-500">
-                <span>✓ Plataforma incluida</span>
-                <span>✓ Pago seguro</span>
-                <span>✓ iPhone, Android y QR</span>
+                <span>✓ Perfil editable incluido</span>
+                <span>✓ Pago seguro con Mercado Pago</span>
+                <span>✓ Funciona con iPhone, Android y QR</span>
               </div>
             </div>
             <HeroVisual />
@@ -325,7 +358,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         <section id="friccion" className="border-b border-zinc-800 py-16 md:py-[78px]">
           <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
             <SectionHead title="Menos dictar datos. Más cerrar contactos.">
-              La comparación es cotidiana: transferencia, correo, reunión y tarjeta de papel que deja de servir.
+              La landing parte desde la fricción real: correos deletreados, transferencias apuradas y tarjetas de papel que se pierden o quedan viejas.
             </SectionHead>
             <div className="grid md:grid-cols-2 gap-4">
               {FRICTION.map((group) => (
@@ -350,7 +383,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
         <section id="como" className="border-b border-zinc-800 py-16 md:py-[78px]">
           <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
-            <SectionHead title="Cómo funciona.">Sin app, sin explicación larga, sin volver a imprimir cuando cambias tus datos.</SectionHead>
+            <SectionHead title="Cómo funciona.">Tres pasos concretos. Sin app, sin explicación larga y sin prometer magia: el producto físico abre un perfil útil.</SectionHead>
             <div className="grid gap-4 md:grid-cols-3">
               <HowItWorksCard
                 step="01"
@@ -385,8 +418,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <SectionHead title="También para clientes actuales.">Si ya activaste tu tarjeta, entra directo a tu perfil público o inicia sesión para editarlo.</SectionHead>
             <div className="rounded-[22px] border border-zinc-800 bg-zinc-900 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4 md:justify-between">
               <div>
-                <p className="font-black text-lg">Busca tu perfil digital</p>
-                <p className="text-zinc-400 text-sm">Escribe tu slug público para abrirlo en este navegador.</p>
+                <p className="font-black text-lg">¿Ya tienes una NexCard?</p>
+                <p className="text-zinc-400 text-sm">Busca tu perfil público por slug. Esta sección queda calmada para no competir con la compra.</p>
               </div>
               <div>
                 <div className="flex gap-2">
@@ -413,16 +446,21 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
 
         <section id="precios" className="border-b border-zinc-800 py-16 md:py-[78px]">
           <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto">
-            <SectionHead title="Precios simples.">Oferta directa con ahorro visible para empujar packs y facilitar la decisión.</SectionHead>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {pricing.map((plan) => (
-                <PricingCard key={plan.sku} plan={plan} formatPrice={formatPrice} onCheckoutStart={onCheckoutStart} />
-              ))}
+            <SectionHead title="Elige cuántas tarjetas necesitas hoy.">
+              La compra deja de sentirse como catálogo genérico: parte solo, equipa socios o resuelve un equipo comercial. Todas incluyen tarjeta negro mate, QR de respaldo y perfil editable sin mensualidad.
+            </SectionHead>
+            <div className="grid gap-7 lg:grid-cols-[0.88fr_1.12fr] lg:items-start">
+              <CommerceVisualSummary />
+              <div className="grid gap-4 sm:grid-cols-2">
+                {pricing.map((plan) => (
+                  <PricingCard key={plan.sku} plan={plan} formatPrice={formatPrice} onCheckoutStart={onCheckoutStart} />
+                ))}
+              </div>
             </div>
-            <div className="mt-8 pt-6 border-t border-zinc-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="mt-5 rounded-[22px] border border-zinc-800 bg-zinc-900 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <p className="text-zinc-500 text-sm font-black uppercase tracking-[0.14em] mb-1">¿Necesitas más?</p>
-                <p className="text-zinc-400">¿Necesitas más tarjetas para tu empresa? Diseñemos un plan a tu medida para ventas, atención o terreno.</p>
+                <p className="text-white font-black mb-1">¿Necesitas más de 7?</p>
+                <p className="text-zinc-400">Para empresas grandes, WhatsApp directo sin mezclarlo con la compra estándar.</p>
               </div>
               <a
                 className="btn-press inline-flex items-center justify-center min-h-[46px] px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black shrink-0"
@@ -526,6 +564,19 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
         >
           🎁
         </button>
+      )}
+
+      {!showWheel && (
+        <a
+          href="https://wa.me/56993183021?text=Hola%20NexCard%2C%20tengo%20una%20pregunta"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="WhatsApp NexCard"
+          className={`fixed right-5 z-40 inline-flex min-h-[54px] items-center justify-center gap-2 rounded-full border border-emerald-500/35 bg-zinc-950/85 px-5 font-black text-emerald-100 shadow-2xl shadow-black/40 backdrop-blur-xl transition-colors hover:border-emerald-400/60 hover:bg-zinc-900 ${wheelData?.show_floating_button ? 'bottom-24' : 'bottom-5 left-5 sm:left-auto'}`}
+        >
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_0_5px_rgba(52,211,153,0.12)]" />
+          WhatsApp
+        </a>
       )}
     </div>
   );
