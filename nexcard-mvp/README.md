@@ -1,75 +1,77 @@
 # NexCard MVP
 
-Repo principal de NexCard al **2026-05-08**.
+Repo principal de NexCard. Última revisión de esta puerta de entrada: **2026-08-21**.
 
 ## Qué es hoy
-NexCard ya no está solo en etapa mock/local. Este repo contiene una SPA en React con una capa operativa real sobre **Supabase**, más un **backend Express local** que sirve para desarrollo, fallback y algunos flujos E2E.
 
-## Estado real visible en el repo
-### Stack
-- React 18 (`react-scripts`)
-- Tailwind CSS
-- Zustand
-- Supabase (`@supabase/supabase-js`)
-- Express local para soporte/mock
+NexCard vende tarjetas físicas NFC vinculadas a un perfil digital editable (`/:slug`). Es una SPA React + Vite con Supabase como backend productivo real (Auth, Postgres, RLS, Edge Functions), Mercado Pago como único proveedor de pago activo, y capas de admin/CRM/inventario/KPIs bastante más desarrolladas que un MVP simple.
+
+## Mapa de documentación
+
+Este repo tiene mucha documentación acumulada. Si es tu primera vez acá, **no leas todo** — empieza por esto:
+
+1. **`docs/INDEX.md`** → mapa completo de qué documento existe, para qué sirve y si sigue vigente. Empieza aquí si buscas algo específico.
+2. **`ARCHITECTURE.md`** → stack real, split entre Supabase Edge Functions / Vercel Functions (`api/`) / Express local (`server/`), módulos del sistema.
+3. **`SCHEMA.md`** → mapa de las ~29 tablas por dominio (no el DDL exacto — eso vive en `supabase/migrations/`).
+4. **`PRODUCT.md`** → segmentos, propuesta de valor, principios de producto.
+5. **`DESIGN.md`** → sistema de diseño (paleta, tipografía, componentes).
+6. **`CLAUDE.md`** → guía extensa (78KB) para agentes/Claude Code trabajando en este repo — el doc más detallado que existe.
+
+Si algo choca entre documentos: **código > CLAUDE.md > los 5 docs de arriba > `docs/INDEX.md` > todo lo demás**.
+
+## Stack
+
+- React 18 + **Vite** (no CRA/react-scripts — ya migrado)
+- Tailwind CSS, Zustand (carrito)
+- Supabase (`@supabase/supabase-js`) — backend productivo
+- Vercel Functions (`api/`) — health check, proxy de waitlist, 2 cron jobs
+- Express local (`server/`) — solo dev/mocks/E2E, bloqueado para producción
 - Cypress para E2E
-- Edge Functions en `supabase/functions/`
+- Sentry para error tracking
+- Mercado Pago (único proveedor de pago activo; Webpay está deshabilitado en UI)
 
-### Módulos visibles
-#### Público/comercial
-- `/` → Coming Soon
-- `/preview` → landing comercial
-- catálogo, carrito, checkout y confirmación
-- perfil público por `/:slug`
-- términos, privacidad, tracking, baja
-- redirect de review cards `/r/:slug`
+## Estructura del repo
 
-#### Admin
-- dashboard
-- orders
-- inventory
-- cards
-- profiles
-- CRM
-- NexReview
-- emails
-- review cards
-- products
-- team
-- wheel
-- print test
-
-## Estructura útil del repo
-- `src/` → frontend principal
-- `server/` → API Express local y mocks
-- `supabase/migrations/` → migraciones SQL versionadas
-- `supabase/functions/` → Edge Functions
+- `src/` → frontend principal (`components/`, `services/api/`, `store/`, `hooks/`, `config/`, `utils/`)
+- `server/` → Express local, solo para dev/soporte/mocks
+- `api/` → funciones Vercel (health, waitlist proxy, crons)
+- `supabase/migrations/` → migraciones SQL versionadas (95 al 2026-08-21, fuente de verdad del schema)
+- `supabase/functions/` → Edge Functions (pagos, webhooks, emails, KPIs, reconciliación)
 - `cypress/` → pruebas E2E
-- `docs/` → estado, planes, specs y checklists
+- `docs/` → estado, planes, specs y checklists — ver `docs/INDEX.md` antes de perderte ahí
 - `5-entregables/` → material histórico / anexos
+- `scripts/` → tooling operativo (reconciliación de pagos, evaluador de KPIs, auditoría pre-lanzamiento)
 
 ## Cómo correrlo local
+
 ```bash
 npm install
 npm run dev
 ```
 
 ### Scripts frecuentes
+
 ```bash
 npm run build
 npm run server
-npm run test:e2e:env-check
+npm run check              # build + env-check + smoke E2E
 npm run test:e2e:smoke
-npm run test:e2e:local
+npm run kpi:evaluate        # evaluador de alertas ejecutivas KPI
+npm run ops:reconcile-orders:dry
+npm run ops:prelaunch-audit
 ```
 
+Ver `package.json` para la lista completa — hay bastante tooling operativo (`kpi:*`, `ops:*`, `test:e2e:admin-*`) que no cabe acá.
+
 ## URLs locales esperadas
+
 - Frontend: `http://localhost:3000`
 - API local: `http://localhost:4000/api`
 - Bridge NFC local: `http://localhost:4000/c/:token`
 
-## Variables / dependencias importantes
-Sin entorno Supabase, varias funciones admin/checkout quedan limitadas o no operan completas.
+## Variables de entorno
+
+Prefijo `REACT_APP_*` por convención histórica (el build corre en Vite, que whitelistea y reinyecta esas variables vía `define` en `vite.config.js` — no renombrar a `VITE_*` sin actualizar esa whitelist).
 
 Variables relevantes visibles por código:
 - `REACT_APP_SUPABASE_URL`
@@ -77,41 +79,16 @@ Variables relevantes visibles por código:
 - `REACT_APP_API_URL`
 - `PUBLIC_APP_URL`
 
-Para E2E, revisar además:
-- `.env.e2e.example`
-- `cypress/README-e2e.md`
+Para E2E, revisar `.env.e2e.example` y `cypress/README-e2e.md`.
 
-## Estado técnico verificado en esta revisión
-- `npm run build` compila OK.
-- El router sigue siendo manual en `src/App.jsx`.
-- La mayor parte de la lógica de negocio cliente está concentrada en `src/services/api.js`.
-- El acceso admin depende de sesión Supabase + whitelist de emails en frontend.
+## Seguridad y acceso admin
 
-## Riesgos / límites actuales
-- `src/App.jsx` y `src/services/api.js` concentran demasiada responsabilidad.
-- Hay documentación superpuesta y parte de ella estaba atrasada.
-- El estado real de producción (Vercel, secrets, deploy Supabase, Mercado Pago, Resend) **no se puede confirmar solo con este repo**.
-- Existen SQL y backups dispersos fuera de `supabase/migrations/`, lo que puede confundir la fuente de verdad.
+Admin se autoriza server-side vía RPC `has_role('admin')` contra un modelo real de `memberships`/roles en Postgres (`src/utils/adminAccess.js`) — **no** una whitelist de emails en frontend (ese modelo fue removido explícitamente; `src/config/admin.js` prohíbe reintroducirlo).
 
-## Documentos clave
-- `docs/DOCUMENTACION_REPO_2026-05-08.md` → mapa documental y propuesta de orden
-- `docs/PROJECT_SNAPSHOT_2026-05-08.md` → snapshot ejecutivo
-- `docs/STATUS.md` → checklist de estado/pre-release
-- `cypress/README-e2e.md` → ejecución de pruebas E2E
-- `supabase/migrations/README.md` → criterio de migraciones
-- `BITACORA_ETAPA_9.md` → bitácora más cercana al estado actual
+RLS está activo en todas las tablas de negocio y se sigue endureciendo activamente — las migraciones más recientes (`20260819xx`, `20260820xx`) cierran brechas encontradas en auditorías. Antes de asumir que algo está protegido, revisar si tiene una migración de cierre posterior a su creación.
 
 ## Qué no asumir
-No conviene leer este repo como “listo para escalar sin revisión”. La base es seria, pero todavía depende de:
-- hardening de acceso y RLS
-- disciplina de migraciones
-- validación E2E reproducible
-- alineación entre frontend, SQL y Edge Functions
 
-## Nota
-Si algo choca entre documentos, prioriza en este orden:
-1. código en `src/`, `server/`, `supabase/`
-2. `docs/DOCUMENTACION_REPO_2026-05-08.md`
-3. `docs/PROJECT_SNAPSHOT_2026-05-08.md`
-4. `docs/STATUS.md`
-5. bitácoras históricas
+- Este repo tiene documentación histórica abundante y parte de ella describe estados ya superados (ver `docs/INDEX.md` para saber cuál es cuál).
+- El estado real de producción (Vercel, secrets, deploy Supabase, Mercado Pago, Resend) no se puede confirmar solo leyendo el repo.
+- Hay SQL y backups dispersos fuera de `supabase/migrations/` (en `docs/`) que no deben tratarse como fuente de schema.
