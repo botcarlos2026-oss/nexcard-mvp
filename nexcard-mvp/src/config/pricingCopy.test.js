@@ -3,8 +3,11 @@ import { buildPricingPlan } from './pricingCopy';
 describe('pricingCopy', () => {
   it('expone SKU de display alineado con la cantidad de tarjetas', () => {
     expect(buildPricingPlan({ sku: 'BASIC-5', price_cents: 39990 }).displaySku).toBe('NEXCARD-3');
+    expect(buildPricingPlan({ sku: 'BASIC-3', price_cents: 39990 }).cards).toBe(3);
     expect(buildPricingPlan({ sku: 'PREMIUM-10', price_cents: 59990 }).displaySku).toBe('NEXCARD-5');
+    expect(buildPricingPlan({ sku: 'PREMIUM-5', price_cents: 59990 }).perUnit).toBe(11998);
     expect(buildPricingPlan({ sku: 'PREMIUM-20', price_cents: 74990 }).displaySku).toBe('NEXCARD-7');
+    expect(buildPricingPlan({ sku: 'PREMIUM-7', price_cents: 74990 }).cards).toBe(7);
   });
 
   it('mantiene el SKU original cuando no hay copia conocida', () => {

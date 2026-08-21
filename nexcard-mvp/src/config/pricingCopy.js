@@ -22,7 +22,30 @@ export const PRICING_COPY_BY_SKU = {
     cta: 'Comprar pack',
     features: ['3 tarjetas NFC', '3 perfiles editables', 'Activación guiada', 'Sin mensualidad'],
   },
+  'BASIC-3': {
+    homeName: 'Pack Emprendedor',
+    catalogName: '3 Tarjetas',
+    displaySku: 'NEXCARD-3',
+    cards: 3,
+    description: 'Para socios, primeras ventas o un equipo pequeño.',
+    highlight: true,
+    badge: 'Recomendado',
+    save: 'Ideal para equipo inicial',
+    cta: 'Comprar pack',
+    features: ['3 tarjetas NFC', '3 perfiles editables', 'Activación guiada', 'Sin mensualidad'],
+  },
   'PREMIUM-10': {
+    homeName: 'Pack Socios',
+    catalogName: '5 Tarjetas',
+    displaySku: 'NEXCARD-5',
+    cards: 5,
+    description: 'Para equipo fundador, ventas o atención comercial.',
+    highlight: false,
+    save: 'Mejor equilibrio',
+    cta: 'Comprar Pack Socios',
+    features: ['5 tarjetas premium', 'Perfil por persona', 'Datos actualizables', 'Ideal para reuniones'],
+  },
+  'PREMIUM-5': {
     homeName: 'Pack Socios',
     catalogName: '5 Tarjetas',
     displaySku: 'NEXCARD-5',
@@ -44,6 +67,17 @@ export const PRICING_COPY_BY_SKU = {
     cta: 'Comprar Equipo',
     features: ['7 tarjetas NFC + QR', 'Onboarding simple', 'Imagen consistente', 'Soporte dedicado'],
   },
+  'PREMIUM-7': {
+    homeName: 'Pack Equipo',
+    catalogName: '7 Tarjetas',
+    displaySku: 'NEXCARD-7',
+    cards: 7,
+    description: 'Para equipos comerciales que necesitan presencia consistente.',
+    highlight: false,
+    save: 'Mejor precio por unidad',
+    cta: 'Comprar Equipo',
+    features: ['7 tarjetas NFC + QR', 'Onboarding simple', 'Imagen consistente', 'Soporte dedicado'],
+  },
 };
 
 export const PRICING_DISPLAY_SKU_BY_COUNT = {
@@ -53,7 +87,7 @@ export const PRICING_DISPLAY_SKU_BY_COUNT = {
   7: 'NEXCARD-7',
 };
 
-export const PRICING_SKU_ORDER = ['NEXCARD-1', 'BASIC-5', 'PREMIUM-10', 'PREMIUM-20'];
+export const PRICING_SKU_ORDER = ['NEXCARD-1', 'BASIC-3', 'BASIC-5', 'PREMIUM-5', 'PREMIUM-10', 'PREMIUM-7', 'PREMIUM-20'];
 
 export const getPricingCopy = (productOrSku) => {
   const sku = typeof productOrSku === 'string' ? productOrSku : productOrSku?.sku;
