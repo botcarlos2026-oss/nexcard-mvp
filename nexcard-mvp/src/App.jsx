@@ -9,6 +9,8 @@ import { useAppBootstrap } from './hooks/useAppBootstrap';
 import { getCurrentAdminAccess } from './utils/adminAccess';
 import { parseAuthHashError, getAuthHashErrorMessage } from './utils/authFlow';
 import { trackPageView, trackEvent } from './utils/ga4';
+import { SEO_PAGES } from './components/SeoLandingPage';
+import { buildJsonLdForPath } from './utils/seoSchema';
 
 const getReservedSlugFromClaimResult = (result = {}) => (
   result?.reserved_slug || result?.order?.card_customization?.desired_slug || ''
@@ -85,14 +87,19 @@ function App() {
   useEffect(() => {
     const routes = {
       '/': {
-        title: 'NexCard — Tarjeta Digital NFC',
-        description: 'NexCard — Tarjeta de negocio NFC inteligente. Comparte tu contacto completo con un solo toque. Compatible con iPhone y Android.',
+        title: 'NexCard — Tarjeta NFC para contactos accionables',
+        description: 'Compra NexCard: tarjeta NFC premium con perfil digital editable para compartir WhatsApp, redes, web y datos profesionales en un toque.',
         canonical: 'https://nexcard.cl/',
       },
       '/preview': {
-        title: 'NexCard Preview — Tarjeta Digital NFC',
-        description: 'Previsualización pública de NexCard: comparte tu contacto con un toque y valida la experiencia antes del cierre comercial.',
+        title: 'NexCard — Tarjeta NFC para contactos accionables',
+        description: 'Compra NexCard: tarjeta NFC premium con perfil digital editable para compartir WhatsApp, redes, web y datos profesionales en un toque.',
         canonical: 'https://nexcard.cl/preview',
+      },
+      '/demo': {
+        title: 'Demo NexCard — Perfil digital editable',
+        description: 'Prueba el perfil demo editable de NexCard y mira cómo se comparten WhatsApp, redes, web y datos profesionales desde una tarjeta NFC.',
+        canonical: 'https://nexcard.cl/demo',
       },
       '/coming-soon': {
         title: 'NexCard — Próximamente',
@@ -101,11 +108,17 @@ function App() {
       },
     };
 
-    const seo = routes[path] || {
-      title: 'NexCard — Perfil público NFC',
-      description: 'Perfil público de NexCard con tarjeta NFC inteligente y enlaces de contacto directos.',
-      canonical: `https://nexcard.cl${path}`,
-    };
+    const seo = routes[path] || (SEO_PAGES[path]
+      ? {
+        title: SEO_PAGES[path].title,
+        description: SEO_PAGES[path].description,
+        canonical: `https://nexcard.cl${path}`,
+      }
+      : {
+        title: 'NexCard — Perfil público NFC',
+        description: 'Perfil público de NexCard con tarjeta NFC inteligente y enlaces de contacto directos.',
+        canonical: `https://nexcard.cl${path}`,
+      });
 
     document.title = seo.title;
 
@@ -129,6 +142,15 @@ function App() {
       document.head.appendChild(canonical);
     }
     canonical.setAttribute('href', seo.canonical);
+
+    let jsonLd = document.head.querySelector('script[data-nexcard-jsonld="true"]');
+    if (!jsonLd) {
+      jsonLd = document.createElement('script');
+      jsonLd.type = 'application/ld+json';
+      jsonLd.setAttribute('data-nexcard-jsonld', 'true');
+      document.head.appendChild(jsonLd);
+    }
+    jsonLd.textContent = JSON.stringify(buildJsonLdForPath(path));
   }, [path]);
 
   useAppBootstrap({

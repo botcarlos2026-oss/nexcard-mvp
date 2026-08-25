@@ -15,6 +15,18 @@
   ],
   "headers": [
     {
+      "source": "/llms.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/pricing.md",
+      "headers": [
+        { "key": "Content-Type", "value": "text/markdown; charset=utf-8" }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },

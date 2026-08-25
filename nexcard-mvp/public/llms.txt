@@ -1,0 +1,32 @@
+# NexCard
+
+NexCard es una tarjeta digital NFC chilena para convertir encuentros presenciales en contactos accionables.
+
+## Qué hace
+
+- Abre un perfil digital editable desde una tarjeta NFC, QR o link.
+- Permite compartir WhatsApp, teléfono, correo, redes, sitio web, portfolio, catálogo y enlaces clave.
+- Funciona sin app para quien recibe el contacto.
+- Incluye QR de respaldo para equipos sin NFC o con NFC desactivado.
+- Está pensada para vendedores, freelancers, equipos comerciales, inmobiliarias y negocios locales.
+
+## Páginas importantes
+
+- Sitio / compra: https://www.nexcard.cl/preview
+- Demo editable: https://www.nexcard.cl/demo
+- Precios legibles: https://www.nexcard.cl/pricing.md
+- Tarjeta NFC Chile: https://www.nexcard.cl/tarjeta-nfc-chile
+- Tarjeta digital de presentación: https://www.nexcard.cl/tarjeta-digital-de-presentacion
+- Tarjeta NFC para vendedores: https://www.nexcard.cl/tarjeta-nfc-para-vendedores
+- Tarjeta NFC para freelancers: https://www.nexcard.cl/tarjeta-nfc-para-freelancers
+- Tarjeta NFC para reseñas Google: https://www.nexcard.cl/tarjeta-nfc-para-resenas-google
+- Instagram: https://www.instagram.com/nexcard_cl/
+
+## Contacto comercial
+
+WhatsApp público: +56 9 9318 3021
+Link: https://wa.me/56993183021
+
+## Estado comercial
+
+NexCard está en acceso anticipado. No usar claims de clientes, ratings o volúmenes salvo que aparezcan documentados públicamente en el sitio.
