@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { generateVCard } from '../utils/vCardEngine';
 import { trackClick } from '../utils/analyticsEngine';
-import { safeExternalUrl } from '../utils/safeExternalUrl';
+import { safeExternalUrl, isGoogleReviewUrl } from '../utils/safeExternalUrl';
 import LinkIcon from './LinkIcon';
 
 // WCAG relative luminance (0 = black, 1 = white), used to detect a too-dark theme_color.
@@ -40,11 +40,13 @@ const NexCardProfile = ({ data }) => {
   const [contactForm, setContactForm] = useState({ name: '', contact: '' });
   const [contactSent, setContactSent] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
+  const [contactError, setContactError] = useState('');
   const previouslyFocusedRef = React.useRef(null);
   const firstFieldRef = React.useRef(null);
 
   useEffect(() => {
     if (!contactModal) return;
+    setContactError('');
     previouslyFocusedRef.current = document.activeElement;
     firstFieldRef.current?.focus();
     const onKeyDown = (e) => {
@@ -57,8 +59,10 @@ const NexCardProfile = ({ data }) => {
     };
   }, [contactModal]);
 
+  const isReviewRedirect = data?.card_type === 'review' && isGoogleReviewUrl(data?.review_url);
+
   useEffect(() => {
-    if (data?.card_type === 'review' && data?.review_url) {
+    if (isReviewRedirect) {
       window.location.replace(data.review_url);
       return;
     }
@@ -66,7 +70,7 @@ const NexCardProfile = ({ data }) => {
     if (data?.slug && supabase) {
       // Scan tracking deshabilitado temporalmente — esquema de tabla pendiente de unificar
     }
-  }, [data?.card_type, data?.review_url, data?.slug]);
+  }, [isReviewRedirect, data?.review_url, data?.slug]);
 
   // Default theme settings
   const themeColor = data.theme_color || '#10B981';
@@ -129,7 +133,7 @@ const NexCardProfile = ({ data }) => {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  if (data.card_type === 'review' && data.review_url) {
+  if (isReviewRedirect) {
     return (
       <div className="min-h-screen bg-zinc-950 grid place-items-center">
         <div className="text-center">
@@ -313,7 +317,7 @@ const NexCardProfile = ({ data }) => {
                   <div className="text-4xl mb-3">✅</div>
                   <p className="font-bold text-lg">¡Listo!</p>
                   <p className="text-sm opacity-60 mt-1">Te contactaremos pronto.</p>
-                  <button onClick={() => { setContactModal(false); setContactSent(false); }} className="mt-4 text-sm opacity-50 hover:opacity-80">Cerrar</button>
+                  <button onClick={() => { setContactModal(false); setContactSent(false); setContactError(''); }} className="mt-4 text-sm opacity-50 hover:opacity-80">Cerrar</button>
                 </div>
               ) : (
                 <>
@@ -331,22 +335,29 @@ const NexCardProfile = ({ data }) => {
                       onClick={async () => {
                         if (!contactForm.name.trim()) return;
                         setContactLoading(true);
+                        setContactError('');
                         try {
-                          if (supabase) {
-                            const contact = contactForm.contact.trim();
-                            const isEmail = contact.includes('@');
-                            await supabase.from('crm_contacts').insert({
-                              name: contactForm.name,
-                              email: isEmail ? contact : null,
-                              phone: !isEmail && contact ? contact : null,
-                              company: null,
-                              source: 'nfc_tap',
-                              profile_id: data.id || null,
-                            });
-                          }
+                          if (!supabase) throw new Error('no-supabase');
+                          const contact = contactForm.contact.trim();
+                          const isEmail = contact.includes('@');
+                          // supabase-js resolves with { error } on RLS/insert failure instead of
+                          // throwing — the previous code ignored that and always showed success,
+                          // silently dropping leads (audit H6, 2026-08-25).
+                          const { error } = await supabase.from('crm_contacts').insert({
+                            name: contactForm.name,
+                            email: isEmail ? contact : null,
+                            phone: !isEmail && contact ? contact : null,
+                            company: null,
+                            source: 'nfc_tap',
+                            profile_id: data.id || null,
+                          });
+                          if (error) throw error;
                           setContactSent(true);
-                        } catch { setContactSent(true); }
-                        finally { setContactLoading(false); }
+                        } catch {
+                          setContactError('No pudimos enviar tus datos. Intenta de nuevo o contáctanos directamente.');
+                        } finally {
+                          setContactLoading(false);
+                        }
                       }}
                       className="flex-[2] py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50"
                       style={{ backgroundColor: themeColor }}
@@ -354,6 +365,9 @@ const NexCardProfile = ({ data }) => {
                       {contactLoading ? 'Enviando…' : 'Enviar'}
                     </button>
                   </div>
+                  {contactError && (
+                    <p role="alert" className="mt-3 text-sm text-red-400">{contactError}</p>
+                  )}
                 </>
               )}
             </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Copy, CheckCircle, ExternalLink, ToggleLeft, ToggleRight, Pencil, X, Check } from 'lucide-react';
 import { api, getErrorMessage } from '../services/api';
+import { isGoogleReviewUrl } from '../utils/safeExternalUrl';
 import AdminShell from './AdminShell';
 import AdminStat from './ui/AdminStat';
 import AdminCard from './ui/AdminCard';
@@ -9,10 +10,6 @@ import { Table, THead, TH, TR, TD } from './ui/AdminTable';
 
 function toSlug(str) {
   return str.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-}
-
-function isValidGoogleUrl(url) {
-  return url.includes('google') || url.includes('maps.app.goo.gl') || url.includes('goo.gl');
 }
 
 export default function ReviewCardsDashboard() {
@@ -59,7 +56,7 @@ export default function ReviewCardsDashboard() {
   };
 
   const handleSaveUrl = async (id) => {
-    if (!isValidGoogleUrl(editUrl)) {
+    if (!isGoogleReviewUrl(editUrl)) {
       return;
     }
     setSaving(true);
@@ -90,7 +87,7 @@ export default function ReviewCardsDashboard() {
       setFormError('Todos los campos obligatorios son requeridos.');
       return;
     }
-    if (!isValidGoogleUrl(form.google_review_url)) {
+    if (!isGoogleReviewUrl(form.google_review_url)) {
       setFormError('La URL debe ser un enlace de Google Reviews o Google Maps.');
       return;
     }

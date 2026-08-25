@@ -36,7 +36,10 @@ const PROFILE_ALLOWED_FIELDS = [
   'location', 'cover_image_url', 'facebook', 'facebook_enabled', 'instagram_enabled',
   'linkedin_enabled', 'contact_email_enabled', 'contact_phone_enabled', 'website_enabled',
   'whatsapp_enabled', 'portfolio_enabled', 'portfolio_url', 'calendar_url_enabled',
-  'tiktok', 'tiktok_enabled', 'review_url', 'card_type'
+  'tiktok', 'tiktok_enabled'
+  // review_url / card_type intentionally excluded: self-service updates let any user turn
+  // their own profile into an open redirect (audit H4/H5, 2026-08-25). Only settable by
+  // admin via adminUpdateProfileFields, which validates the hostname allowlist first.
 ];
 
 const PUBLIC_PROFILE_COLUMNS = [

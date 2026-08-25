@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase, hasSupabase } from '../services/supabaseClient';
+import { isGoogleReviewUrl } from '../utils/safeExternalUrl';
 
 export default function ReviewCardRedirect({ slug }) {
   const [notFound, setNotFound] = useState(false);
@@ -17,7 +18,7 @@ export default function ReviewCardRedirect({ slug }) {
       .eq('active', true)
       .single()
       .then(({ data, error }) => {
-        if (error || !data) {
+        if (error || !data || !isGoogleReviewUrl(data.google_review_url)) {
           setNotFound(true);
           return;
         }

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link2, CheckCircle2, AlertCircle, Loader2, Search, ExternalLink, ToggleLeft, ToggleRight } from 'lucide-react';
 import { api } from '../services/api';
+import { isGoogleReviewUrl } from '../utils/safeExternalUrl';
 import AdminShell from './AdminShell';
 import AdminCard from './ui/AdminCard';
 import AdminStat from './ui/AdminStat';
@@ -12,16 +13,6 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return new Intl.DateTimeFormat('es-CL', { dateStyle: 'short' }).format(date);
-};
-
-const isLikelyGoogleReviewUrl = (value) => {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
-    return /(^|\.)google\.[a-z.]+$|(^|\.)g\.page$|(^|\.)goo\.gl$/i.test(url.hostname);
-  } catch {
-    return false;
-  }
 };
 
 const NexReviewDashboard = ({ profiles = [] }) => {
@@ -100,7 +91,7 @@ const NexReviewDashboard = ({ profiles = [] }) => {
       setUrlError('La URL no puede estar vacía.');
       return;
     }
-    if (!isLikelyGoogleReviewUrl(trimmed)) {
+    if (!isGoogleReviewUrl(trimmed)) {
       setUrlError('Debe ser un link de reseñas de Google (g.page, google.com o goo.gl).');
       return;
     }
