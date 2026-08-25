@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, CheckCircle, ChevronDown, Clock3, Mail, MessageCircle, ScanLine, Smartphone } from 'lucide-react';
+import { ArrowRight, CheckCircle, ChevronDown, Clock3, Instagram, Mail, MessageCircle, ScanLine, Smartphone } from 'lucide-react';
 import { api } from '../services/api';
 import DiscountWheel from './DiscountWheel';
 import { CORPORATE_QUOTE_WHATSAPP_URL } from '../config/contactLinks';
@@ -311,8 +311,8 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
     return () => observer.disconnect();
   }, [pricing]);
 
-  const heroTitle = content.hero_title || 'Tu tarjeta profesional sigue viva después de imprimirla.';
-  const heroLead = content.hero_subtitle || 'Comparte contacto, WhatsApp, redes y datos de transferencia con un toque. Si cambias de cargo, teléfono o banco, editas tu perfil online y la tarjeta física sigue vigente.';
+  const heroTitle = content.hero_title || 'Convierte cada encuentro en un contacto accionable.';
+  const heroLead = content.hero_subtitle || 'Una tarjeta NFC premium con perfil digital editable. Comparte WhatsApp, redes, web, datos profesionales y enlaces clave en un toque, sin apps y siempre actualizado.';
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white antialiased">
@@ -321,9 +321,10 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
           <a href="#top" className="text-[1.35rem] font-black tracking-[-0.04em] leading-none min-h-[44px] inline-flex items-center" style={BRAND_LOGO_STYLE}>Nex<span className="text-emerald-300">Card</span></a>
           <div className="flex items-center gap-5 text-sm text-zinc-400">
             <a href="#como" className="hidden md:inline hover:text-white transition-colors">Cómo funciona</a>
+            <a href="/demo" className="hidden md:inline hover:text-white transition-colors">Demo</a>
             <a href="#precios" className="hidden md:inline hover:text-white transition-colors">Precios</a>
             <a href="#faq" className="hidden md:inline hover:text-white transition-colors">FAQ</a>
-            <button onClick={onCheckoutStart} className="btn-base btn-press min-h-[48px] px-4 rounded-xl btn-primary">Comprar mi NexCard</button>
+            <button onClick={onCheckoutStart} className="btn-base btn-press min-h-[48px] px-4 rounded-xl btn-primary">Comprar NexCard</button>
           </div>
         </div>
       </nav>
@@ -340,10 +341,10 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               <p className="text-lg md:text-[1.18rem] text-zinc-400 leading-[1.62] mb-[30px] max-w-[650px]">{heroLead}</p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <button onClick={onCheckoutStart} className="btn-base btn-press inline-flex items-center justify-center gap-2 min-h-[50px] px-6 rounded-xl btn-primary">
-                  Comprar mi NexCard
+                  Comprar NexCard
                   <ArrowRight size={18} />
                 </button>
-                <a href="#friccion" className="inline-flex items-center justify-center min-h-[48px] px-6 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-black transition-colors">Ver la diferencia</a>
+                <a href="/demo" className="inline-flex items-center justify-center min-h-[48px] px-6 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-black transition-colors">Ver demo en vivo</a>
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-2 mt-6 text-sm text-zinc-500">
                 <span>✓ Perfil editable incluido</span>
@@ -409,6 +410,38 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
                 icon={ScanLine}
                 chips={['Editar online', 'Cambios en vivo', 'Siempre vigente']}
               />
+            </div>
+          </div>
+        </section>
+
+        <section id="demo" className="border-b border-zinc-800 py-16 md:py-[78px]">
+          <div className="w-[calc(100%_-_40px)] max-w-[1120px] mx-auto grid gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
+            <div>
+              <p className="text-emerald-300 text-xs font-black uppercase tracking-[0.18em] mb-3">Demo en vivo</p>
+              <h2 className="text-[clamp(2.15rem,4.2vw,4rem)] font-bold tracking-[-0.06em] leading-none mb-5">Prueba un perfil NexCard editable.</h2>
+              <p className="text-zinc-400 leading-relaxed mb-6">Creamos una demo con datos de NexCard para mostrar cómo se ve el perfil que abre la tarjeta: WhatsApp, Instagram, web, contacto y enlaces clave. En la demo puedes editar campos sin guardar datos reales.</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <a href="/demo" className="btn-base btn-press inline-flex items-center justify-center gap-2 min-h-[50px] px-6 rounded-xl btn-primary">
+                  Ver demo en vivo
+                  <ArrowRight size={18} />
+                </a>
+                <a href="https://www.instagram.com/nexcard_cl/" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 min-h-[50px] px-6 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 font-black transition-colors">
+                  <Instagram size={18} />
+                  Ver Instagram
+                </a>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <article className="rounded-[22px] border border-emerald-500/40 bg-emerald-500/10 p-6 min-h-[220px]">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300 mb-4">Perfil demo</p>
+                <h3 className="text-2xl font-black tracking-[-0.05em] mb-3">Datos accionables, no solo links.</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">WhatsApp, web, Instagram, correo, teléfono y contacto guardable en una sola vista mobile.</p>
+              </article>
+              <article className="rounded-[22px] border border-zinc-800 bg-zinc-900 p-6 min-h-[220px]">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500 mb-4">Fotos reales</p>
+                <h3 className="text-2xl font-black tracking-[-0.05em] mb-3">Espacio reservado para producto impreso.</h3>
+                <p className="text-zinc-400 text-sm leading-relaxed">Cuando estén listas las tarjetas impresas, este bloque se reemplaza por fotos reales. Sin stock-photo teatral, por misericordia visual.</p>
+              </article>
             </div>
           </div>
         </section>
@@ -526,7 +559,7 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
               <h2 className="text-[clamp(2.15rem,4.2vw,4rem)] font-bold tracking-[-0.06em] leading-none mb-5">Crear mi NexCard.</h2>
               <p className="max-w-2xl mx-auto text-zinc-400 leading-relaxed mb-7">Una tarjeta física premium, un perfil digital editable y una forma más rápida de compartir tus datos.</p>
                 <button onClick={onCheckoutStart} className="btn-base btn-press inline-flex items-center justify-center gap-2 min-h-[50px] px-6 rounded-xl btn-primary">
-                Comprar mi NexCard
+                Comprar NexCard
                 <ArrowRight size={18} />
               </button>
               <div className="flex flex-wrap justify-center gap-2 mt-6">
@@ -546,8 +579,9 @@ export default function LandingPage({ content = {}, onCheckoutStart }) {
             <a href="/privacidad" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Privacidad</a>
             <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">Contacto</a>
           </div>
-          <a href="https://wa.me/56993183021" target="_blank" rel="noreferrer" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center">
-            💬 WhatsApp
+          <a href="https://www.instagram.com/nexcard_cl/" target="_blank" rel="noreferrer" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors py-3 min-h-[44px] inline-flex items-center gap-2">
+            <Instagram size={16} />
+            @nexcard_cl
           </a>
         </div>
       </footer>

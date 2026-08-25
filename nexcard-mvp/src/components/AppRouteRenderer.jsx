@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react';
+import { SEO_PAGES } from './SeoLandingPage';
 import SafeErrorState from './common/SafeErrorState';
 const LandingPage = React.lazy(() => import('./LandingPage'));
-const ComingSoon = React.lazy(() => import('./ComingSoon'));
 const PrivacyPolicy = React.lazy(() => import('./PrivacyPolicy'));
 const TermsAndConditions = React.lazy(() => import('./TermsAndConditions'));
 const NexCardProfile = React.lazy(() => import('./NexCardProfile'));
@@ -29,6 +29,8 @@ const UserEditor = React.lazy(() => import('./UserEditor'));
 const SetupWizard = React.lazy(() => import('./SetupWizard'));
 const AuthPage = React.lazy(() => import('./AuthPage'));
 const ProductCatalog = React.lazy(() => import('./ProductCatalog'));
+const DemoProfilePage = React.lazy(() => import('./DemoProfilePage'));
+const SeoLandingPage = React.lazy(() => import('./SeoLandingPage'));
 const Cart = React.lazy(() => import('./Cart'));
 const CheckoutForm = React.lazy(() => import('./CheckoutForm'));
 const OrderConfirmation = React.lazy(() => import('./OrderConfirmation'));
@@ -142,9 +144,11 @@ export default function AppRouteRenderer({
     return withSuspense(<DeliveryConfirmation orderId={parts[0]} token={parts[1]} />);
   }
 
-  if (path === '/') return withSuspense(<ComingSoon />);
+  if (path === '/') return withSuspense(<LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />);
   if (path === '/preview') return withSuspense(<LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />);
   if (path === '/coming-soon') return withSuspense(<LandingPage content={landingContent} onCheckoutStart={handleCheckoutStart} />);
+  if (path === '/demo') return withSuspense(<DemoProfilePage />);
+  if (SEO_PAGES[path]) return withSuspense(<SeoLandingPage page={SEO_PAGES[path]} />);
   if (path === '/privacidad') return withSuspense(<PrivacyPolicy />);
   if (path === '/terminos') return withSuspense(<TermsAndConditions />);
 
