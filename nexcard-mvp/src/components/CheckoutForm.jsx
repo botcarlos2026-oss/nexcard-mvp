@@ -67,51 +67,8 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     };
   });
 
-  const [invoiceData, setInvoiceData] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('nx_checkout_invoice');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
-      requiresInvoice: false,
-      invoiceRut: '',
-      invoiceRazonSocial: '',
-    };
-  });
-  const [rutError, setRutError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const lastSavedAbandonedCartEmailRef = React.useRef('');
-
-  const validateRutFormat = (rut) => {
-    const clean = rut.trim().replace(/\./g, '').replace('-', '');
-    if (!/^\d{7,8}[\dkK]$/.test(clean)) return false;
-    const digits = clean.slice(0, -1);
-    const dv = clean.slice(-1).toUpperCase();
-    let sum = 0;
-    let mul = 2;
-    for (let i = digits.length - 1; i >= 0; i--) {
-      sum += parseInt(digits[i]) * mul;
-      mul = mul === 7 ? 2 : mul + 1;
-    }
-    const remainder = 11 - (sum % 11);
-    const expected = remainder === 11 ? '0' : remainder === 10 ? 'K' : String(remainder);
-    return dv === expected;
-  };
-
-  const handleInvoiceChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setRutError('');
-    setFieldErrors((prev) => {
-      if (!prev[name]) return prev;
-      const next = { ...prev };
-      delete next[name];
-      return next;
-    });
-    setInvoiceData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
 
   const [customization, setCustomization] = useState(() => {
     try {
@@ -136,11 +93,13 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
     } catch {}
   }, [formData]);
 
+  // Limpia cualquier preferencia de factura persistida de una sesión anterior a que se
+  // ocultara esta UI (H3, 2026-08-25), para que un checkout viejo no reviva requires_invoice.
   useEffect(() => {
     try {
-      sessionStorage.setItem('nx_checkout_invoice', JSON.stringify(invoiceData));
+      sessionStorage.removeItem('nx_checkout_invoice');
     } catch {}
-  }, [invoiceData]);
+  }, []);
 
   useEffect(() => {
     try {
@@ -294,15 +253,10 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
     if (!formData.acceptTerms) errors.acceptTerms = 'Debes aceptar los términos y condiciones para continuar';
 
-    if (invoiceData.requiresInvoice) {
-      if (!invoiceData.invoiceRut.trim()) errors.invoiceRut = 'Ingresa el RUT de la empresa';
-      else if (!validateRutFormat(invoiceData.invoiceRut)) errors.invoiceRut = 'RUT inválido. Verifica el formato y dígito verificador (ej: 12.345.678-9)';
-      if (!invoiceData.invoiceRazonSocial.trim()) errors.invoiceRazonSocial = 'Ingresa la razón social de la empresa';
-    }
     return errors;
   };
 
-  const FIELD_ORDER = ['customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'desiredSlug', 'acceptTerms', 'invoiceRut', 'invoiceRazonSocial'];
+  const FIELD_ORDER = ['customerName', 'customerEmail', 'customerPhone', 'customerAddress', 'desiredSlug', 'acceptTerms'];
 
   const validateForm = () => {
     const errors = validateFieldsDetailed();
@@ -371,9 +325,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
           quantity: item.quantity,
           unit_price_cents: item.unit_price_cents,
         })),
-        requires_invoice: invoiceData.requiresInvoice,
-        invoice_rut: invoiceData.requiresInvoice ? invoiceData.invoiceRut.trim() : null,
-        invoice_razon_social: invoiceData.requiresInvoice ? invoiceData.invoiceRazonSocial.trim() : null,
+        // Factura Bsale sigue no-op en backend (H3, 2026-08-25): UI oculta hasta implementarla,
+        // proceso de facturación es manual vía soporte mientras tanto.
+        requires_invoice: false,
+        invoice_rut: null,
+        invoice_razon_social: null,
       };
       const result = await api.createOrder(orderPayload);
 
@@ -792,61 +748,21 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
               </div>
             </div>
 
-            {/* Boleta / Factura empresa */}
+            {/* Boleta / Factura empresa — oculto hasta activar Bsale (H3, 2026-08-25) */}
             <div className="surface-1 border border-surface-2 rounded-xl p-5">
-              <label htmlFor="requiresInvoice" className="flex items-center gap-3 cursor-pointer min-h-[44px]">
-                <input
-                  id="requiresInvoice"
-                  type="checkbox"
-                  name="requiresInvoice"
-                  checked={invoiceData.requiresInvoice}
-                  onChange={handleInvoiceChange}
-                  className="accent-brand w-5 h-5 shrink-0"
-                />
-                <span className="text-sm font-semibold text-body-1">
-                  Necesito boleta a nombre de empresa (factura)
-                </span>
-              </label>
-
-              {invoiceData.requiresInvoice && (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <label className={labelClass} htmlFor="invoiceRut">RUT empresa</label>
-                    <input
-                      id="invoiceRut"
-                      type="text"
-                      name="invoiceRut"
-                      value={invoiceData.invoiceRut}
-                      onChange={handleInvoiceChange}
-                      onBlur={() => {
-                        if (invoiceData.invoiceRut && !validateRutFormat(invoiceData.invoiceRut)) {
-                          setRutError('Formato requerido: XX.XXX.XXX-X');
-                        }
-                      }}
-                      placeholder="76.543.210-K"
-                      aria-invalid={(rutError || fieldError('invoiceRut')) ? true : undefined}
-                      aria-describedby={(rutError || fieldError('invoiceRut')) ? 'invoiceRut-error' : undefined}
-                      className={`${inputClass} ${(rutError || fieldError('invoiceRut')) ? inputErrorClass : ''}`}
-                    />
-                    {(rutError || fieldError('invoiceRut')) && (
-                      <p id="invoiceRut-error" role="alert" className="text-xs text-rose-400 mt-1.5 font-semibold">{rutError || fieldError('invoiceRut')}</p>
-                    )}
+              <div
+                className="flex items-center gap-3 opacity-50 cursor-not-allowed"
+                title="Disponible pronto"
+              >
+                <div className="w-5 h-5 rounded border border-zinc-600 shrink-0" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-body-3">Necesito boleta a nombre de empresa (factura)</span>
+                    <span className="text-xs bg-surface-2 text-body-3 px-2 py-0.5 rounded-full">Próximamente</span>
                   </div>
-                  <div>
-                    <label className={labelClass} htmlFor="invoiceRazonSocial">Razón social</label>
-                    <input
-                      id="invoiceRazonSocial"
-                      type="text"
-                      name="invoiceRazonSocial"
-                      value={invoiceData.invoiceRazonSocial}
-                      onChange={handleInvoiceChange}
-                      placeholder="Empresa S.A."
-                      {...fieldProps('invoiceRazonSocial')}
-                    />
-                    <FieldError name="invoiceRazonSocial" error={fieldError('invoiceRazonSocial')} />
-                  </div>
+                  <p className="text-xs text-body-3 mt-0.5">Por ahora gestionamos la facturación de forma manual: escríbenos después de tu compra.</p>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Términos */}
