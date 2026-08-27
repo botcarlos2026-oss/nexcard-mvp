@@ -635,6 +635,7 @@ const AdminDashboard = ({ dashboard, navigate }) => {
         carrierStats={carrierStats}
         productStats={productStats}
         wowAlerts={wowAlerts}
+        recentOrders={recentOrders}
       />
 
       <AdminDashboardAlertingSection
