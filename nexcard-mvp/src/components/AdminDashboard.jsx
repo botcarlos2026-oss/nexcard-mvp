@@ -1,9 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Search,
-  AlertTriangle,
   X,
-  BellRing,
 } from 'lucide-react';
 import { api } from '../services/api';
 import AdminShell from './AdminShell';
@@ -98,7 +96,6 @@ const AdminDashboard = ({ dashboard, navigate }) => {
   const [searching, setSearching] = useState(false);
   const searchDebounceRef = useRef(null);
   const [lowStockItems, setLowStockItems] = useState([]);
-  const [lowStockDismissed, setLowStockDismissed] = useState(false);
   const [digestCopied, setDigestCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState('');
   const [quickActionBusyId, setQuickActionBusyId] = useState('');
@@ -441,109 +438,35 @@ const AdminDashboard = ({ dashboard, navigate }) => {
       setEvaluationBusy(false);
     }
   };
-  const proactiveTone = proactiveSummary?.severity === 'critical'
-    ? 'border-red-800 bg-red-950/30 text-red-200'
-    : proactiveSummary?.severity === 'high'
-      ? 'border-amber-800 bg-amber-950/30 text-amber-200'
-      : proactiveSummary?.severity === 'medium'
-        ? 'border-yellow-800 bg-yellow-950/30 text-yellow-200'
-        : 'border-emerald-800 bg-emerald-950/20 text-emerald-200';
-
   return (
     <AdminShell active="dashboard" navigate={navigate} title="NexCard Control Center" subtitle="Conversión, perfiles, pedidos y salud operativa desde un solo panel">
-      {proactiveSummary && (
-        <div className="mb-6">
-          <div className={`rounded-xl border px-5 py-4 ${proactiveTone}`}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <BellRing size={16} className="shrink-0" />
-                  <p className="text-xs uppercase tracking-widest font-bold opacity-80">Prioridad operativa ahora</p>
-                </div>
-                <p className="font-bold text-base">{proactiveSummary.headline}</p>
-                <p className="text-sm mt-1 opacity-90">
-                  {proactiveSummary.count > 0 ? `${proactiveSummary.count} caso(s) prioritarios.` : 'Sin casos prioritarios.'} {proactiveSummary.action}
-                </p>
-                {proactiveSummary.secondary_count > 0 && (
-                  <p className="text-xs mt-2 opacity-80">Además hay {proactiveSummary.secondary_count} caso(s) más en cola secundaria.</p>
-                )}
-                {excludedOperationalOrdersCount > 0 && (
-                  <div className="mt-3 flex items-center gap-3 flex-wrap">
-                    <AdminBadge variant="info">{excludedOperationalOrdersCount} orden(es) QA/interna(s) excluidas del resumen operativo</AdminBadge>
-                    {manualOverrideQaOrdersCount > 0 && (
-                      <AdminBadge variant="danger">{manualOverrideQaOrdersCount} override(s) manual(es) QA pendientes de revisión</AdminBadge>
-                    )}
-                    {manualOverrideQaReviewedCount > 0 && (
-                      <AdminBadge variant="success">{manualOverrideQaReviewedCount} override(s) QA ya revisada(s)</AdminBadge>
-                    )}
-                    {manualOverrideQaSeverity.critical > 0 && (
-                      <AdminBadge variant="danger">{manualOverrideQaSeverity.critical} crítica(s)</AdminBadge>
-                    )}
-                    {manualOverrideQaSeverity.high > 0 && (
-                      <AdminBadge variant="warning">{manualOverrideQaSeverity.high} high</AdminBadge>
-                    )}
-                    {manualOverrideQaAging.over72h > 0 && (
-                      <AdminBadge variant="danger">{manualOverrideQaAging.over72h} override(s) manual(es) con aging &gt;72h</AdminBadge>
-                    )}
-                    {manualOverrideQaAging.over24h > 0 && manualOverrideQaAging.over72h === 0 && (
-                      <AdminBadge variant="warning">{manualOverrideQaAging.over24h} override(s) manual(es) con aging &gt;24h</AdminBadge>
-                    )}
-                    <a href="/admin/orders/qa" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Abrir vista QA</a>
-                    {manualOverrideQaOrdersCount > 0 && (
-                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver overrides pendientes</a>
-                    )}
-                    {manualOverrideQaAging.over24h > 0 && (
-                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&override_age=24h&review_status=pending" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver aging &gt;24h</a>
-                    )}
-                    {manualOverrideQaAging.over72h > 0 && (
-                      <a href="/admin/orders/qa?audit=excluded&test_reason=manual_override_only&override_age=72h&review_status=pending" className="text-xs font-bold underline underline-offset-2 opacity-90 hover:opacity-100">Ver aging &gt;72h</a>
-                    )}
-                  </div>
-                )}
-              </div>
-              <a href="/admin/orders" onClick={go('/admin/orders')} className="text-xs font-bold underline underline-offset-2 shrink-0">Ir a órdenes</a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {executiveScore && (
-        <div className="mb-6">
-          <div className={`rounded-xl border px-5 py-4 ${executiveScore.band === 'critical' ? 'border-red-800 bg-red-950/25' : executiveScore.band === 'watch' ? 'border-amber-800 bg-amber-950/25' : 'border-emerald-800 bg-emerald-950/20'}`}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-widest font-bold text-zinc-400">Executive score</p>
-                <p className="mt-1 text-3xl font-bold text-white">{executiveScore.score}</p>
-                <p className="text-sm text-zinc-300 mt-1">Banda: {executiveScore.band}. {runtimeConfigLoaded ? 'Usando parámetros persistidos + fallback seguro.' : 'Usando fallback seguro en código hasta activar config persistente.'}</p>
-                {executiveScore.reasons?.length ? <p className="text-xs text-zinc-400 mt-2">Drivers: {executiveScore.reasons.join(' · ')}</p> : null}
-              </div>
-              <AdminBadge variant={executiveScore.band === 'critical' ? 'danger' : executiveScore.band === 'watch' ? 'warning' : 'success'}>
-                {executiveScore.band}
-              </AdminBadge>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!lowStockDismissed && lowStockItems.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-start gap-3 rounded-xl border border-amber-800 bg-amber-950/40 px-5 py-4">
-            <AlertTriangle size={18} className="text-amber-400 mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <p className="font-bold text-amber-300 text-sm">
-                Stock bajo en {lowStockItems.length} {lowStockItems.length === 1 ? 'producto' : 'productos'}:{' '}
-                <span className="font-medium">{lowStockItems.map(i => i.item || i.name || i.sku).join(', ')}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <a href="/admin/inventory" onClick={go('/admin/inventory')} className="text-xs font-bold text-amber-400 underline underline-offset-2 hover:text-amber-200">Ver inventario</a>
-              <button type="button" onClick={() => setLowStockDismissed(true)} aria-label="Descartar aviso de stock bajo" className="text-amber-500 hover:text-amber-300 transition-colors">
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AdminDashboardOverviewSection
+        stats={stats}
+        manualOverrideQaOrdersCount={manualOverrideQaOrdersCount}
+        manualOverrideQaSeverity={manualOverrideQaSeverity}
+        manualOverrideQaAging={manualOverrideQaAging}
+        manualOverrideQaSla={manualOverrideQaSla}
+        manualOverrideQaBlockedCount={manualOverrideQaBlockedCount}
+        topManualOverrideQueue={topManualOverrideQueue}
+        quickActionMessage={quickActionMessage}
+        quickActionBusyId={quickActionBusyId}
+        onKeepQa={handleKeepQa}
+        onMarkReviewed={handleMarkReviewed}
+        onRestoreReal={handleRestoreReal}
+        SalesChartComponent={SalesChart}
+        salesTrend7d={salesTrend7d}
+        funnelStats={funnelStats}
+        stageSlaStats={stageSlaStats}
+        paymentMethodStats={paymentMethodStats}
+        carrierStats={carrierStats}
+        productStats={productStats}
+        wowAlerts={wowAlerts}
+        recentOrders={recentOrders}
+        proactiveSummary={proactiveSummary}
+        executiveScore={executiveScore}
+        runtimeConfigLoaded={runtimeConfigLoaded}
+        lowStockItems={lowStockItems}
+      />
 
       {/* Búsqueda global */}
       <div className="relative mb-8">
@@ -613,30 +536,6 @@ const AdminDashboard = ({ dashboard, navigate }) => {
           </div>
         )}
       </div>
-
-      <AdminDashboardOverviewSection
-        stats={stats}
-        manualOverrideQaOrdersCount={manualOverrideQaOrdersCount}
-        manualOverrideQaSeverity={manualOverrideQaSeverity}
-        manualOverrideQaAging={manualOverrideQaAging}
-        manualOverrideQaSla={manualOverrideQaSla}
-        manualOverrideQaBlockedCount={manualOverrideQaBlockedCount}
-        topManualOverrideQueue={topManualOverrideQueue}
-        quickActionMessage={quickActionMessage}
-        quickActionBusyId={quickActionBusyId}
-        onKeepQa={handleKeepQa}
-        onMarkReviewed={handleMarkReviewed}
-        onRestoreReal={handleRestoreReal}
-        SalesChartComponent={SalesChart}
-        salesTrend7d={salesTrend7d}
-        funnelStats={funnelStats}
-        stageSlaStats={stageSlaStats}
-        paymentMethodStats={paymentMethodStats}
-        carrierStats={carrierStats}
-        productStats={productStats}
-        wowAlerts={wowAlerts}
-        recentOrders={recentOrders}
-      />
 
       <AdminDashboardAlertingSection
         kpiAuditEntries={kpiAuditEntries}

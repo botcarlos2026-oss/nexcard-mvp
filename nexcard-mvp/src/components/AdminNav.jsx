@@ -3,14 +3,14 @@ import { LogOut } from 'lucide-react';
 import { api, setStoredAuth } from '../services/api';
 
 const items = [
-  { id: 'dashboard', label: 'Dashboard', path: '/admin' },
-  { id: 'orders',    label: 'Orders',     path: '/admin/orders' },
-  { id: 'qa-orders', label: 'QA Orders',  path: '/admin/orders/qa' },
+  { id: 'dashboard', label: 'Centro', path: '/admin' },
+  { id: 'orders',    label: 'Órdenes',     path: '/admin/orders' },
+  { id: 'qa-orders', label: 'QA',  path: '/admin/orders/qa' },
   { id: 'products',  label: 'Productos',  path: '/admin/products' },
-  { id: 'cards',     label: 'Cards',      path: '/admin/cards' },
-  { id: 'profiles',  label: 'Profiles',   path: '/admin/profiles' },
+  { id: 'cards',     label: 'Cards/NFC',      path: '/admin/cards' },
+  { id: 'profiles',  label: 'Perfiles',   path: '/admin/profiles' },
   { id: 'inventory', label: 'Inventario', path: '/admin/inventory' },
-  { id: 'reviews',   label: 'Review Cards', path: '/admin/review-cards' },
+  { id: 'reviews',   label: 'Reviews', path: '/admin/review-cards' },
   { id: 'nexreview', label: 'NexReview',  path: '/admin/nexreview' },
   { id: 'emails',    label: 'Emails',     path: '/admin/emails' },
   { id: 'crm',       label: 'CRM',        path: '/admin/crm' },

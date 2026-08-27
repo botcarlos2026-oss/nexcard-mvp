@@ -1,11 +1,9 @@
 /// <reference types="cypress" />
 
-// Covers TC-Orders — Orders Control Center basics
-
-const TABLE_COLUMNS = ['Orden', 'Cliente', 'Monto', 'Pago', 'Fulfillment'];
+// Covers TC-Orders — Centro de órdenes basics
 const DATE_FILTERS = ['Todos', 'Hoy', '7 días', '30 días'];
 
-describe('Admin Orders — Orders Control Center', () => {
+describe('Admin Orders — Centro de órdenes', () => {
   beforeEach(() => {
     cy.viewport(1280, 720);
     cy.loginUI();
@@ -13,13 +11,13 @@ describe('Admin Orders — Orders Control Center', () => {
   });
 
   it('loads /admin/orders and shows the page title', () => {
-    cy.contains('h1', /Orders Control Center/i).should('exist');
+    cy.contains('h1', /Centro de órdenes/i).should('exist');
   });
 
-  it('shows the expected table columns', () => {
-    TABLE_COLUMNS.forEach((column) => {
-      cy.contains(column).should('exist');
-    });
+  it('shows Kanban-first operational sections', () => {
+    cy.get('[data-cy=orders-kanban-board]').should('exist');
+    cy.contains(/Próxima acción|Sin pendientes/i).should('exist');
+    cy.contains(/Resumen operativo/i).should('exist');
   });
 
   it('shows the Actualizar button', () => {

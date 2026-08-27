@@ -24,14 +24,25 @@ export default function OrdersDashboardHeader({
 }) {
   return (
     <>
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat) => (
-          <AdminStat key={stat.label} label={stat.label} value={stat.value} accent={stat.accent} />
-        ))}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Resumen operativo</p>
+            <p className="text-sm font-semibold text-zinc-400">KPIs y embudo quedan bajo la mesa Kanban.</p>
+          </div>
+          <AdminBadge variant={funnelSnapshot.exceptions.length > 0 ? 'warning' : 'success'}>
+            {funnelSnapshot.exceptions.length} excepción{funnelSnapshot.exceptions.length === 1 ? '' : 'es'}
+          </AdminBadge>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {stats.map((stat) => (
+            <AdminStat key={stat.label} label={stat.label} value={stat.value} accent={stat.accent} />
+          ))}
+        </div>
       </div>
 
       {excludedOrdersCount > 0 && (
-        <div className="mb-6 space-y-3">
+        <div className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
           <div className="flex items-center gap-3 flex-wrap">
             <AdminBadge variant={auditFilter === 'excluded' ? 'info' : 'default'}>
               {excludedOrdersCount} orden(es) QA/interna(s)
@@ -77,7 +88,7 @@ export default function OrdersDashboardHeader({
         </div>
       )}
 
-      <AdminCard className="mb-8">
+      <AdminCard>
         <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
           <div>
             <h2 className="font-bold text-white">Embudo operativo real</h2>

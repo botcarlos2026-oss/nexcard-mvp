@@ -463,25 +463,6 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
 
   const content = (
     <>
-      <OrdersDashboardHeader
-        stats={stats}
-        excludedOrdersCount={excludedOrdersCount}
-        auditFilter={auditFilter}
-        manualOverrideCount={manualOverrideCount}
-        manualOverridePendingCount={manualOverridePendingCount}
-        manualOverrideReviewedCount={manualOverrideReviewedCount}
-        manualOverrideBlockedCount={manualOverrideBlockedCount}
-        testReasonCounts={testReasonCounts}
-        testReasonFilter={testReasonFilter}
-        reviewStatusFilter={reviewStatusFilter}
-        riskFilter={riskFilter}
-        funnelSnapshot={funnelSnapshot}
-        forceAuditFilter={forceAuditFilter}
-        onSelectManualOverrides={selectManualOverrideFilter}
-        onSelectReason={selectQaReasonFilter}
-        onClearQaFilter={clearQaFilters}
-      />
-
       {feedback.message && (
         <div
           role={feedback.type === 'success' ? 'status' : 'alert'}
@@ -572,6 +553,25 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
             </div>
           </div>
         </AdminCard>
+
+        <OrdersDashboardHeader
+          stats={stats}
+          excludedOrdersCount={excludedOrdersCount}
+          auditFilter={auditFilter}
+          manualOverrideCount={manualOverrideCount}
+          manualOverridePendingCount={manualOverridePendingCount}
+          manualOverrideReviewedCount={manualOverrideReviewedCount}
+          manualOverrideBlockedCount={manualOverrideBlockedCount}
+          testReasonCounts={testReasonCounts}
+          testReasonFilter={testReasonFilter}
+          reviewStatusFilter={reviewStatusFilter}
+          riskFilter={riskFilter}
+          funnelSnapshot={funnelSnapshot}
+          forceAuditFilter={forceAuditFilter}
+          onSelectManualOverrides={selectManualOverrideFilter}
+          onSelectReason={selectQaReasonFilter}
+          onClearQaFilter={clearQaFilters}
+        />
 
         {/* Panel detalle bajo el Kanban para no competir visualmente con la bandeja diaria */}
         <AdminCard>
@@ -932,8 +932,8 @@ const OrdersDashboard = ({ orders = [], forceAuditFilter = null, embedded = fals
   return (
     <AdminShell
       active="orders"
-      title="Orders Control Center"
-      subtitle="Caja, producción y cumplimiento en una sola mesa de control operativa."
+      title="Centro de órdenes"
+      subtitle="Caja, producción y cumplimiento en una sola mesa operativa."
     >
       {content}
     </AdminShell>
