@@ -13,12 +13,42 @@ const formatCLP = (value) => new Intl.NumberFormat('es-CL', {
 
 const normalizeStatus = (value) => String(value || '').toLowerCase();
 
+const paymentLabel = (value) => {
+  const status = normalizeStatus(value);
+  if (status === 'paid') return 'Pagado';
+  if (status === 'pending') return 'Pendiente';
+  if (status === 'failed') return 'Fallido';
+  if (status === 'refunded') return 'Reembolsado';
+  return value ? 'Por revisar' : 'Sin pago';
+};
+
+const fulfillmentLabel = (value) => {
+  const status = normalizeStatus(value);
+  if (status.includes('production')) return 'En producción';
+  if (status.includes('ready')) return 'Lista para despacho';
+  if (status.includes('ship') || status.includes('dispatch')) return 'En despacho';
+  if (status.includes('deliver')) return 'Entregada';
+  if (status === 'pending' || status === 'new') return 'Nueva';
+  if (status.includes('cancel')) return 'Cancelada';
+  return value ? 'Por revisar' : 'Sin estado';
+};
+
+const readableReason = (order) => {
+  if (order.reasons?.length) return order.reasons.join(' · ');
+  const fulfillment = fulfillmentLabel(order.fulfillment_status || order.status);
+  if (fulfillment === 'En producción') return 'Preparar tarjeta física y URL NFC';
+  if (fulfillment === 'Entregada') return 'Pedido cerrado; disponible para postventa';
+  if (fulfillment === 'Lista para despacho') return 'Completar courier y tracking';
+  if (fulfillment === 'Nueva') return 'Preparar producción';
+  return 'Revisar detalle del pedido';
+};
+
 const laneDefinitions = [
-  { key: 'problems', title: 'Problemas', subtitle: 'Excepciones primero', tone: 'danger' },
-  { key: 'paid', title: 'Pagadas nuevas', subtitle: 'Preparar producción', tone: 'success' },
-  { key: 'activation', title: 'Activación', subtitle: 'Claim/perfil/slug', tone: 'warning' },
+  { key: 'problems', title: 'Revisar', subtitle: 'Casos con alerta', tone: 'danger' },
+  { key: 'paid', title: 'Nuevas pagadas', subtitle: 'Preparar producción', tone: 'success' },
+  { key: 'activation', title: 'Activación', subtitle: 'Perfil pendiente', tone: 'warning' },
   { key: 'production', title: 'Producción NFC', subtitle: 'Card física + URL', tone: 'info' },
-  { key: 'shipping', title: 'Listas despacho', subtitle: 'Courier y tracking', tone: 'info' },
+  { key: 'shipping', title: 'Despacho', subtitle: 'Courier y tracking', tone: 'info' },
   { key: 'delivered', title: 'Entregadas', subtitle: 'Cierre y postventa', tone: 'success' },
 ];
 
@@ -41,19 +71,21 @@ const OrderCard = ({ order, selected, onSelect, quickActionBusyId, onKeepQa, onM
   const id = order.folio || order.id || 'Orden';
   const customer = order.customer_name || order.name || 'Cliente sin nombre';
   const amount = order.amount_cents ? formatCLP(order.amount_cents) : null;
-  const severity = order.severity || order.risk || order.payment_status || 'real';
-  const reasons = order.reasons?.length ? order.reasons.join(' · ') : order.next_action || order.fulfillment_status || 'Revisar detalle operativo';
+  const severity = order.severity || order.risk;
+  const reasons = readableReason(order);
   const isOverride = Boolean(order.severity || order.age_hours != null);
-  const nextAction = isOverride ? 'Decidir QA/Real' : order.payment_status === 'paid' ? 'Continuar operación' : 'Revisar pago';
+  const statusLabel = fulfillmentLabel(order.fulfillment_status || order.status || order.payment_status);
+  const payment = paymentLabel(order.payment_status);
+  const nextAction = isOverride ? 'Revisar clasificación' : order.payment_status === 'paid' ? 'Continuar pedido' : 'Revisar pago';
 
   return (
     <OperationalDecisionCard
       id={id}
       title={customer}
       customerLabel={order.customer_email || order.email || order.contact || order.slug || 'sin contacto visible'}
-      detail={`${reasons}${amount ? ` · ${amount}` : ''}`}
-      status={order.fulfillment_status || order.status || order.payment_status || 'sin estado'}
-      severity={severity}
+      detail={`${payment} · ${reasons}${amount ? ` · ${amount}` : ''}`}
+      status={statusLabel}
+      severity={severity || payment}
       nextAction={nextAction}
       blockerReason={order.age_hours != null ? `${order.age_hours}h en cola` : ''}
       href={isOverride ? '/admin/orders/qa' : '/admin/orders'}
@@ -65,7 +97,7 @@ const OrderCard = ({ order, selected, onSelect, quickActionBusyId, onKeepQa, onM
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => onKeepQa(order)} disabled={quickActionBusyId === order.id} className="inline-flex items-center gap-1 rounded-lg bg-fuchsia-700 px-2.5 py-2 text-[11px] font-bold text-white hover:bg-fuchsia-600 disabled:opacity-50">
             {quickActionBusyId === order.id ? <OperationalDecisionBusyBadge /> : <CheckCircle2 size={12} />}
-            Mantener QA
+            Mantener en QA
           </button>
           <button type="button" onClick={() => onMarkReviewed(order)} disabled={quickActionBusyId === order.id} className="inline-flex items-center gap-1 rounded-lg bg-sky-700 px-2.5 py-2 text-[11px] font-bold text-white hover:bg-sky-600 disabled:opacity-50">
             {quickActionBusyId === order.id ? <OperationalDecisionBusyBadge /> : <CheckCircle2 size={12} />}
@@ -73,7 +105,7 @@ const OrderCard = ({ order, selected, onSelect, quickActionBusyId, onKeepQa, onM
           </button>
           <button type="button" onClick={() => onRestoreReal(order)} disabled={quickActionBusyId === order.id} className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-2 text-[11px] font-bold text-white hover:bg-emerald-600 disabled:opacity-50">
             {quickActionBusyId === order.id ? <OperationalDecisionBusyBadge /> : <CheckCircle2 size={12} />}
-            Real
+            Marcar real
           </button>
         </div>
       ) : null}
@@ -151,21 +183,21 @@ export default function AdminDashboardOverviewSection({
       ? (lowStockItems[0].item || lowStockItems[0].name || lowStockItems[0].sku || '1 SKU')
       : `${lowStockItems.length} SKU`;
     return [
-      { label: 'Pagadas reales', value: funnelStats.find((item) => item.label === 'Paid')?.value ?? 0, hint: funnelStats.find((item) => item.label === 'Paid')?.hint || 'QA excluido', accent: 'emerald' },
-      { label: 'Activación pendiente', value: funnelStats.find((item) => item.label === 'Activated')?.value ?? 0, hint: 'claim/perfil/slug', accent: 'amber' },
-      { label: 'Cards por operar', value: funnelStats.find((item) => item.label === 'Ready')?.value ?? 0, hint: 'producción + NFC', accent: 'blue' },
-      { label: 'Stock crítico', value: lowStockItems.length ? lowStockLabel : 'OK', hint: lowStockItems.length ? 'Ver inventario' : 'Inventario sin alerta visible', accent: lowStockItems.length ? 'amber' : 'emerald' },
-      { label: 'Problemas críticos', value: (manualOverrideQaSeverity.critical || 0) + (manualOverrideQaSeverity.high || 0), hint: manualOverrideQaBlockedCount ? `${manualOverrideQaBlockedCount} pagada(s) bloqueadas` : 'sin bloqueos pagados', accent: manualOverrideQaBlockedCount ? 'red' : 'emerald' },
-      { label: 'Overrides QA', value: manualOverrideQaOrdersCount || 0, hint: manualOverrideQaAging.over72h ? `${manualOverrideQaAging.over72h} >72h` : 'operación real separada', accent: manualOverrideQaOrdersCount ? 'amber' : 'emerald' },
-      { label: executiveScore ? 'Score operativo' : (revenue?.label || 'Ingresos operacionales'), value: executiveScore ? executiveScore.score : (revenue?.value || '$0'), hint: executiveScore ? `Banda ${executiveScore.band} · ${runtimeConfigLoaded ? 'config persistida' : 'fallback seguro'}` : (revenue?.hint || 'QA excluido'), accent: executiveScore?.band === 'critical' ? 'red' : executiveScore?.band === 'watch' ? 'amber' : 'emerald' },
-      { label: 'Estado cierre', value: manualOverrideQaBlockedCount ? 'bloqueado' : 'operable', hint: manualOverrideQaBlockedCount ? 'requiere revisión humana' : 'sin bloqueo crítico visible', accent: manualOverrideQaBlockedCount ? 'red' : 'emerald' },
+      { label: 'Ventas pagadas', value: funnelStats.find((item) => item.label === 'Paid')?.value ?? 0, hint: funnelStats.find((item) => item.label === 'Paid')?.hint || 'pedidos reales', accent: 'emerald' },
+      { label: 'Perfiles pendientes', value: funnelStats.find((item) => item.label === 'Activated')?.value ?? 0, hint: 'activación de cliente', accent: 'amber' },
+      { label: 'Tarjetas por preparar', value: funnelStats.find((item) => item.label === 'Ready')?.value ?? 0, hint: 'producción física + NFC', accent: 'blue' },
+      { label: 'Inventario', value: lowStockItems.length ? lowStockLabel : 'OK', hint: lowStockItems.length ? 'revisar stock' : 'sin alerta visible', accent: lowStockItems.length ? 'amber' : 'emerald' },
+      { label: 'Alertas', value: (manualOverrideQaSeverity.critical || 0) + (manualOverrideQaSeverity.high || 0), hint: manualOverrideQaBlockedCount ? `${manualOverrideQaBlockedCount} pedido(s) bloqueados` : 'sin bloqueos visibles', accent: manualOverrideQaBlockedCount ? 'red' : 'emerald' },
+      { label: 'Revisión interna', value: manualOverrideQaOrdersCount || 0, hint: manualOverrideQaAging.over72h ? `${manualOverrideQaAging.over72h} >72h` : 'QA separado', accent: manualOverrideQaOrdersCount ? 'amber' : 'emerald' },
+      { label: executiveScore ? 'Salud del admin' : (revenue?.label || 'Ingresos'), value: executiveScore ? executiveScore.score : (revenue?.value || '$0'), hint: executiveScore ? `Banda ${executiveScore.band} · ${runtimeConfigLoaded ? 'config activa' : 'modo seguro'}` : (revenue?.hint || 'pedidos reales'), accent: executiveScore?.band === 'critical' ? 'red' : executiveScore?.band === 'watch' ? 'amber' : 'emerald' },
+      { label: 'Estado general', value: manualOverrideQaBlockedCount ? 'revisar' : 'OK', hint: manualOverrideQaBlockedCount ? 'requiere revisión humana' : 'sin bloqueo visible', accent: manualOverrideQaBlockedCount ? 'red' : 'emerald' },
     ];
   }, [stats, funnelStats, manualOverrideQaSeverity, manualOverrideQaBlockedCount, manualOverrideQaOrdersCount, manualOverrideQaAging, lowStockItems, executiveScore, runtimeConfigLoaded]);
 
   const reconciliationRows = [
-    ['Overrides manuales QA', manualOverrideQaOrdersCount || 0, manualOverrideQaOrdersCount ? 'warn' : 'ok'],
-    ['Pagadas bloqueadas', manualOverrideQaBlockedCount || 0, manualOverrideQaBlockedCount ? 'bad' : 'ok'],
-    ['Severidad crítica/high', `${manualOverrideQaSeverity.critical || 0}/${manualOverrideQaSeverity.high || 0}`, (manualOverrideQaSeverity.critical || manualOverrideQaSeverity.high) ? 'bad' : 'ok'],
+    ['Revisión interna', manualOverrideQaOrdersCount || 0, manualOverrideQaOrdersCount ? 'warn' : 'ok'],
+    ['Pedidos bloqueados', manualOverrideQaBlockedCount || 0, manualOverrideQaBlockedCount ? 'bad' : 'ok'],
+    ['Alertas alta/crítica', `${manualOverrideQaSeverity.critical || 0}/${manualOverrideQaSeverity.high || 0}`, (manualOverrideQaSeverity.critical || manualOverrideQaSeverity.high) ? 'bad' : 'ok'],
     ['Aging >24h / >72h', `${manualOverrideQaAging.over24h || 0}/${manualOverrideQaAging.over72h || 0}`, manualOverrideQaAging.over72h ? 'bad' : manualOverrideQaAging.over24h ? 'warn' : 'ok'],
     ['Alertas WoW', wowAlerts.length, wowAlerts.length ? 'warn' : 'ok'],
   ];
@@ -176,10 +208,10 @@ export default function AdminDashboardOverviewSection({
     const payment = normalizeStatus(selected.payment_status);
     const activation = normalizeStatus(selected.claim_status || selected.activation_status);
     return [
-      { label: 'Pago', value: payment === 'paid' ? 'OK' : payment ? 'Pendiente' : 'No aplica', accent: payment === 'paid' ? 'emerald' : 'amber', hint: selected.payment_status || 'sin estado de pago' },
-      { label: 'Activación', value: activation.includes('active') || selected.activation_completed ? 'OK' : activation ? 'Pendiente' : 'No aplica', accent: activation.includes('active') || selected.activation_completed ? 'emerald' : 'amber', hint: selected.claim_status || selected.activation_status || 'sin claim visible' },
-      { label: 'Card/NFC', value: selected.card_code || selected.cards_count || selected.active_cards_count ? 'OK' : 'Pendiente', accent: selected.card_code || selected.cards_count || selected.active_cards_count ? 'emerald' : 'amber', hint: selected.card_code || `${selected.cards_count || selected.active_cards_count || 0} card(s)` },
-      { label: 'Despacho', value: fulfillment.includes('ship') || fulfillment.includes('deliver') ? 'OK' : fulfillment.includes('cancel') ? 'Bloqueado' : 'Pendiente', accent: fulfillment.includes('ship') || fulfillment.includes('deliver') ? 'emerald' : fulfillment.includes('cancel') ? 'red' : 'amber', hint: selected.fulfillment_status || selected.status || 'sin fulfillment' },
+      { label: 'Pago', value: payment === 'paid' ? 'OK' : payment ? 'Pendiente' : 'No aplica', accent: payment === 'paid' ? 'emerald' : 'amber', hint: paymentLabel(selected.payment_status) },
+      { label: 'Activación', value: activation.includes('active') || selected.activation_completed ? 'OK' : activation ? 'Pendiente' : 'No aplica', accent: activation.includes('active') || selected.activation_completed ? 'emerald' : 'amber', hint: activation ? 'activación pendiente' : 'sin activación visible' },
+      { label: 'Tarjeta/NFC', value: selected.card_code || selected.cards_count || selected.active_cards_count ? 'OK' : 'Pendiente', accent: selected.card_code || selected.cards_count || selected.active_cards_count ? 'emerald' : 'amber', hint: selected.card_code || `${selected.cards_count || selected.active_cards_count || 0} tarjeta(s)` },
+      { label: 'Despacho', value: fulfillment.includes('ship') || fulfillment.includes('deliver') ? 'OK' : fulfillment.includes('cancel') ? 'Bloqueado' : 'Pendiente', accent: fulfillment.includes('ship') || fulfillment.includes('deliver') ? 'emerald' : fulfillment.includes('cancel') ? 'red' : 'amber', hint: fulfillmentLabel(selected.fulfillment_status || selected.status) },
     ];
   }, [selected]);
 
@@ -195,22 +227,22 @@ export default function AdminDashboardOverviewSection({
         <AdminCard className="border-zinc-800 bg-zinc-950/80">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Dashboard v2 · operación real</p>
-              <h2 className="mt-1 text-3xl font-black tracking-tight text-white">Hoy requiere acción</h2>
-              <p className="mt-1 text-sm text-zinc-400">Ordena la operación por prioridad real: pago, activación, producción, despacho y bloqueos.</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Panel ejecutivo</p>
+              <h2 className="mt-1 text-3xl font-black tracking-tight text-white">Prioridades de hoy</h2>
+              <p className="mt-1 text-sm text-zinc-400">Vista limpia de ventas, activaciones, producción y despacho. La sala de máquinas queda abajo.</p>
               {proactiveSummary ? (
                 <div className="mt-3 rounded-2xl border border-emerald-900/70 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-100">
-                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-300"><BellRing size={14} /> Prioridad operativa ahora</div>
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-300"><BellRing size={14} /> Prioridad actual</div>
                   <p className="mt-1 font-bold">{proactiveSummary.headline}</p>
                   <p className="text-xs text-emerald-200/80">{proactiveSummary.count > 0 ? `${proactiveSummary.count} caso(s) prioritarios.` : 'Sin casos prioritarios.'} {proactiveSummary.action}</p>
                 </div>
               ) : null}
             </div>
-            <AdminBadge variant={criticalActions.length ? 'danger' : 'success'}>{criticalActions.length ? `${criticalActions.length} acciones` : 'sin bloqueo'}</AdminBadge>
+            <AdminBadge variant={criticalActions.length ? 'danger' : 'success'}>{criticalActions.length ? `${criticalActions.length} por revisar` : 'OK'}</AdminBadge>
           </div>
           <div className="space-y-3">
             {criticalActions.length === 0 ? (
-              <div className="rounded-2xl border border-emerald-900/70 bg-emerald-950/20 p-4 text-sm font-bold text-emerald-200">Sin cola crítica visible en este corte.</div>
+              <div className="rounded-2xl border border-emerald-900/70 bg-emerald-950/20 p-4 text-sm font-bold text-emerald-200">Sin prioridades críticas visibles en este momento.</div>
             ) : criticalActions.map((item) => (
               <OperationalDecisionCard
                 key={item.key}
@@ -238,11 +270,16 @@ export default function AdminDashboardOverviewSection({
         </div>
       </div>
 
-      <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-500"><ShieldAlert size={15} /> Filtro operacional</div>
+      <details className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+        <summary className="cursor-pointer select-none text-sm font-black text-white">
+          Operación avanzada <span className="ml-2 text-xs font-semibold text-zinc-500">Kanban, conciliación, SLA y métricas técnicas</span>
+        </summary>
+
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-500"><ShieldAlert size={15} /> Vista de pedidos</div>
         <div className="flex flex-wrap gap-2">
-          <a href="/admin/orders" className="rounded-full border border-emerald-700 bg-emerald-950/40 px-3 py-2 text-xs font-black text-emerald-200">Operación real</a>
-          <a href="/admin/orders/qa" className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-black text-zinc-300">QA/Test</a>
+          <a href="/admin/orders" className="rounded-full border border-emerald-700 bg-emerald-950/40 px-3 py-2 text-xs font-black text-emerald-200">Pedidos reales</a>
+          <a href="/admin/orders/qa" className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-black text-zinc-300">Revisión interna</a>
           <a href="/admin/orders?view=all" className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-black text-zinc-300">Todos</a>
           <a href="/admin/orders?filter=problems" className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-black text-zinc-300">Solo problemas</a>
         </div>
@@ -303,12 +340,12 @@ export default function AdminDashboardOverviewSection({
               <div className="mt-4 flex flex-wrap gap-2">
                 <a href="/admin/orders" className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-emerald-950 hover:bg-emerald-500">Abrir orden</a>
                 {selected.slug ? <a href={`/${selected.slug}`} target="_blank" rel="noreferrer" className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-black text-zinc-300 hover:bg-zinc-800">Ver perfil</a> : null}
-                {(selected.isNonOperational || selected.severity || selected.age_hours != null) ? <a href="/admin/orders/qa" className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-black text-zinc-300 hover:bg-zinc-800">Abrir QA/Test</a> : null}
+                {(selected.isNonOperational || selected.severity || selected.age_hours != null) ? <a href="/admin/orders/qa" className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-black text-zinc-300 hover:bg-zinc-800">Abrir revisión interna</a> : null}
               </div>
               <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
                 <div className="mb-3 flex items-center gap-2">
                   <Activity size={16} className="text-emerald-400" />
-                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Activity log</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Historial</p>
                 </div>
                 {selectedActivity.length ? (
                   <div className="space-y-2">
@@ -367,7 +404,7 @@ export default function AdminDashboardOverviewSection({
         </AdminCard>
 
         <AdminCard>
-          <h2 className="mb-4 font-bold text-lg text-white">Funnel operativo</h2>
+          <h2 className="mb-4 font-bold text-lg text-white">Embudo de pedidos</h2>
           <div className="grid grid-cols-2 gap-3">
             {funnelStats.map((stat) => <AdminStat key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} accent={stat.accent} />)}
           </div>
@@ -421,7 +458,7 @@ export default function AdminDashboardOverviewSection({
           },
           {
             title: 'Productos/SKU (30d)',
-            subtitle: 'Top por revenue operativo',
+            subtitle: 'Top por ingresos',
             items: productStats,
             empty: 'Sin data suficiente.',
             render: (item) => (
@@ -432,7 +469,7 @@ export default function AdminDashboardOverviewSection({
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-amber-400">{formatCLP(item.revenue || 0)}</p>
-                  <p className="text-[11px] text-zinc-500">claim {item.claim_rate != null ? `${item.claim_rate}%` : '—'}</p>
+                  <p className="text-[11px] text-zinc-500">activación {item.claim_rate != null ? `${item.claim_rate}%` : '—'}</p>
                 </div>
               </div>
             ),
@@ -458,7 +495,7 @@ export default function AdminDashboardOverviewSection({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-bold text-lg text-white">Alertas automáticas WoW</h2>
-            <p className="text-sm text-zinc-400 font-medium">Caídas de revenue, pago, carriers o claim rate anómalo</p>
+            <p className="text-sm text-zinc-400 font-medium">Cambios anómalos en ingresos, pagos, despacho o activación</p>
           </div>
         </div>
         <div className="space-y-3">
@@ -472,6 +509,7 @@ export default function AdminDashboardOverviewSection({
           ))}
         </div>
       </AdminCard>
+      </details>
     </>
   );
 }
