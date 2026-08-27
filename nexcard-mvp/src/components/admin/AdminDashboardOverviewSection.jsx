@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { BarChart2, CheckCircle2, ClipboardList, Loader2, ShieldAlert, Truck, Zap } from 'lucide-react';
+import { Activity, BarChart2, BellRing, CheckCircle2, ClipboardList, ShieldAlert, Truck, Zap } from 'lucide-react';
 import AdminCard from '../ui/AdminCard';
 import AdminStat from '../ui/AdminStat';
 import AdminBadge from '../ui/AdminBadge';
+import OperationalDecisionCard, { OperationalDecisionBusyBadge } from './OperationalDecisionCard';
 
 const formatCLP = (value) => new Intl.NumberFormat('es-CL', {
   style: 'currency',
@@ -43,44 +44,40 @@ const OrderCard = ({ order, selected, onSelect, quickActionBusyId, onKeepQa, onM
   const severity = order.severity || order.risk || order.payment_status || 'real';
   const reasons = order.reasons?.length ? order.reasons.join(' · ') : order.next_action || order.fulfillment_status || 'Revisar detalle operativo';
   const isOverride = Boolean(order.severity || order.age_hours != null);
+  const nextAction = isOverride ? 'Decidir QA/Real' : order.payment_status === 'paid' ? 'Continuar operación' : 'Revisar pago';
 
   return (
-    <article
-      className={`rounded-2xl border p-3 transition-colors cursor-pointer ${selected ? 'border-emerald-500 bg-emerald-950/20' : 'border-zinc-800 bg-zinc-900 hover:border-zinc-600'}`}
-      onClick={() => onSelect(order)}
+    <OperationalDecisionCard
+      id={id}
+      title={customer}
+      customerLabel={order.customer_email || order.email || order.contact || order.slug || 'sin contacto visible'}
+      detail={`${reasons}${amount ? ` · ${amount}` : ''}`}
+      status={order.fulfillment_status || order.status || order.payment_status || 'sin estado'}
+      severity={severity}
+      nextAction={nextAction}
+      blockerReason={order.age_hours != null ? `${order.age_hours}h en cola` : ''}
+      href={isOverride ? '/admin/orders/qa' : '/admin/orders'}
+      onSelect={() => onSelect(order)}
+      selected={selected}
+      requiresHuman={isOverride}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-black text-zinc-400 break-all">{id}</span>
-        <AdminBadge variant={normalizeStatus(severity).includes('critical') || normalizeStatus(severity).includes('high') ? 'danger' : normalizeStatus(severity).includes('paid') ? 'success' : 'default'}>{severity}</AdminBadge>
-      </div>
-      <p className="mt-2 text-sm font-black text-white">{customer}</p>
-      <p className="mt-1 text-xs text-zinc-500 truncate">{order.customer_email || order.email || order.contact || order.slug || 'sin contacto visible'}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <AdminBadge variant={order.payment_status === 'paid' ? 'success' : 'warning'}>{order.payment_status || 'sin pago'}</AdminBadge>
-        <AdminBadge variant="info">{order.fulfillment_status || order.status || 'sin estado'}</AdminBadge>
-        {amount ? <AdminBadge>{amount}</AdminBadge> : null}
-        {order.age_hours != null ? <AdminBadge variant={order.age_hours >= 72 ? 'danger' : 'warning'}>{order.age_hours}h</AdminBadge> : null}
-      </div>
-      <div className="mt-3 rounded-xl border border-emerald-900/70 bg-emerald-950/20 px-3 py-2 text-xs font-bold text-emerald-200">
-        {reasons}
-      </div>
       {isOverride ? (
-        <div className="mt-3 flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>
+        <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => onKeepQa(order)} disabled={quickActionBusyId === order.id} className="inline-flex items-center gap-1 rounded-lg bg-fuchsia-700 px-2.5 py-2 text-[11px] font-bold text-white hover:bg-fuchsia-600 disabled:opacity-50">
-            {quickActionBusyId === order.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+            {quickActionBusyId === order.id ? <OperationalDecisionBusyBadge /> : <CheckCircle2 size={12} />}
             Mantener QA
           </button>
           <button type="button" onClick={() => onMarkReviewed(order)} disabled={quickActionBusyId === order.id} className="inline-flex items-center gap-1 rounded-lg bg-sky-700 px-2.5 py-2 text-[11px] font-bold text-white hover:bg-sky-600 disabled:opacity-50">
-            {quickActionBusyId === order.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+            {quickActionBusyId === order.id ? <OperationalDecisionBusyBadge /> : <CheckCircle2 size={12} />}
             Revisada
           </button>
           <button type="button" onClick={() => onRestoreReal(order)} disabled={quickActionBusyId === order.id} className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-2 text-[11px] font-bold text-white hover:bg-emerald-600 disabled:opacity-50">
-            {quickActionBusyId === order.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+            {quickActionBusyId === order.id ? <OperationalDecisionBusyBadge /> : <CheckCircle2 size={12} />}
             Real
           </button>
         </div>
       ) : null}
-    </article>
+    </OperationalDecisionCard>
   );
 };
 
@@ -106,6 +103,10 @@ export default function AdminDashboardOverviewSection({
   productStats,
   wowAlerts,
   recentOrders = [],
+  proactiveSummary = null,
+  executiveScore = null,
+  runtimeConfigLoaded = false,
+  lowStockItems = [],
 }) {
   const ordersForBoard = useMemo(() => {
     const byId = new Map();
@@ -146,17 +147,20 @@ export default function AdminDashboardOverviewSection({
 
   const operationalMetrics = useMemo(() => {
     const revenue = stats.find((item) => item.label.toLowerCase().includes('ingresos'));
+    const lowStockLabel = lowStockItems.length === 1
+      ? (lowStockItems[0].item || lowStockItems[0].name || lowStockItems[0].sku || '1 SKU')
+      : `${lowStockItems.length} SKU`;
     return [
       { label: 'Pagadas reales', value: funnelStats.find((item) => item.label === 'Paid')?.value ?? 0, hint: funnelStats.find((item) => item.label === 'Paid')?.hint || 'QA excluido', accent: 'emerald' },
       { label: 'Activación pendiente', value: funnelStats.find((item) => item.label === 'Activated')?.value ?? 0, hint: 'claim/perfil/slug', accent: 'amber' },
       { label: 'Cards por operar', value: funnelStats.find((item) => item.label === 'Ready')?.value ?? 0, hint: 'producción + NFC', accent: 'blue' },
+      { label: 'Stock crítico', value: lowStockItems.length ? lowStockLabel : 'OK', hint: lowStockItems.length ? 'Ver inventario' : 'Inventario sin alerta visible', accent: lowStockItems.length ? 'amber' : 'emerald' },
       { label: 'Problemas críticos', value: (manualOverrideQaSeverity.critical || 0) + (manualOverrideQaSeverity.high || 0), hint: manualOverrideQaBlockedCount ? `${manualOverrideQaBlockedCount} pagada(s) bloqueadas` : 'sin bloqueos pagados', accent: manualOverrideQaBlockedCount ? 'red' : 'emerald' },
       { label: 'Overrides QA', value: manualOverrideQaOrdersCount || 0, hint: manualOverrideQaAging.over72h ? `${manualOverrideQaAging.over72h} >72h` : 'operación real separada', accent: manualOverrideQaOrdersCount ? 'amber' : 'emerald' },
-      { label: 'Despachos/ready', value: funnelStats.find((item) => item.label === 'Shipped')?.value ?? 0, hint: funnelStats.find((item) => item.label === 'Shipped')?.hint || 'carrier/tracking', accent: 'blue' },
-      { label: revenue?.label || 'Ingresos operacionales', value: revenue?.value || '$0', hint: revenue?.hint || 'QA excluido', accent: 'emerald' },
+      { label: executiveScore ? 'Score operativo' : (revenue?.label || 'Ingresos operacionales'), value: executiveScore ? executiveScore.score : (revenue?.value || '$0'), hint: executiveScore ? `Banda ${executiveScore.band} · ${runtimeConfigLoaded ? 'config persistida' : 'fallback seguro'}` : (revenue?.hint || 'QA excluido'), accent: executiveScore?.band === 'critical' ? 'red' : executiveScore?.band === 'watch' ? 'amber' : 'emerald' },
       { label: 'Estado cierre', value: manualOverrideQaBlockedCount ? 'bloqueado' : 'operable', hint: manualOverrideQaBlockedCount ? 'requiere revisión humana' : 'sin bloqueo crítico visible', accent: manualOverrideQaBlockedCount ? 'red' : 'emerald' },
     ];
-  }, [stats, funnelStats, manualOverrideQaSeverity, manualOverrideQaBlockedCount, manualOverrideQaOrdersCount, manualOverrideQaAging]);
+  }, [stats, funnelStats, manualOverrideQaSeverity, manualOverrideQaBlockedCount, manualOverrideQaOrdersCount, manualOverrideQaAging, lowStockItems, executiveScore, runtimeConfigLoaded]);
 
   const reconciliationRows = [
     ['Overrides manuales QA', manualOverrideQaOrdersCount || 0, manualOverrideQaOrdersCount ? 'warn' : 'ok'],
@@ -166,15 +170,41 @@ export default function AdminDashboardOverviewSection({
     ['Alertas WoW', wowAlerts.length, wowAlerts.length ? 'warn' : 'ok'],
   ];
 
+  const selectedChecks = useMemo(() => {
+    if (!selected) return [];
+    const fulfillment = normalizeStatus(selected.fulfillment_status || selected.status);
+    const payment = normalizeStatus(selected.payment_status);
+    const activation = normalizeStatus(selected.claim_status || selected.activation_status);
+    return [
+      { label: 'Pago', value: payment === 'paid' ? 'OK' : payment ? 'Pendiente' : 'No aplica', accent: payment === 'paid' ? 'emerald' : 'amber', hint: selected.payment_status || 'sin estado de pago' },
+      { label: 'Activación', value: activation.includes('active') || selected.activation_completed ? 'OK' : activation ? 'Pendiente' : 'No aplica', accent: activation.includes('active') || selected.activation_completed ? 'emerald' : 'amber', hint: selected.claim_status || selected.activation_status || 'sin claim visible' },
+      { label: 'Card/NFC', value: selected.card_code || selected.cards_count || selected.active_cards_count ? 'OK' : 'Pendiente', accent: selected.card_code || selected.cards_count || selected.active_cards_count ? 'emerald' : 'amber', hint: selected.card_code || `${selected.cards_count || selected.active_cards_count || 0} card(s)` },
+      { label: 'Despacho', value: fulfillment.includes('ship') || fulfillment.includes('deliver') ? 'OK' : fulfillment.includes('cancel') ? 'Bloqueado' : 'Pendiente', accent: fulfillment.includes('ship') || fulfillment.includes('deliver') ? 'emerald' : fulfillment.includes('cancel') ? 'red' : 'amber', hint: selected.fulfillment_status || selected.status || 'sin fulfillment' },
+    ];
+  }, [selected]);
+
+  const selectedActivity = useMemo(() => {
+    if (!selected) return [];
+    const events = selected.history || selected.events || selected.activity_log || selected.timeline || [];
+    return Array.isArray(events) ? events.slice(0, 4) : [];
+  }, [selected]);
+
   return (
     <>
       <div className="mb-6 grid gap-4 lg:grid-cols-[1.08fr,0.92fr]">
         <AdminCard className="border-zinc-800 bg-zinc-950/80">
-          <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Dashboard v2 · operación real</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-white">Hoy requiere acción</h2>
-              <p className="mt-1 text-sm text-zinc-400">Cola crítica primero; métricas decorativas, al fondo donde pertenecen.</p>
+              <h2 className="mt-1 text-3xl font-black tracking-tight text-white">Hoy requiere acción</h2>
+              <p className="mt-1 text-sm text-zinc-400">Ordena la operación por prioridad real: pago, activación, producción, despacho y bloqueos.</p>
+              {proactiveSummary ? (
+                <div className="mt-3 rounded-2xl border border-emerald-900/70 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-100">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-300"><BellRing size={14} /> Prioridad operativa ahora</div>
+                  <p className="mt-1 font-bold">{proactiveSummary.headline}</p>
+                  <p className="text-xs text-emerald-200/80">{proactiveSummary.count > 0 ? `${proactiveSummary.count} caso(s) prioritarios.` : 'Sin casos prioritarios.'} {proactiveSummary.action}</p>
+                </div>
+              ) : null}
             </div>
             <AdminBadge variant={criticalActions.length ? 'danger' : 'success'}>{criticalActions.length ? `${criticalActions.length} acciones` : 'sin bloqueo'}</AdminBadge>
           </div>
@@ -182,13 +212,18 @@ export default function AdminDashboardOverviewSection({
             {criticalActions.length === 0 ? (
               <div className="rounded-2xl border border-emerald-900/70 bg-emerald-950/20 p-4 text-sm font-bold text-emerald-200">Sin cola crítica visible en este corte.</div>
             ) : criticalActions.map((item) => (
-              <div key={item.key} className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 md:grid-cols-[1fr,auto] md:items-center">
-                <div>
-                  <p className="text-sm font-black text-white">{item.title}</p>
-                  <p className="mt-1 text-xs text-zinc-400">{item.detail}</p>
-                </div>
-                <AdminBadge variant={item.tone === 'danger' ? 'danger' : 'warning'}>{item.action}</AdminBadge>
-              </div>
+              <OperationalDecisionCard
+                key={item.key}
+                id={item.key}
+                title={item.title}
+                detail={item.detail}
+                status={item.action}
+                severity={item.tone}
+                nextAction={item.action}
+                href={item.tone === 'danger' || item.tone === 'warning' ? '/admin/orders/qa' : '/admin/orders'}
+                onSelect={() => {}}
+                requiresHuman={item.tone === 'danger' || item.tone === 'warning'}
+              />
             ))}
           </div>
           {quickActionMessage.text ? (
@@ -261,14 +296,31 @@ export default function AdminDashboardOverviewSection({
                 <p className="mt-1 text-xs text-zinc-500 break-all">{selected.customer_email || selected.email || selected.id || 'sin contacto visible'}</p>
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <AdminStat label="Pago" value={selected.payment_status || '—'} accent={selected.payment_status === 'paid' ? 'emerald' : 'amber'} />
-                <AdminStat label="Claim" value={selected.claim_status || selected.activation_status || '—'} accent="amber" />
-                <AdminStat label="Card" value={selected.card_code || selected.cards_count || '—'} accent="blue" />
-                <AdminStat label="Despacho" value={selected.fulfillment_status || selected.status || '—'} accent="emerald" />
+                {selectedChecks.map((check) => (
+                  <AdminStat key={check.label} label={check.label} value={check.value} hint={check.hint} accent={check.accent} />
+                ))}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <a href="/admin/orders" className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-emerald-950 hover:bg-emerald-500">Abrir órdenes</a>
-                <a href="/admin/orders/qa" className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-black text-zinc-300 hover:bg-zinc-800">Abrir QA/Test</a>
+                <a href="/admin/orders" className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-emerald-950 hover:bg-emerald-500">Abrir orden</a>
+                {selected.slug ? <a href={`/${selected.slug}`} target="_blank" rel="noreferrer" className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-black text-zinc-300 hover:bg-zinc-800">Ver perfil</a> : null}
+                {(selected.isNonOperational || selected.severity || selected.age_hours != null) ? <a href="/admin/orders/qa" className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-black text-zinc-300 hover:bg-zinc-800">Abrir QA/Test</a> : null}
+              </div>
+              <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <Activity size={16} className="text-emerald-400" />
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Activity log</p>
+                </div>
+                {selectedActivity.length ? (
+                  <div className="space-y-2">
+                    {selectedActivity.map((event, index) => (
+                      <div key={event.id || index} className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-300">
+                        {event.label || event.message || event.action || String(event)}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs font-semibold text-zinc-500">Historial no disponible en este resumen. Abrir orden para auditoría completa.</p>
+                )}
               </div>
             </>
           ) : <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-400">No hay órdenes reales recientes ni overrides para seleccionar.</div>}
