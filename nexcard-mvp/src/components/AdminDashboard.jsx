@@ -232,7 +232,7 @@ const AdminDashboard = ({ dashboard, navigate }) => {
 
   const handleRestoreReal = async (order) => runQuickAction(order.id, async () => {
     await api.overrideOrderTestClassification(order.id, { is_test: false, test_reason: '' });
-    setQuickActionMessage({ type: 'success', text: `Orden ${order.id} restaurada como operativa real.` });
+    setQuickActionMessage({ type: 'success', text: `Orden ${order.id} restaurada como pedido real.` });
   });
 
   const handleGlobalSearch = async (term) => {
@@ -261,38 +261,38 @@ const AdminDashboard = ({ dashboard, navigate }) => {
 
   const stats = useMemo(() => ([
     {
-      label: 'Ingresos cobrados reales',
+      label: 'Ingresos cobrados',
       value: new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.operationalRevenue || 0),
       accent: 'emerald',
-      hint: statsSource.qaRevenue > 0 ? `QA/interno excluido: ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.qaRevenue || 0)}` : 'Sin revenue QA excluido',
+      hint: statsSource.qaRevenue > 0 ? `Revisión interna excluida: ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(statsSource.qaRevenue || 0)}` : 'Sin ingresos internos excluidos',
     },
     {
       label: 'Perfiles activos',
       value: `${statsSource.totalProfiles || 0}`,
       accent: null,
-      hint: statsSource.qaOrders > 0 ? `${statsSource.qaOrders} orden(es) QA/interna(s) fuera del KPI` : null,
+      hint: statsSource.qaOrders > 0 ? `${statsSource.qaOrders} orden(es) internas fuera del KPI` : null,
     },
     {
-      label: 'Pedidos abiertos reales',
+      label: 'Pedidos abiertos',
       value: `${statsSource.operationalPendingOrders || 0}`,
       accent: 'amber',
-      hint: statsSource.pendingOrders > statsSource.operationalPendingOrders ? `${statsSource.pendingOrders - statsSource.operationalPendingOrders} abiertos QA/internos excluidos` : null,
+      hint: statsSource.pendingOrders > statsSource.operationalPendingOrders ? `${statsSource.pendingOrders - statsSource.operationalPendingOrders} internos excluidos` : null,
     },
     {
-      label: 'Overrides manuales QA',
+      label: 'Revisión interna',
       value: `${manualOverrideQaOrdersCount}`,
       accent: manualOverrideQaOrdersCount > 0 ? 'red' : null,
       hint: manualOverrideQaAging.over72h > 0
-        ? `${manualOverrideQaAging.over72h} con aging >72h`
+        ? `${manualOverrideQaAging.over72h} con espera >72h`
         : manualOverrideQaAging.over24h > 0
-          ? `${manualOverrideQaAging.over24h} con aging >24h`
+          ? `${manualOverrideQaAging.over24h} con espera >24h`
           : manualOverrideQaBlockedCount > 0
             ? `${manualOverrideQaBlockedCount} pagada(s) y bloqueada(s)`
           : manualOverrideQaReviewedCount > 0
             ? `${manualOverrideQaReviewedCount} ya revisada(s)`
             : manualOverrideRealOrdersCount > 0
-              ? `${manualOverrideRealOrdersCount} restore(s) manual(es) a orden real`
-              : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola manual en QA' : 'Sin correcciones manuales abiertas'),
+              ? `${manualOverrideRealOrdersCount} restaurada(s) como pedido real`
+              : (manualOverrideQaOrdersCount > 0 ? 'Revisar cola interna' : 'Sin correcciones manuales abiertas'),
       href: '/admin/orders/qa?audit=excluded&test_reason=manual_override_only&review_status=pending',
     },
   ]), [statsSource, manualOverrideQaOrdersCount, manualOverrideQaReviewedCount, manualOverrideQaBlockedCount, manualOverrideRealOrdersCount, manualOverrideQaAging]);
@@ -439,7 +439,7 @@ const AdminDashboard = ({ dashboard, navigate }) => {
     }
   };
   return (
-    <AdminShell active="dashboard" navigate={navigate} title="NexCard Control Center" subtitle="Conversión, perfiles, pedidos y salud operativa desde un solo panel">
+    <AdminShell active="dashboard" navigate={navigate} title="Panel Admin NexCard" subtitle="Ventas, pedidos, activaciones y producción en una vista limpia.">
       <AdminDashboardOverviewSection
         stats={stats}
         manualOverrideQaOrdersCount={manualOverrideQaOrdersCount}
