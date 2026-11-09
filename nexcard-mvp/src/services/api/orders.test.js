@@ -34,20 +34,47 @@ describe('deriveOrderObservability', () => {
   });
 });
 
-describe('createOrdersApi.getOrders', () => {
+describe('createOrdersApi', () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
-  it('envía identificadores de idempotencia requeridos por el RPC live', async () => {
-    const createdOrder = { id: 'order-1', customer_email: 'cliente@nexcard.cl' };
-    const single = jest.fn(() => Promise.resolve({ data: createdOrder, error: null }));
-    const eq = jest.fn(() => ({ single }));
-    const select = jest.fn(() => ({ eq }));
+  const createOrderPayload = () => ({
+    client_checkout_attempt_id: 'attempt-123',
+    client_checkout_fingerprint: 'fingerprint-abc',
+    customer_name: 'Cliente QA',
+    customer_email: 'CLIENTE@NEXCARD.CL',
+    customer_phone: '+569****5678',
+    customer_address: 'Av Siempre Viva 123, Santiago',
+    payment_method: 'mercado-pago',
+    amount_cents: 1000,
+    desired_profile_slug: 'cliente-qa',
+    currency: 'CLP',
+    items: [{ product_id: 'product-1', quantity: 1 }],
+  });
+
+  const createGuestReceiptSupabase = ({ receipt = { id: 'order-1', customer_email: 'cliente@nexcard.cl' }, receiptError = null } = {}) => {
     const supabase = {
-      rpc: jest.fn(() => Promise.resolve({ data: 'order-1', error: null })),
-      from: jest.fn(() => ({ select })),
+      rpc: jest.fn((name) => {
+        if (name === 'create_order_with_items') {
+          return Promise.resolve({ data: 'order-1', error: null });
+        }
+        if (name === 'get_guest_order_receipt') {
+          return Promise.resolve({ data: receipt ? [receipt] : [], error: receiptError });
+        }
+        throw new Error(`Unexpected RPC: ${name}`);
+      }),
+      from: jest.fn(() => {
+        throw new Error('Guest createOrder must not query orders directly');
+      }),
     };
+
+    return supabase;
+  };
+
+  it('recupera el recibo guest por RPC con los mismos identificadores idempotentes enviados a create', async () => {
+    const createdOrder = { id: 'order-1', customer_email: 'cliente@nexcard.cl' };
+    const supabase = createGuestReceiptSupabase({ receipt: createdOrder });
 
     const api = createOrdersApi({
       supabase,
@@ -55,27 +82,68 @@ describe('createOrdersApi.getOrders', () => {
       getClerkUserId: () => null,
     });
 
-    await api.createOrder({
-      client_checkout_attempt_id: 'attempt-123',
-      client_checkout_fingerprint: 'fingerprint-abc',
-      customer_name: 'Cliente QA',
-      customer_email: 'CLIENTE@NEXCARD.CL',
-      customer_phone: '+56912345678',
-      customer_address: 'Av Siempre Viva 123, Santiago',
-      payment_method: 'mercado-pago',
-      amount_cents: 1000,
-      desired_profile_slug: 'cliente-qa',
-      currency: 'CLP',
-      items: [{ product_id: 'product-1', quantity: 1 }],
-    });
+    const result = await api.createOrder(createOrderPayload());
 
-    expect(supabase.rpc).toHaveBeenCalledWith('create_order_with_items', expect.objectContaining({
+    expect(supabase.rpc).toHaveBeenNthCalledWith(1, 'create_order_with_items', expect.objectContaining({
       p_order: expect.objectContaining({
         client_checkout_attempt_id: 'attempt-123',
         client_checkout_fingerprint: 'fingerprint-abc',
         customer_email: 'cliente@nexcard.cl',
       }),
     }));
+    expect(supabase.rpc).toHaveBeenNthCalledWith(2, 'get_guest_order_receipt', {
+      p_order_id: 'order-1',
+      p_checkout_attempt_id: 'attempt-123',
+      p_checkout_fingerprint: 'fingerprint-abc',
+    });
+    expect(supabase.from).not.toHaveBeenCalledWith('orders');
+    expect(result).toEqual(createdOrder);
+  });
+
+  it('rechaza con un error genérico cuando el receipt RPC no retorna una orden', async () => {
+    const supabase = createGuestReceiptSupabase({ receipt: null });
+    const api = createOrdersApi({ supabase, hasSupabase: true, getClerkUserId: () => null });
+
+    await expect(api.createOrder(createOrderPayload())).rejects.toThrow('No se pudo recuperar la orden');
+    expect(supabase.from).not.toHaveBeenCalledWith('orders');
+  });
+
+  it('no filtra errores sensibles del receipt RPC', async () => {
+    const sensitiveMessage = 'sensitive database detail';
+    const supabase = createGuestReceiptSupabase({ receipt: null, receiptError: { message: sensitiveMessage } });
+    const api = createOrdersApi({ supabase, hasSupabase: true, getClerkUserId: () => null });
+
+    await expect(api.createOrder(createOrderPayload())).rejects.toThrow('No se pudo recuperar la orden');
+    await expect(api.createOrder(createOrderPayload())).rejects.not.toThrow(sensitiveMessage);
+    expect(supabase.from).not.toHaveBeenCalledWith('orders');
+  });
+
+  it('mantiene idempotencia: un reintento retorna el mismo receipt acotado', async () => {
+    const createdOrder = { id: 'order-1', customer_email: 'cliente@nexcard.cl' };
+    const supabase = createGuestReceiptSupabase({ receipt: createdOrder });
+    const api = createOrdersApi({ supabase, hasSupabase: true, getClerkUserId: () => null });
+
+    const firstReceipt = await api.createOrder(createOrderPayload());
+    const retryReceipt = await api.createOrder(createOrderPayload());
+
+    expect(firstReceipt).toEqual(createdOrder);
+    expect(retryReceipt).toEqual(createdOrder);
+    expect(supabase.rpc).toHaveBeenNthCalledWith(4, 'get_guest_order_receipt', {
+      p_order_id: 'order-1',
+      p_checkout_attempt_id: 'attempt-123',
+      p_checkout_fingerprint: 'fingerprint-abc',
+    });
+    expect(supabase.from).not.toHaveBeenCalledWith('orders');
+  });
+
+  it('expone getGuestOrderReceipt para el hook posterior', () => {
+    const api = createOrdersApi({
+      supabase: createGuestReceiptSupabase(),
+      hasSupabase: true,
+      getClerkUserId: () => null,
+    });
+
+    expect(api.getGuestOrderReceipt).toEqual(expect.any(Function));
   });
 
   it('excluye órdenes soft-deleted desde la consulta base', async () => {

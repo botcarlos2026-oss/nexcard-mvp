@@ -148,6 +148,23 @@ export const deriveOrderObservability = ({ order, claim, relatedCards }) => {
 };
 
 export function createOrdersApi({ supabase, hasSupabase, getClerkUserId, request }) {
+  const getGuestOrderReceipt = async ({
+    orderId,
+    clientCheckoutAttemptId,
+    clientCheckoutFingerprint,
+  }) => {
+    const { data, error } = await supabase.rpc('get_guest_order_receipt', {
+      p_order_id: orderId,
+      p_checkout_attempt_id: clientCheckoutAttemptId,
+      p_checkout_fingerprint: clientCheckoutFingerprint,
+    });
+
+    if (error) throw new Error('No se pudo recuperar la orden');
+    const receipt = Array.isArray(data) ? data[0] : data;
+    if (!receipt) throw new Error('No se pudo recuperar la orden');
+    return receipt;
+  };
+
   const createOrder = async (payload) => {
     if (!hasSupabase) throw new Error('Supabase no configurado');
     if (!payload.customer_name?.trim()) throw new Error('Nombre del cliente requerido');
@@ -189,16 +206,11 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId, request
     if (rpcError) throw new Error(rpcError.message || 'No se pudo crear la orden');
     if (!orderId) throw new Error('La orden fue creada pero no retornó un ID');
 
-    const { data: createdOrder, error: fetchError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .single();
-
-    if (fetchError || !createdOrder) throw new Error('Orden creada pero no se pudo recuperar');
-
-
-    return createdOrder;
+    return getGuestOrderReceipt({
+      orderId,
+      clientCheckoutAttemptId: orderData.client_checkout_attempt_id,
+      clientCheckoutFingerprint: orderData.client_checkout_fingerprint,
+    });
   };
 
   const getOrders = async () => {
@@ -290,6 +302,7 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId, request
 
   return {
     createOrder,
+    getGuestOrderReceipt,
     getOrders,
   };
 }
