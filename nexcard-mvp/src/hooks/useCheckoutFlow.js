@@ -122,7 +122,7 @@ export function useCheckoutFlow() {
         payment_verification_message: null,
       });
 
-      api.getGuestOrderReceipt(proof)
+      api.getGuestOrderReceipt(proof, { signal: controller.signal })
         .then((receipt) => updateReceipt(receipt))
         .catch(() => {
           if (!controller.signal.aborted) {

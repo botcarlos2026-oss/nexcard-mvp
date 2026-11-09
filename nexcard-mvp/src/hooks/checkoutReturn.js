@@ -116,10 +116,16 @@ export async function pollGuestOrderReceipt({ fetchReceipt, proof, signal, onRec
     if (signal?.aborted) return null;
 
     if (result.type === 'receipt' && result.receipt) {
-      latestReceipt = result.receipt;
-      if (signal?.aborted) return null;
-      onReceipt?.(result.receipt);
-      if (result.receipt.payment_status === 'paid') return result.receipt;
+      if (Date.now() >= deadline) return latestReceipt;
+
+      const receipt = result.receipt;
+      // The request can win the race while the event loop has already crossed
+      // the deadline, so re-check immediately before exposing the receipt.
+      if (signal?.aborted || Date.now() >= deadline) return latestReceipt;
+
+      latestReceipt = receipt;
+      onReceipt?.(receipt);
+      if (receipt.payment_status === 'paid') return receipt;
     }
   }
 

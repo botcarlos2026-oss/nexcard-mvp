@@ -291,7 +291,7 @@ export const api = {
 
   getProducts: async (options = {}) => productsApi.getProducts(options),
   createOrder: async (payload) => ordersApi.createOrder(payload),
-  getGuestOrderReceipt: async (payload) => ordersApi.getGuestOrderReceipt(payload),
+  getGuestOrderReceipt: async (payload, options) => ordersApi.getGuestOrderReceipt(payload, options),
 
   getInventory: async () => inventoryApi.getInventory(),
 

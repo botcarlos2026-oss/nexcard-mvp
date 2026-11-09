@@ -85,6 +85,22 @@ describe('pollGuestOrderReceipt', () => {
     expect(fetchReceipt).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects a paid receipt that resolves after the deadline without a callback', async () => {
+    vi.useFakeTimers();
+    const now = new Date('2026-11-09T18:00:00.000Z');
+    vi.setSystemTime(now);
+    const onReceipt = vi.fn();
+    const fetchReceipt = vi.fn(async () => {
+      vi.setSystemTime(new Date(now.getTime() + RETURN_POLL_TIMEOUT_MS + 1));
+      return paidReceipt;
+    });
+
+    await expect(pollGuestOrderReceipt({ fetchReceipt, proof: proofForOrder1, onReceipt })).resolves.toBeNull();
+
+    expect(fetchReceipt).toHaveBeenCalledTimes(1);
+    expect(onReceipt).not.toHaveBeenCalled();
+  });
+
   it('settles at the deadline when an in-flight receipt request never resolves', async () => {
     vi.useFakeTimers();
     const fetchReceipt = vi.fn(() => new Promise(() => {}));
