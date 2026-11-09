@@ -12,7 +12,11 @@ const CLIENT_ENV_WHITELIST = [
 ];
 
 export default defineConfig(({ mode }) => {
-  const reactAppEnv = loadEnv(mode, process.cwd(), 'REACT_APP_');
+  // The payment-return E2E re-execs with env -i and must not load any .env file.
+  const isolatedPaymentReturn = process.env.E2E_PAYMENT_RETURN_ISOLATED === '1';
+  const reactAppEnv = isolatedPaymentReturn
+    ? process.env
+    : loadEnv(mode, process.cwd(), 'REACT_APP_');
   const defineEnv = Object.fromEntries(
     CLIENT_ENV_WHITELIST.map((key) => [
       `process.env.${key}`,

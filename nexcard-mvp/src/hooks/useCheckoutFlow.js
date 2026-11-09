@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, getLastOrderProof, getLastOrderSnapshot } from '../services/api';
 import { trackEvent } from '../utils/ga4';
 import { pollGuestOrderReceipt, resolveReturnProof } from './checkoutReturn';
@@ -20,6 +20,7 @@ function buildUnavailableGuestReceipt(orderId) {
 export function useCheckoutFlow() {
   const [checkoutStep, setCheckoutStep] = useState(null);
   const [currentOrder, setCurrentOrder] = useState(null);
+  const returnContextRef = useRef(null);
 
   const handleCheckoutStart = () => {
     setCheckoutStep('catalog');
@@ -50,23 +51,34 @@ export function useCheckoutFlow() {
   };
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const payment = params.get('payment');
-    const orderId = params.get('order');
+    let returnContext = returnContextRef.current;
 
-    if (!payment || !orderId) return undefined;
+    if (!returnContext) {
+      const params = new URLSearchParams(window.location.search);
+      const payment = params.get('payment');
+      const orderId = params.get('order');
 
+      if (!payment || !orderId) return undefined;
+
+      // Capture the return before clearing the URL. React StrictMode replays
+      // effects in development, so the replay must use this same return context.
+      returnContext = { payment, orderId, tracked: false };
+      returnContextRef.current = returnContext;
+      window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`);
+    }
+
+    const { payment, orderId } = returnContext;
     const controller = new AbortController();
     const isSuccessReturn = payment === 'success';
     const proof = resolveReturnProof(orderId, getLastOrderProof());
     const snapshot = getLastOrderSnapshot();
     const matchingSnapshot = snapshot?.id === orderId ? snapshot : null;
 
-    if (isSuccessReturn) {
+    if (isSuccessReturn && !returnContext.tracked) {
+      returnContext.tracked = true;
       trackEvent('payment_return_success_seen', { order_id: orderId });
     }
 
-    window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`);
     setCheckoutStep('confirmation');
 
     if (!proof) {

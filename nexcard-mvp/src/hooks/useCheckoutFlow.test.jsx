@@ -25,7 +25,7 @@ vi.mock('../utils/ga4', () => ({ trackEvent: mocks.trackEvent }));
 
 import { useCheckoutFlow } from './useCheckoutFlow';
 
-function renderHook() {
+function renderHook({ strictMode = false } = {}) {
   let current;
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -36,13 +36,17 @@ function renderHook() {
     return null;
   }
 
+  const tree = strictMode ? (
+    <React.StrictMode><HookHarness /></React.StrictMode>
+  ) : <HookHarness />;
+
   return {
     get current() {
       return current;
     },
     async render() {
       await act(async () => {
-        root.render(<HookHarness />);
+        root.render(tree);
         await Promise.resolve();
       });
     },
@@ -115,6 +119,23 @@ describe('useCheckoutFlow secure guest payment return', () => {
       guestReceiptUnavailable: true,
     });
     expect(hook.current.currentOrder).not.toHaveProperty('customer_email');
+    hook.unmount();
+  });
+
+  it('retains the return context across StrictMode effect replay and starts one effective poll', async () => {
+    setPaymentReturn('success', 'order-1');
+    setValidProof();
+    mocks.getGuestOrderReceipt.mockResolvedValue({ id: 'order-1', payment_status: 'paid' });
+    const hook = renderHook({ strictMode: true });
+    await hook.render();
+
+    expect(window.location.search).toBe('');
+    expect(mocks.getGuestOrderReceipt).toHaveBeenCalledTimes(1);
+    expect(hook.current.currentOrder).toMatchObject({
+      id: 'order-1',
+      payment_status: 'paid',
+      isVerifyingPayment: false,
+    });
     hook.unmount();
   });
 
