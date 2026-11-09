@@ -3,6 +3,14 @@ import { CheckCircle, Clock, Copy } from 'lucide-react';
 
 export default function OrderConfirmation({ order }) {
   const [copied, setCopied] = React.useState(false);
+  const customerEmail = typeof order.customer_email === 'string' ? order.customer_email.trim() : '';
+  const hasExplicitAmount = order.amount_cents !== undefined
+    && order.amount_cents !== null
+    && order.amount_cents !== ''
+    && Number.isFinite(Number(order.amount_cents));
+  const hasReceiptDetails = !order.guestReceiptUnavailable && Boolean(customerEmail && hasExplicitAmount);
+  const hasPaymentMethod = hasReceiptDetails && Boolean(order.payment_method);
+  const hasFulfillmentStatus = hasReceiptDetails && Boolean(order.fulfillment_status);
 
   const handleCopyOrderId = () => {
     navigator.clipboard.writeText(order.id);
@@ -11,14 +19,14 @@ export default function OrderConfirmation({ order }) {
   };
 
   const paymentStatusLabel = {
-    paid: { text: 'Pago confirmado', color: 'text-emerald-400', dot: 'bg-emerald-400' },
-    verifying: { text: 'Confirmando pago', color: 'text-amber-400', dot: 'bg-amber-400' },
-    success: { text: 'Confirmando pago', color: 'text-amber-400', dot: 'bg-amber-400' },
-    pending: { text: 'Pendiente de confirmación', color: 'text-amber-400', dot: 'bg-amber-400' },
-    failure: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
-    failed: { text: 'Pago rechazado', color: 'text-red-400', dot: 'bg-red-400' },
-  }[order.payment_status] || { text: 'Pendiente', color: 'text-amber-400', dot: 'bg-amber-400' };
+    paid: { text: 'Pago confirmado', color: 'text-emerald-400' },
+    verifying: { text: 'Confirmando pago', color: 'text-amber-400' },
+    success: { text: 'Confirmando pago', color: 'text-amber-400' },
+    pending: { text: 'Pendiente de confirmación', color: 'text-amber-400' },
+    failed: { text: 'Pago rechazado', color: 'text-red-400' },
+  }[order.payment_status] || { text: 'Pendiente', color: 'text-amber-400' };
   const isPaid = order.payment_status === 'paid';
+  const isFailed = order.payment_status === 'failed';
 
   const orderDate = order.created_at
     ? new Date(order.created_at).toLocaleDateString('es-CL', {
@@ -30,7 +38,7 @@ export default function OrderConfirmation({ order }) {
     })
     : 'En verificación';
 
-  const totalCLP = Number(order.amount_cents || 0).toLocaleString('es-CL');
+  const totalCLP = hasReceiptDetails ? Number(order.amount_cents).toLocaleString('es-CL') : null;
 
   const fulfillmentStatusLabel = {
     new: 'Nueva',
@@ -39,19 +47,20 @@ export default function OrderConfirmation({ order }) {
     shipped: 'Enviada',
     delivered: 'Entregada',
     cancelled: 'Cancelada',
-  }[order.fulfillment_status] || order.fulfillment_status || 'En verificación';
+  }[order.fulfillment_status] || order.fulfillment_status;
 
   const paymentMethodLabel = {
     'mercado-pago': 'Mercado Pago',
     mercado_pago: 'Mercado Pago',
     webpay: 'Transbank WebPay',
     transbank: 'Transbank WebPay',
-  }[order.payment_method] || 'En verificación';
+  }[order.payment_method] || order.payment_method;
+
+  const displayOrderReference = order.folio || `#${order.id.substring(0, 8).toUpperCase()}`;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">
       <div className="max-w-2xl mx-auto">
-        {/* Icono y título según estado de pago */}
         <div className="text-center mb-8">
           {isPaid ? (
             <>
@@ -68,14 +77,13 @@ export default function OrderConfirmation({ order }) {
           )}
         </div>
 
-        {/* Detalles de la orden */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-zinc-800">
             <div>
               <p className="text-zinc-400 text-sm mb-1">Número de Orden</p>
               <div className="flex items-center gap-2">
                 <code className="bg-zinc-800 px-3 py-2 rounded font-mono text-sm break-all">
-                  {order.folio || '#' + order.id.substring(0, 8).toUpperCase()}
+                  {displayOrderReference}
                 </code>
                 <button
                   onClick={handleCopyOrderId}
@@ -93,85 +101,89 @@ export default function OrderConfirmation({ order }) {
               <p className="font-semibold">{orderDate}</p>
             </div>
 
-            <div>
-              <p className="text-zinc-400 text-sm mb-1">Email</p>
-              <p className="font-semibold">{order.customer_email}</p>
-            </div>
+            {hasReceiptDetails && (
+              <div>
+                <p className="text-zinc-400 text-sm mb-1">Email</p>
+                <p className="font-semibold">{customerEmail}</p>
+              </div>
+            )}
 
-            <div>
-              <p className="text-zinc-400 text-sm mb-1">Método de Pago</p>
-              <p className="font-semibold capitalize">
-                {paymentMethodLabel}
-              </p>
-            </div>
+            {hasPaymentMethod && (
+              <div>
+                <p className="text-zinc-400 text-sm mb-1">Método de Pago</p>
+                <p className="font-semibold capitalize">{paymentMethodLabel}</p>
+              </div>
+            )}
           </div>
 
-          {/* Estado */}
           <div className="space-y-4">
             <div>
               <p className="text-zinc-400 text-sm mb-2">Estado de Pago</p>
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${
-                  isPaid
-                    ? 'bg-emerald-500'
-                    : order.payment_status === 'failure' || order.payment_status === 'failed'
-                    ? 'bg-red-500'
-                    : 'bg-yellow-500'
+                  isPaid ? 'bg-emerald-500' : isFailed ? 'bg-red-500' : 'bg-yellow-500'
                 }`} />
-                <span className="font-semibold">
-                  {paymentStatusLabel.text}
-                </span>
+                <span className="font-semibold">{paymentStatusLabel.text}</span>
               </div>
               {order.payment_verification_message && (
                 <p className="mt-3 text-sm text-zinc-400">{order.payment_verification_message}</p>
               )}
             </div>
 
-            <div>
-              <p className="text-zinc-400 text-sm mb-2">Estado de Entrega</p>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-slate-500"></div>
-                <span className="font-semibold">{fulfillmentStatusLabel}</span>
+            {hasFulfillmentStatus && (
+              <div>
+                <p className="text-zinc-400 text-sm mb-2">Estado de Entrega</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-slate-500"></div>
+                  <span className="font-semibold">{fulfillmentStatusLabel}</span>
+                </div>
               </div>
+            )}
+          </div>
+        </div>
+
+        {hasReceiptDetails && (
+          <div className="bg-emerald-900 border border-emerald-700 rounded-lg p-6 mb-8">
+            <div className="flex justify-between items-center">
+              <span className="text-xl font-semibold">{isPaid ? 'Total Pagado' : 'Total de la orden'}</span>
+              <span className="text-3xl font-black text-emerald-400">${totalCLP}</span>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Monto */}
-        <div className="bg-emerald-900 border border-emerald-700 rounded-lg p-6 mb-8">
-          <div className="flex justify-between items-center">
-            <span className="text-xl font-semibold">{isPaid ? 'Total Pagado' : 'Total de la orden'}</span>
-            <span className="text-3xl font-black text-emerald-400">${totalCLP}</span>
-          </div>
-        </div>
-
-        {/* Información */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-8">
           <h2 className="font-bold text-lg mb-4">¿Qué sucede ahora?</h2>
-          <ol className="space-y-3 text-sm">
-            <li className="flex gap-3">
-              <span className="font-bold text-emerald-400 min-w-6">1</span>
-              <span>Recibirás un email de confirmación en <strong>{order.customer_email}</strong></span>
-            </li>
-            <li className="flex gap-3">
-              <span className="font-bold text-emerald-400 min-w-6">2</span>
-              <span>Nuestro equipo procesará tu pago a través de {order.payment_method === 'mercado-pago' ? 'Mercado Pago' : 'Transbank'}</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="font-bold text-emerald-400 min-w-6">3</span>
-              <span>Una vez confirmado el pago, procederemos con el empaque y envío</span>
-            </li>
-            <li className="flex gap-3">
-              <span className="font-bold text-emerald-400 min-w-6">4</span>
-              <span>Recibirás un seguimiento con tu número de guía de despacho</span>
-            </li>
-          </ol>
+          {hasReceiptDetails ? (
+            <ol className="space-y-3 text-sm">
+              <li className="flex gap-3">
+                <span className="font-bold text-emerald-400 min-w-6">1</span>
+                <span>Recibirás un email de confirmación en <strong>{customerEmail}</strong></span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-bold text-emerald-400 min-w-6">2</span>
+                <span>
+                  {hasPaymentMethod
+                    ? `Nuestro equipo procesará tu pago a través de ${paymentMethodLabel}`
+                    : 'Nuestro equipo procesará tu pago.'}
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-bold text-emerald-400 min-w-6">3</span>
+                <span>Una vez confirmado el pago, procederemos con el empaque y envío</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-bold text-emerald-400 min-w-6">4</span>
+                <span>Recibirás un seguimiento con tu número de guía de despacho</span>
+              </li>
+            </ol>
+          ) : (
+            <p className="text-sm text-zinc-300">Guarda tu número de orden. Si necesitas ayuda, contáctanos por WhatsApp e indícanos este identificador.</p>
+          )}
         </div>
 
-        {/* CTAs post-compra */}
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
           <a
-            href={`https://wa.me/56993183021?text=Hola,%20mi%20folio%20es%20${order.folio || order.id.substring(0, 8).toUpperCase()}`}
+            href={`https://wa.me/56993183021?text=Hola,%20mi%20folio%20es%20${displayOrderReference}`}
             target="_blank" rel="noreferrer"
             className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-bold transition-colors"
           >
@@ -183,11 +195,12 @@ export default function OrderConfirmation({ order }) {
             Volver al inicio
           </a>
         </div>
-        <p className="text-zinc-400 text-xs mt-4 text-center">
-          Recibirás un email con actualizaciones. Tu tarjeta estará lista en 5-7 días hábiles.
-        </p>
+        {hasReceiptDetails && (
+          <p className="text-zinc-400 text-xs mt-4 text-center">
+            Recibirás un email con actualizaciones. Tu tarjeta estará lista en 5-7 días hábiles.
+          </p>
+        )}
 
-        {/* Footer */}
         <div className="text-center mt-8 text-zinc-500 text-sm">
           <p>¿Preguntas? Contacta a <strong>hola@nexcard.cl</strong></p>
         </div>
