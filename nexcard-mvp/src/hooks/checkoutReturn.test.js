@@ -61,10 +61,10 @@ describe('pollGuestOrderReceipt', () => {
 
     await vi.advanceTimersByTimeAsync(RETURN_POLL_TIMEOUT_MS);
     await expect(poll).resolves.toEqual(pendingReceipt);
-    expect(fetchReceipt).toHaveBeenCalledTimes(11);
+    expect(fetchReceipt).toHaveBeenCalledTimes(10);
   });
 
-  it('stops without receipt callbacks when aborted', async () => {
+  it('stops without new polls when aborted between attempts', async () => {
     vi.useFakeTimers();
     const controller = new AbortController();
     const fetchReceipt = vi.fn().mockResolvedValue(pendingReceipt);
@@ -83,6 +83,50 @@ describe('pollGuestOrderReceipt', () => {
     await expect(poll).resolves.toBeNull();
     expect(onReceipt).toHaveBeenCalledTimes(1);
     expect(fetchReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it('settles at the deadline when an in-flight receipt request never resolves', async () => {
+    vi.useFakeTimers();
+    const fetchReceipt = vi.fn(() => new Promise(() => {}));
+    const onReceipt = vi.fn();
+    const poll = pollGuestOrderReceipt({ fetchReceipt, proof: proofForOrder1, onReceipt });
+
+    await vi.advanceTimersByTimeAsync(RETURN_POLL_TIMEOUT_MS);
+
+    await expect(poll).resolves.toBeNull();
+    expect(fetchReceipt).toHaveBeenCalledTimes(1);
+    expect(onReceipt).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('settles immediately on abort during an in-flight request and ignores its late receipt', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    let resolveReceipt;
+    const fetchReceipt = vi.fn(() => new Promise((resolve) => {
+      resolveReceipt = resolve;
+    }));
+    const onReceipt = vi.fn();
+    const poll = pollGuestOrderReceipt({
+      fetchReceipt,
+      proof: proofForOrder1,
+      signal: controller.signal,
+      onReceipt,
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchReceipt).toHaveBeenCalledWith(proofForOrder1, { signal: controller.signal });
+    controller.abort();
+
+    await expect(poll).resolves.toBeNull();
+    expect(onReceipt).not.toHaveBeenCalled();
+    expect(fetchReceipt).toHaveBeenCalledTimes(1);
+
+    resolveReceipt(paidReceipt);
+    await vi.advanceTimersByTimeAsync(RETURN_POLL_TIMEOUT_MS);
+    expect(onReceipt).not.toHaveBeenCalled();
+    expect(fetchReceipt).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('hides intermediate errors and returns the last pending receipt at deadline', async () => {

@@ -134,6 +134,8 @@ describe('useCheckoutFlow secure guest payment return', () => {
       orderId: 'order-1',
       clientCheckoutAttemptId: 'attempt-1',
       clientCheckoutFingerprint: 'fingerprint-1',
+    }, {
+      signal: expect.any(AbortSignal),
     });
     expect(hook.current.currentOrder).toMatchObject({
       id: 'order-1',
@@ -156,7 +158,7 @@ describe('useCheckoutFlow secure guest payment return', () => {
       await vi.advanceTimersByTimeAsync(30000);
     });
 
-    expect(mocks.getGuestOrderReceipt).toHaveBeenCalledTimes(11);
+    expect(mocks.getGuestOrderReceipt).toHaveBeenCalledTimes(10);
     expect(hook.current.currentOrder).toMatchObject({
       id: 'order-1',
       payment_status: 'pending',

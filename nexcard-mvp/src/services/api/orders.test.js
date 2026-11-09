@@ -146,6 +146,24 @@ describe('createOrdersApi', () => {
     expect(api.getGuestOrderReceipt).toEqual(expect.any(Function));
   });
 
+  it('passes an optional abort signal to the guest receipt RPC when supported', async () => {
+    const controller = new AbortController();
+    const receipt = { id: 'order-1', payment_status: 'pending' };
+    const request = {
+      abortSignal: jest.fn(() => Promise.resolve({ data: [receipt], error: null })),
+    };
+    const supabase = { rpc: jest.fn(() => request) };
+    const api = createOrdersApi({ supabase, hasSupabase: true, getClerkUserId: () => null });
+
+    await expect(api.getGuestOrderReceipt({
+      orderId: 'order-1',
+      clientCheckoutAttemptId: 'attempt-1',
+      clientCheckoutFingerprint: 'fingerprint-1',
+    }, { signal: controller.signal })).resolves.toEqual(receipt);
+
+    expect(request.abortSignal).toHaveBeenCalledWith(controller.signal);
+  });
+
   it('excluye órdenes soft-deleted desde la consulta base', async () => {
     const queries = {};
     const supabase = {

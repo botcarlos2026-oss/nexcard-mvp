@@ -152,12 +152,15 @@ export function createOrdersApi({ supabase, hasSupabase, getClerkUserId, request
     orderId,
     clientCheckoutAttemptId,
     clientCheckoutFingerprint,
-  }) => {
-    const { data, error } = await supabase.rpc('get_guest_order_receipt', {
+  }, { signal } = {}) => {
+    const request = supabase.rpc('get_guest_order_receipt', {
       p_order_id: orderId,
       p_checkout_attempt_id: clientCheckoutAttemptId,
       p_checkout_fingerprint: clientCheckoutFingerprint,
     });
+    const { data, error } = await (signal && typeof request.abortSignal === 'function'
+      ? request.abortSignal(signal)
+      : request);
 
     if (error) throw new Error('No se pudo recuperar la orden');
     const receipt = Array.isArray(data) ? data[0] : data;

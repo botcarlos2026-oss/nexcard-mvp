@@ -36,6 +36,60 @@ function waitForNextPoll(delay, signal) {
   });
 }
 
+function waitForRequestBoundary(delay, signal) {
+  let timeout;
+  let onAbort;
+  let settled = false;
+
+  const finish = (result, resolve) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', onAbort);
+    resolve(result);
+  };
+
+  let resolveBoundary;
+  const promise = new Promise((resolve) => {
+    resolveBoundary = resolve;
+    onAbort = () => finish({ type: 'aborted' }, resolve);
+
+    if (signal?.aborted) {
+      finish({ type: 'aborted' }, resolve);
+      return;
+    }
+
+    timeout = setTimeout(() => finish({ type: 'deadline' }, resolve), delay);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+
+  return {
+    promise,
+    cancel: () => finish({ type: 'cancelled' }, resolveBoundary),
+  };
+}
+
+async function fetchReceiptBeforeDeadline({ fetchReceipt, proof, signal, deadline }) {
+  if (signal?.aborted) return { type: 'aborted' };
+
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) return { type: 'deadline' };
+
+  const request = Promise.resolve().then(async () => {
+    if (signal?.aborted) return { type: 'aborted' };
+
+    try {
+      return { type: 'receipt', receipt: await fetchReceipt(proof, { signal }) };
+    } catch {
+      return { type: 'error' };
+    }
+  });
+  const boundary = waitForRequestBoundary(remaining, signal);
+  const result = await Promise.race([request, boundary.promise]);
+  boundary.cancel();
+  return result;
+}
+
 export async function pollGuestOrderReceipt({ fetchReceipt, proof, signal, onReceipt }) {
   if (!proof || signal?.aborted) return null;
 
@@ -46,7 +100,7 @@ export async function pollGuestOrderReceipt({ fetchReceipt, proof, signal, onRec
   while (!signal?.aborted) {
     if (!firstAttempt) {
       const remaining = deadline - Date.now();
-      if (remaining < 0) return latestReceipt;
+      if (remaining <= 0) return latestReceipt;
 
       const shouldContinue = await waitForNextPoll(
         Math.min(RETURN_POLL_INTERVAL_MS, remaining),
@@ -56,20 +110,17 @@ export async function pollGuestOrderReceipt({ fetchReceipt, proof, signal, onRec
     }
     firstAttempt = false;
 
-    try {
-      const receipt = await fetchReceipt(proof);
+    const result = await fetchReceiptBeforeDeadline({ fetchReceipt, proof, signal, deadline });
+    if (result.type === 'aborted') return null;
+    if (result.type === 'deadline') return latestReceipt;
+    if (signal?.aborted) return null;
+
+    if (result.type === 'receipt' && result.receipt) {
+      latestReceipt = result.receipt;
       if (signal?.aborted) return null;
-
-      if (receipt) {
-        latestReceipt = receipt;
-        onReceipt?.(receipt);
-        if (receipt.payment_status === 'paid') return receipt;
-      }
-    } catch {
-      // The return path intentionally exposes no backend error details.
+      onReceipt?.(result.receipt);
+      if (result.receipt.payment_status === 'paid') return result.receipt;
     }
-
-    if (Date.now() >= deadline) return latestReceipt;
   }
 
   return null;
