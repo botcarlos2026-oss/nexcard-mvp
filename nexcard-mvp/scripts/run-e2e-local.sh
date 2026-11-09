@@ -24,6 +24,7 @@ for ARG in "$@"; do
     *profile-soft-delete-guard.cy.js) MODE="soft-delete" ;;
     *admin-cards.cy.js|*nfc-invalid-card-states.cy.js) MODE="cards-lifecycle" ;;
     *admin-profiles.cy.js|*admin-profiles-e2e.cy.js) MODE="admin-profiles" ;;
+    *payment-return.cy.js) MODE="payment-return" ;;
   esac
 
   if [[ "$PREV_ARG" == "--mode" ]]; then
@@ -74,6 +75,13 @@ if [[ "$MODE" == "cards-lifecycle" ]]; then
   unset REACT_APP_SUPABASE_ANON_KEY
   unset SUPABASE_URL
   unset SUPABASE_ANON_KEY
+elif [[ "$MODE" == "payment-return" ]]; then
+  echo "[e2e] payment-return mode: using synthetic local Supabase client with intercepted REST fixtures"
+  export REACT_APP_DISABLE_SUPABASE="false"
+  export REACT_APP_SUPABASE_URL="http://127.0.0.1:54321"
+  export REACT_APP_SUPABASE_ANON_KEY="e2e-synthetic-anon-key"
+  export SUPABASE_URL="$REACT_APP_SUPABASE_URL"
+  export SUPABASE_ANON_KEY="$REACT_APP_SUPABASE_ANON_KEY"
 else
   if [[ "${E2E_USE_REAL_SUPABASE:-false}" == "true" || "${RUNNER_MODE:-local}" == "real" ]]; then
     echo "[e2e] local smoke mode: real Supabase enabled by explicit flag"

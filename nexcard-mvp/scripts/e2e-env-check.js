@@ -29,6 +29,7 @@ const readEnv = (name) => {
 
 const groups = {
   local: ['CYPRESS_login_email', 'CYPRESS_login_password'],
+  'payment-return': [],
   smoke: ['CYPRESS_login_email', 'CYPRESS_login_password'],
   nfc: ['CYPRESS_nfc_token', 'CYPRESS_nfc_expected_slug'],
   'soft-delete': ['CYPRESS_deleted_profile_slug'],
