@@ -131,6 +131,8 @@ describe('useCheckoutFlow secure guest payment return', () => {
 
     expect(window.location.search).toBe('');
     expect(mocks.getGuestOrderReceipt).toHaveBeenCalledTimes(1);
+    expect(mocks.trackEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.trackEvent).toHaveBeenCalledWith('payment_return_success_seen', { order_id: 'order-1' });
     expect(hook.current.currentOrder).toMatchObject({
       id: 'order-1',
       payment_status: 'paid',

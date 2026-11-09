@@ -25,6 +25,9 @@ export default defineConfig(({ mode }) => {
   );
 
   return {
+    // Vite otherwise loads .env* before applying `define`; the isolated E2E
+    // process must use only its explicit synthetic allowlist.
+    ...(isolatedPaymentReturn ? { envFile: false } : {}),
     plugins: [react()],
     define: defineEnv,
     server: {
