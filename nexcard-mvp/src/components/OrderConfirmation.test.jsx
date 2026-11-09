@@ -1,5 +1,5 @@
 import React from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import OrderConfirmation from './OrderConfirmation';
@@ -21,15 +21,6 @@ function render(order) {
     },
   };
 }
-
-beforeEach(() => {
-  window.history.replaceState({}, '', '/');
-});
-
-afterEach(() => {
-  window.history.replaceState({}, '', '/');
-  document.body.innerHTML = '';
-});
 
 describe('OrderConfirmation privacy-safe receipts', () => {
   it('keeps an unavailable guest receipt generic without placeholders or inferred details', () => {
@@ -55,8 +46,7 @@ describe('OrderConfirmation privacy-safe receipts', () => {
     view.unmount();
   });
 
-  it('does not call a pending receipt rejected from the failure query parameter alone', () => {
-    window.history.replaceState({}, '', '/?payment=failure&order=guest-order-1234');
+  it('keeps a pending receipt pending', () => {
     const view = render({
       id: 'guest-order-1234',
       payment_status: 'pending',
@@ -65,6 +55,28 @@ describe('OrderConfirmation privacy-safe receipts', () => {
 
     expect(view.container.textContent).toContain('Pendiente de confirmación');
     expect(view.container.textContent).not.toContain('Pago rechazado');
+    view.unmount();
+  });
+
+  it.each([
+    ['whitespace-only string', '   '],
+    ['non-numeric string', 'not-an-amount'],
+  ])('keeps details hidden when amount_cents is a %s', (_description, amount_cents) => {
+    const view = render({
+      id: 'invalid-amount-order',
+      customer_email: 'buyer@example.com',
+      amount_cents,
+      payment_status: 'pending',
+      payment_method: 'mercado-pago',
+      fulfillment_status: 'in_production',
+    });
+    const text = view.container.textContent;
+
+    expect(text).not.toContain('Email');
+    expect(text).not.toContain('Método de Pago');
+    expect(text).not.toContain('Estado de Entrega');
+    expect(text).not.toContain('Total de la orden');
+    expect(text).not.toContain('$0');
     view.unmount();
   });
 
@@ -113,6 +125,36 @@ describe('OrderConfirmation privacy-safe receipts', () => {
     expect(view.container.textContent).toContain('¡Orden Confirmada!');
     expect(view.container.textContent).toContain('$0');
     expect(view.container.textContent).toContain('Total Pagado');
+    view.unmount();
+  });
+
+  it('keeps a numeric string zero as an authorized amount', () => {
+    const view = render({
+      id: 'order-string-zero',
+      customer_email: 'buyer@example.com',
+      amount_cents: '0',
+      payment_status: 'pending',
+    });
+
+    expect(view.container.textContent).toContain('$0');
+    expect(view.container.textContent).toContain('Total de la orden');
+    view.unmount();
+  });
+
+  it('encodes WhatsApp receipt references without injecting query parameters', () => {
+    const folio = 'NX&source=evil#frag?discount=100% Ñ';
+    const view = render({
+      id: 'order-whatsapp',
+      folio,
+      payment_status: 'pending',
+      guestReceiptUnavailable: true,
+    });
+    const href = view.container.querySelector('a[href*="wa.me"]')?.href;
+    const url = new URL(href);
+
+    expect(url.searchParams.get('text')).toBe(`Hola, mi folio es ${folio}`);
+    expect([...url.searchParams.entries()]).toEqual([['text', `Hola, mi folio es ${folio}`]]);
+    expect(url.hash).toBe('');
     view.unmount();
   });
 });

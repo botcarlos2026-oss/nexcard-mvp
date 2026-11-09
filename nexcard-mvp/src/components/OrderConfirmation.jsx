@@ -4,10 +4,11 @@ import { CheckCircle, Clock, Copy } from 'lucide-react';
 export default function OrderConfirmation({ order }) {
   const [copied, setCopied] = React.useState(false);
   const customerEmail = typeof order.customer_email === 'string' ? order.customer_email.trim() : '';
-  const hasExplicitAmount = order.amount_cents !== undefined
-    && order.amount_cents !== null
-    && order.amount_cents !== ''
-    && Number.isFinite(Number(order.amount_cents));
+  const hasExplicitAmount = typeof order.amount_cents === 'number'
+    ? Number.isFinite(order.amount_cents)
+    : typeof order.amount_cents === 'string'
+      && order.amount_cents.trim() !== ''
+      && Number.isFinite(Number(order.amount_cents));
   const hasReceiptDetails = !order.guestReceiptUnavailable && Boolean(customerEmail && hasExplicitAmount);
   const hasPaymentMethod = hasReceiptDetails && Boolean(order.payment_method);
   const hasFulfillmentStatus = hasReceiptDetails && Boolean(order.fulfillment_status);
@@ -57,6 +58,7 @@ export default function OrderConfirmation({ order }) {
   }[order.payment_method] || order.payment_method;
 
   const displayOrderReference = order.folio || `#${order.id.substring(0, 8).toUpperCase()}`;
+  const whatsappMessage = `Hola, mi folio es ${displayOrderReference}`;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-8">
@@ -183,7 +185,7 @@ export default function OrderConfirmation({ order }) {
 
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
           <a
-            href={`https://wa.me/56993183021?text=Hola,%20mi%20folio%20es%20${displayOrderReference}`}
+            href={`https://wa.me/56993183021?text=${encodeURIComponent(whatsappMessage)}`}
             target="_blank" rel="noreferrer"
             className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-bold transition-colors"
           >
