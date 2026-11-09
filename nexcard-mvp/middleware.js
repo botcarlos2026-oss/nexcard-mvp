@@ -85,8 +85,8 @@ async function fetchPublicProfileForOg(slug, { env = process.env, fetchImpl = fe
   const config = getSupabaseConfig(env);
   if (!config) return null;
 
-  const query = new URL(`${config.url}/rest/v1/profiles`);
-  query.searchParams.set('select', 'full_name,profession,bio,avatar_url,cover_image_url');
+  const query = new URL(`${config.url}/rest/v1/profiles_public`);
+  query.searchParams.set('select', 'full_name,profession,bio,avatar_url,cover_image_url,slug');
   query.searchParams.set('slug', `eq.${slug}`);
   query.searchParams.set('status', 'eq.active');
   query.searchParams.set('deleted_at', 'is.null');
