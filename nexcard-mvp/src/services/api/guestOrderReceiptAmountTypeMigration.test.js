@@ -22,7 +22,7 @@ const receiptColumns = [
 ];
 
 describe('guest order receipt bigint corrective migration', () => {
-  it('replaces the exact RPC signature with a bigint receipt projection', () => {
+  it('replaces the exact RPC signature with a signed bigint receipt projection', () => {
     const sql = fs.readFileSync(migrationPath, 'utf8');
     const normalizedSql = sql.replace(/\s+/g, ' ').toLowerCase();
 
@@ -34,6 +34,7 @@ describe('guest order receipt bigint corrective migration', () => {
 
     const returnsTable = normalizedSql.match(/returns table \((.*?)\) language plpgsql/s)?.[1];
     expect(returnsTable?.split(',').map((column) => column.trim())).toEqual(receiptColumns);
+    expect(normalizedSql).not.toMatch(/o\.amount_cents\s*::\s*(?:integer|int4)\b/);
   });
 
   it('preserves the restricted authorization, security and schema-cache controls', () => {

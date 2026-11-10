@@ -25,6 +25,8 @@ const expectedColumns = [
   'payment_status',
   'updated_at',
 ];
+const positiveBigintAmount = '3000000000';
+const signedBigintAmount = '-3000000000';
 
 function runDocker(args, input) {
   const result = spawnSync('docker', args, {
@@ -116,11 +118,17 @@ try {
       fulfillment_status, amount_cents, currency, created_at, updated_at,
       client_checkout_attempt_id, client_checkout_fingerprint,
       customer_phone, customer_address, invoice_rut
-    ) values (
-      '11111111-1111-1111-1111-111111111111', 'NC-9001', 'qa@example.test', 'mercadopago', 'pending', null,
-      'pending', 3000000000, 'CLP', now(), now(), 'attempt-valid', 'fingerprint-valid',
-      '+56900000000', 'Hidden St 1', '11.111.111-1'
-    );
+    ) values
+      (
+        '11111111-1111-1111-1111-111111111111', 'NC-9001', 'qa@example.test', 'mercadopago', 'pending', null,
+        'pending', ${positiveBigintAmount}, 'CLP', now(), now(), 'attempt-valid', 'fingerprint-valid',
+        '+569****0000', 'Hidden St 1', '11.111.111-1'
+      ),
+      (
+        '22222222-2222-2222-2222-222222222222', 'NC-9002', 'qa-negative@example.test', 'mercadopago', 'pending', null,
+        'pending', ${signedBigintAmount}, 'CLP', now(), now(), 'attempt-negative', 'fingerprint-negative',
+        '+569****0001', 'Hidden St 2', '22.222.222-2'
+      );
   `);
 
   const valid = psqlAsAnon(`
@@ -143,6 +151,12 @@ try {
       '11111111-1111-1111-1111-111111111111', 'attempt-valid', 'fingerprint-valid'
     );
   `);
+  // This is a PostgreSQL signed-bigint round-trip probe, not commercial amount validation.
+  const signedAmount = psqlAsAnon(`
+    select amount_cents from public.get_guest_order_receipt(
+      '22222222-2222-2222-2222-222222222222', 'attempt-negative', 'fingerprint-negative'
+    );
+  `);
   const allowlist = psqlAsAnon(`
     select jsonb_object_keys(to_jsonb(receipt))
     from public.get_guest_order_receipt(
@@ -157,14 +171,20 @@ try {
   if (wrongAttempt !== '0' || wrongFingerprint !== '0') {
     throw new Error(`expected wrong=0, got attempt=${wrongAttempt}, fingerprint=${wrongFingerprint}`);
   }
-  if (amount !== '3000000000') throw new Error(`expected bigint amount 3000000000, got ${amount}`);
+  if (amount !== positiveBigintAmount) {
+    throw new Error(`expected bigint amount ${positiveBigintAmount}, got ${amount}`);
+  }
+  if (signedAmount !== signedBigintAmount) {
+    throw new Error(`expected signed bigint amount ${signedBigintAmount}, got ${signedAmount}`);
+  }
   if (JSON.stringify(allowlist) !== JSON.stringify(expectedColumns)) {
     throw new Error(`receipt allowlist mismatch: ${allowlist.join(',')}`);
   }
 
   console.log('valid_receipt=1');
   console.log('wrong_receipt=0');
-  console.log('amount_cents=3000000000');
+  console.log(`amount_cents=${positiveBigintAmount}`);
+  console.log(`signed_amount_cents=${signedBigintAmount}`);
   console.log('allowlist=exact');
 } finally {
   spawnSync('docker', ['rm', '-f', containerName], { stdio: 'ignore' });
