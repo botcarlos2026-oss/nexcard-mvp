@@ -25,8 +25,8 @@ const expectedColumns = [
   'payment_status',
   'updated_at',
 ];
-const positiveBigintAmount = '3000000000';
-const signedBigintAmount = '-3000000000';
+const minSignedBigintAmount = '-9223372036854775808';
+const maxSignedBigintAmount = '9223372036854775807';
 
 function runDocker(args, input) {
   const result = spawnSync('docker', args, {
@@ -121,46 +121,46 @@ try {
     ) values
       (
         '11111111-1111-1111-1111-111111111111', 'NC-9001', 'qa@example.test', 'mercadopago', 'pending', null,
-        'pending', ${positiveBigintAmount}, 'CLP', now(), now(), 'attempt-valid', 'fingerprint-valid',
+        'pending', ${minSignedBigintAmount}, 'CLP', now(), now(), 'attempt-min-signed-bigint', 'fingerprint-min-signed-bigint',
         '+569****0000', 'Hidden St 1', '11.111.111-1'
       ),
       (
-        '22222222-2222-2222-2222-222222222222', 'NC-9002', 'qa-negative@example.test', 'mercadopago', 'pending', null,
-        'pending', ${signedBigintAmount}, 'CLP', now(), now(), 'attempt-negative', 'fingerprint-negative',
+        '22222222-2222-2222-2222-222222222222', 'NC-9002', 'qa-max@example.test', 'mercadopago', 'pending', null,
+        'pending', ${maxSignedBigintAmount}, 'CLP', now(), now(), 'attempt-max-signed-bigint', 'fingerprint-max-signed-bigint',
         '+569****0001', 'Hidden St 2', '22.222.222-2'
       );
   `);
 
   const valid = psqlAsAnon(`
     select count(*) from public.get_guest_order_receipt(
-      '11111111-1111-1111-1111-111111111111', 'attempt-valid', 'fingerprint-valid'
+      '11111111-1111-1111-1111-111111111111', 'attempt-min-signed-bigint', 'fingerprint-min-signed-bigint'
     );
   `);
   const wrongAttempt = psqlAsAnon(`
     select count(*) from public.get_guest_order_receipt(
-      '11111111-1111-1111-1111-111111111111', 'attempt-wrong', 'fingerprint-valid'
+      '11111111-1111-1111-1111-111111111111', 'attempt-wrong', 'fingerprint-min-signed-bigint'
     );
   `);
   const wrongFingerprint = psqlAsAnon(`
     select count(*) from public.get_guest_order_receipt(
-      '11111111-1111-1111-1111-111111111111', 'attempt-valid', 'fingerprint-wrong'
+      '11111111-1111-1111-1111-111111111111', 'attempt-min-signed-bigint', 'fingerprint-wrong'
     );
   `);
-  const amount = psqlAsAnon(`
+  const minSignedBigintAmountResult = psqlAsAnon(`
     select amount_cents from public.get_guest_order_receipt(
-      '11111111-1111-1111-1111-111111111111', 'attempt-valid', 'fingerprint-valid'
+      '11111111-1111-1111-1111-111111111111', 'attempt-min-signed-bigint', 'fingerprint-min-signed-bigint'
     );
   `);
-  // This is a PostgreSQL signed-bigint round-trip probe, not commercial amount validation.
-  const signedAmount = psqlAsAnon(`
+  // These are PostgreSQL signed-bigint round-trip probes, not commercial amount validation.
+  const maxSignedBigintAmountResult = psqlAsAnon(`
     select amount_cents from public.get_guest_order_receipt(
-      '22222222-2222-2222-2222-222222222222', 'attempt-negative', 'fingerprint-negative'
+      '22222222-2222-2222-2222-222222222222', 'attempt-max-signed-bigint', 'fingerprint-max-signed-bigint'
     );
   `);
   const allowlist = psqlAsAnon(`
     select jsonb_object_keys(to_jsonb(receipt))
     from public.get_guest_order_receipt(
-      '11111111-1111-1111-1111-111111111111', 'attempt-valid', 'fingerprint-valid'
+      '11111111-1111-1111-1111-111111111111', 'attempt-min-signed-bigint', 'fingerprint-min-signed-bigint'
     ) as receipt
     order by 1;
   `)
@@ -171,11 +171,15 @@ try {
   if (wrongAttempt !== '0' || wrongFingerprint !== '0') {
     throw new Error(`expected wrong=0, got attempt=${wrongAttempt}, fingerprint=${wrongFingerprint}`);
   }
-  if (amount !== positiveBigintAmount) {
-    throw new Error(`expected bigint amount ${positiveBigintAmount}, got ${amount}`);
+  if (minSignedBigintAmountResult !== minSignedBigintAmount) {
+    throw new Error(
+      `expected min signed bigint amount ${minSignedBigintAmount}, got ${minSignedBigintAmountResult}`
+    );
   }
-  if (signedAmount !== signedBigintAmount) {
-    throw new Error(`expected signed bigint amount ${signedBigintAmount}, got ${signedAmount}`);
+  if (maxSignedBigintAmountResult !== maxSignedBigintAmount) {
+    throw new Error(
+      `expected max signed bigint amount ${maxSignedBigintAmount}, got ${maxSignedBigintAmountResult}`
+    );
   }
   if (JSON.stringify(allowlist) !== JSON.stringify(expectedColumns)) {
     throw new Error(`receipt allowlist mismatch: ${allowlist.join(',')}`);
@@ -183,8 +187,8 @@ try {
 
   console.log('valid_receipt=1');
   console.log('wrong_receipt=0');
-  console.log(`amount_cents=${positiveBigintAmount}`);
-  console.log(`signed_amount_cents=${signedBigintAmount}`);
+  console.log(`min_signed_amount_cents=${minSignedBigintAmount}`);
+  console.log(`max_signed_amount_cents=${maxSignedBigintAmount}`);
   console.log('allowlist=exact');
 } finally {
   spawnSync('docker', ['rm', '-f', containerName], { stdio: 'ignore' });
