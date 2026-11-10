@@ -12,6 +12,10 @@ const correctiveMigration = fs.readFileSync(
   path.join(repoRoot, 'supabase/migrations/202611092307_fix_guest_order_receipt_amount_type.sql'),
   'utf8'
 );
+const anonOrdersReadHardeningMigration = fs.readFileSync(
+  path.join(repoRoot, 'supabase/migrations/202611101117_close_anon_orders_read.sql'),
+  'utf8'
+);
 const expectedColumns = [
   'amount_cents',
   'created_at',
@@ -44,7 +48,7 @@ function runDocker(args, input) {
 
 function psql(sql) {
   return runDocker(
-    ['exec', '-i', containerName, 'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres', '-At'],
+    ['exec', '-i', containerName, 'psql', '-h', '127.0.0.1', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres', '-At'],
     sql
   );
 }
@@ -54,6 +58,23 @@ function psqlAsAnon(sql) {
     .split('\n')
     .filter((line) => line !== 'SET')
     .join('\n');
+}
+
+function psqlAsAnonResult(sql) {
+  const result = spawnSync(
+    'docker',
+    ['exec', '-i', containerName, 'psql', '-h', '127.0.0.1', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres', '-At'],
+    {
+      input: `set role anon;\n${sql}`,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }
+  );
+
+  return {
+    status: result.status,
+    output: `${result.stdout}\n${result.stderr}`.trim(),
+  };
 }
 
 async function waitForPostgres() {
@@ -86,9 +107,15 @@ try {
     create role authenticated nologin;
     create role service_role nologin;
     grant usage on schema public to anon, authenticated, service_role;
+    create schema auth;
+    grant usage on schema auth to anon, authenticated, service_role;
+    create function auth.uid() returns uuid
+      language sql stable
+      as $$ select null::uuid $$;
 
     create table public.orders (
       id uuid primary key,
+      user_id uuid,
       folio text not null,
       customer_email text not null,
       payment_method text not null,
@@ -130,6 +157,63 @@ try {
         '+569****0001', 'Hidden St 2', '22.222.222-2'
       );
   `);
+
+  // Recreate the verified production drift before applying the corrective migration.
+  psql(`
+    grant select on table public.orders to anon;
+    create policy "Allow users to read their own orders"
+      on public.orders for select to public
+      using ((user_id is null) or (user_id = auth.uid()));
+  `);
+
+  const legacyAnonDirectRead = psqlAsAnon(`
+    select count(*) from public.orders
+    where id = '11111111-1111-1111-1111-111111111111';
+  `);
+
+  if (legacyAnonDirectRead !== '1') {
+    throw new Error(`expected legacy anon direct read=1, got ${legacyAnonDirectRead}`);
+  }
+
+  psql(anonOrdersReadHardeningMigration);
+
+  const rlsEnabled = psql(`
+    select relrowsecurity from pg_class
+    where oid = 'public.orders'::regclass;
+  `);
+  const legacyPolicyCount = psql(`
+    select count(*) from pg_policies
+    where schemaname = 'public'
+      and tablename = 'orders'
+      and policyname = 'Allow users to read their own orders';
+  `);
+  const anonHasOrdersSelect = psql(
+    `select has_table_privilege('anon', 'public.orders', 'select');`
+  );
+  const directReadAfterHardening = psqlAsAnonResult(`
+    select count(*) from public.orders
+    where id = '11111111-1111-1111-1111-111111111111';
+  `);
+
+  if (rlsEnabled !== 't') throw new Error(`expected orders RLS enabled, got ${rlsEnabled}`);
+  if (legacyPolicyCount !== '0') {
+    throw new Error(`expected legacy policy removed, got ${legacyPolicyCount}`);
+  }
+  if (anonHasOrdersSelect !== 'f') {
+    throw new Error(`expected anon SELECT revoked, got ${anonHasOrdersSelect}`);
+  }
+  if (
+    directReadAfterHardening.status === 0 &&
+    directReadAfterHardening.output.split('\n').filter((line) => line !== 'SET').join('\n').trim() !== '0'
+  ) {
+    throw new Error(`expected anon direct read denied or zero rows, got ${directReadAfterHardening.output}`);
+  }
+  if (
+    directReadAfterHardening.status !== 0 &&
+    !/permission denied for table orders/i.test(directReadAfterHardening.output)
+  ) {
+    throw new Error(`expected orders permission denial, got ${directReadAfterHardening.output}`);
+  }
 
   const valid = psqlAsAnon(`
     select count(*) from public.get_guest_order_receipt(
@@ -187,6 +271,13 @@ try {
 
   console.log('valid_receipt=1');
   console.log('wrong_receipt=0');
+  console.log('legacy_anon_direct_read_before=1');
+  console.log(
+    `anon_direct_read_after=${directReadAfterHardening.status === 0 ? 'zero_rows' : 'denied'}`
+  );
+  console.log('orders_rls=enabled');
+  console.log('legacy_orders_policy=removed');
+  console.log('anon_orders_select=revoked');
   console.log(`min_signed_amount_cents=${minSignedBigintAmount}`);
   console.log(`max_signed_amount_cents=${maxSignedBigintAmount}`);
   console.log('allowlist=exact');
