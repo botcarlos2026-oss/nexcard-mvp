@@ -88,6 +88,33 @@ export const setPendingClaimEmail = (email) => {
 };
 
 const LAST_ORDER_SNAPSHOT_KEY = 'nexcard_last_order_snapshot';
+const LAST_ORDER_PROOF_KEY = 'nexcard_last_order_proof';
+
+export const getLastOrderProof = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(LAST_ORDER_PROOF_KEY) || 'null');
+  } catch {
+    return null;
+  }
+};
+
+export const setLastOrderProof = (proof) => {
+  try {
+    if (!proof) {
+      sessionStorage.removeItem(LAST_ORDER_PROOF_KEY);
+      return;
+    }
+
+    const { orderId, clientCheckoutAttemptId, clientCheckoutFingerprint } = proof;
+    sessionStorage.setItem(LAST_ORDER_PROOF_KEY, JSON.stringify({
+      orderId,
+      clientCheckoutAttemptId,
+      clientCheckoutFingerprint,
+    }));
+  } catch {
+    // sessionStorage puede estar deshabilitado; el retorno será genérico.
+  }
+};
 
 export const getLastOrderSnapshot = () => {
   try {
@@ -264,6 +291,7 @@ export const api = {
 
   getProducts: async (options = {}) => productsApi.getProducts(options),
   createOrder: async (payload) => ordersApi.createOrder(payload),
+  getGuestOrderReceipt: async (payload, options) => ordersApi.getGuestOrderReceipt(payload, options),
 
   getInventory: async () => inventoryApi.getInventory(),
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useCart } from '../store/cartStore';
-import { api, setLastOrderSnapshot } from '../services/api';
+import { api, setLastOrderProof, setLastOrderSnapshot } from '../services/api';
 import { ArrowLeft, ShieldCheck, AlertCircle, Tag } from 'lucide-react';
 import CardPreview from './CardPreview';
 import { PROFILE_SLUG_RULES_MESSAGE, isValidProfileSlug, slugify } from '../utils/slug';
@@ -335,6 +335,11 @@ export default function CheckoutForm({ onOrderSuccess, onBack }) {
 
       if (result?.id) {
         setLastOrderSnapshot(result);
+        setLastOrderProof({
+          orderId: result.id,
+          clientCheckoutAttemptId,
+          clientCheckoutFingerprint,
+        });
 
         if (paymentMethod === 'mercado-pago') {
           // Crear preferencia en MP vía Edge Function
