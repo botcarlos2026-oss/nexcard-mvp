@@ -24,6 +24,7 @@
     "build": "vite build && node ./scripts/generate-middleware-index-html.mjs",
     "test": "node ./scripts/vitest-run.mjs",
     "test:unit": "node ./scripts/vitest-run.mjs",
+    "verify:guest-order-receipt-bigint": "node ./scripts/verify-guest-order-receipt-bigint.mjs",
     "lint": "eslint src server scripts vite.config.js --ext js,jsx",
     "kpi:evaluate": "node ./scripts/run-executive-alert-evaluator.mjs manual",
     "kpi:evaluate:cron": "node ./scripts/run-executive-alert-evaluator.mjs cron",
