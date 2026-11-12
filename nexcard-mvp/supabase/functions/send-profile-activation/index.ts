@@ -73,7 +73,7 @@ serve(async (req) => {
 
     const { data: claim, error: claimError } = await supabase
       .from('profile_claims')
-      .select('claim_token, customer_email, quantity, status')
+      .select('id, claim_token, customer_email, quantity, status, expires_at')
       .eq('order_id', order_id)
       .maybeSingle();
 
@@ -93,6 +93,18 @@ serve(async (req) => {
     if (claim.status !== 'pending') {
       return new Response(JSON.stringify({ success: true, skipped: true }), {
         status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!claim.expires_at || new Date(claim.expires_at).getTime() <= Date.now()) {
+      await supabase
+        .from('profile_claims')
+        .update({ status: 'expired' })
+        .eq('id', claim.id)
+        .eq('status', 'pending');
+      return new Response(JSON.stringify({ success: false, error: 'Link de activación expirado' }), {
+        status: 410,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }

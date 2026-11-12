@@ -11,6 +11,23 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    const existingMeta = document.querySelector('meta[name="referrer"]');
+    const previousPolicy = existingMeta?.getAttribute('content') || null;
+    const meta = existingMeta || document.createElement('meta');
+    if (!existingMeta) {
+      meta.setAttribute('name', 'referrer');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', 'no-referrer');
+
+    return () => {
+      if (existingMeta && previousPolicy) existingMeta.setAttribute('content', previousPolicy);
+      else if (existingMeta) existingMeta.removeAttribute('content');
+      else meta.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
     api.previewProfileClaim(token)
       .then((data) => {
@@ -34,9 +51,8 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
   const activationHelpMessage = 'Revisa el enlace o solicita uno nuevo al equipo NexCard.';
 
   const handleActivate = async () => {
-    const buyerEmail = claimData?.claim?.customer_email || '';
     if (!user) {
-      onAuthRequired?.(token, buyerEmail);
+      onAuthRequired?.(token);
       return;
     }
 
@@ -48,11 +64,11 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
       setClaimData(result);
       trackEvent('activation_completed');
       if (result.requires_profile_setup) {
-        onContinueSetup?.({ token, reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '', claimResult: result });
+        onContinueSetup?.({ reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '', claimResult: result });
       }
     } catch (err) {
       if (err?.code === 'AUTH_REQUIRED' || err?.status === 401) {
-        onAuthRequired?.(token, buyerEmail);
+        onAuthRequired?.(token);
         return;
       }
       setError(err?.message || activationHelpMessage);
@@ -79,7 +95,8 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
 
   const order = claimData?.order;
   const claim = claimData?.claim;
-  const suggestedSlug = claimData?.reserved_slug || order?.card_customization?.desired_slug || '';
+  const suggestedSlug = user ? claimData?.reserved_slug || order?.card_customization?.desired_slug || '' : '';
+  const maskedBuyerEmail = claim?.masked_customer_email || 'Correo de compra protegido';
   const alreadyClaimed = claim?.already_claimed || claim?.status === 'claimed';
   const canRetryClaim = !!user;
   const disableActivate = busy || (alreadyClaimed && !canRetryClaim);
@@ -94,13 +111,13 @@ const ActivationPage = ({ token, user, onAuthRequired, onContinueSetup }) => {
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 space-y-6">
-          <div>
+          {user && order ? <div>
             <p className="text-zinc-400 text-sm mb-1">Orden</p>
             <p className="font-bold text-lg">{order?.folio || order?.id}</p>
-          </div>
+          </div> : null}
           <div>
             <p className="text-zinc-400 text-sm mb-1">Email comprador</p>
-            <p className="font-semibold">{claim?.customer_email}</p>
+            <p className="font-semibold">{maskedBuyerEmail}</p>
           </div>
           <div>
             <p className="text-zinc-400 text-sm mb-1">Tarjetas incluidas</p>

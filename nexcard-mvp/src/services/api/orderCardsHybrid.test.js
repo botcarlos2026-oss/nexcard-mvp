@@ -35,9 +35,9 @@ describe('hybrid order cards automation', () => {
     expect(source).toContain('Este link pertenece a otro correo comprador');
 
     const mismatchGuardIndex = source.indexOf('claimEmail && userEmail && claimEmail !== userEmail');
-    const claimMutationIndex = source.indexOf('.update(updatePayload)');
-    const slugMutationIndex = source.indexOf("status: 'consumed'");
-    const cardMutationIndex = source.indexOf("activation_status: 'assigned'");
+    const claimMutationIndex = source.indexOf('.update(updatePayload)', mismatchGuardIndex);
+    const slugMutationIndex = source.indexOf("status: 'consumed'", mismatchGuardIndex);
+    const cardMutationIndex = source.indexOf("activation_status: 'assigned'", mismatchGuardIndex);
 
     expect(mismatchGuardIndex).toBeGreaterThan(-1);
     expect(claimMutationIndex).toBeGreaterThan(mismatchGuardIndex);

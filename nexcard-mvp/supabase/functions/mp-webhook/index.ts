@@ -321,14 +321,20 @@ async function ensureProfileActivationFlow(supabase: ReturnType<typeof createCli
 
   const { data: existingClaim } = await supabase
     .from('profile_claims')
-    .select('id, claim_token, status')
+    .select('id, claim_token, status, expires_at')
     .eq('order_id', orderId)
     .maybeSingle();
+  const existingClaimRow = existingClaim as {
+    id: string;
+    claim_token: string;
+    status: string;
+    expires_at: string | null;
+  } | null;
 
-  let claimToken = existingClaim?.claim_token;
-  let claimStatus = existingClaim?.status || null;
+  let claimToken = existingClaimRow?.claim_token;
+  let claimStatus = existingClaimRow?.status || null;
 
-  if (!existingClaim) {
+  if (!existingClaimRow) {
     const [{ data: orderRow }, { data: orderItems }] = await Promise.all([
       supabase
         .from('orders')
@@ -343,6 +349,7 @@ async function ensureProfileActivationFlow(supabase: ReturnType<typeof createCli
 
     const totalQuantity = (orderItems || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
     claimToken = crypto.randomUUID().replaceAll('-', '');
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
     const { error: claimInsertError } = await supabase
       .from('profile_claims')
@@ -352,6 +359,7 @@ async function ensureProfileActivationFlow(supabase: ReturnType<typeof createCli
         claim_token: claimToken,
         quantity: Math.max(totalQuantity, 1),
         status: 'pending',
+        expires_at: expiresAt,
       });
 
     if (claimInsertError) {
@@ -361,6 +369,16 @@ async function ensureProfileActivationFlow(supabase: ReturnType<typeof createCli
 
     claimStatus = 'pending';
     log('info', 'profile_claim_created', { order_id: orderId });
+  }
+
+  if (existingClaimRow?.status === 'pending' && (!existingClaimRow.expires_at || new Date(existingClaimRow.expires_at).getTime() <= Date.now())) {
+    await (supabase
+      .from('profile_claims') as any)
+      .update({ status: 'expired' })
+      .eq('id', existingClaimRow.id)
+      .eq('status', 'pending');
+    log('info', 'profile_activation_link_expired', { order_id: orderId });
+    return;
   }
 
   if (!claimToken || claimStatus === 'claimed') {

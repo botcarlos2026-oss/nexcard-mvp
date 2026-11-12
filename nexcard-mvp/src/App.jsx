@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AppRouteRenderer from './components/AppRouteRenderer';
-import { api, getPendingClaimEmail, getPendingClaimToken, setPendingClaimEmail, setPendingClaimToken, setStoredAuth } from './services/api';
+import { api, getPendingClaimToken, setPendingClaimToken, setStoredAuth } from './services/api';
 import { defaultLandingContent, initialMockData } from './utils/defaultData';
 import { useCart } from './store/cartStore';
 import { useAuthSessionSync } from './hooks/useAuthSessionSync';
@@ -17,6 +17,14 @@ const getReservedSlugFromClaimResult = (result = {}) => (
 );
 
 const normalizePhoneSeed = (value = '') => String(value || '').replace(/[^\d+]/g, '').trim();
+
+const getPendingClaimId = () => {
+  try {
+    return sessionStorage.getItem('nx_pending_claim_id') || null;
+  } catch {
+    return null;
+  }
+};
 
 const getProfileSeedFromClaimResult = (result = {}) => {
   const order = result?.order || {};
@@ -47,7 +55,7 @@ function App() {
   const [ordersAdminData, setOrdersAdminData] = useState([]);
   const [error, setError] = useState('');
   const [pendingClaimToken, setPendingClaimTokenState] = useState(() => getPendingClaimToken());
-  const [pendingClaimEmail, setPendingClaimEmailState] = useState(() => getPendingClaimEmail());
+  const [pendingClaimId, setPendingClaimId] = useState(() => getPendingClaimId());
   const [authHashNotice, setAuthHashNotice] = useState('');
   const { getTotalItems, startNewCheckout } = useCart();
   const {
@@ -174,38 +182,37 @@ function App() {
     const saved = await api.updateMyProfile(newData);
     setData(saved);
 
-    const claimToken = getPendingClaimToken();
-    if (claimToken) {
+    if (pendingClaimId) {
       try {
-        await api.claimProfile(claimToken);
-        setPendingClaimToken(null);
-        setPendingClaimEmail(null);
-        setPendingClaimTokenState(null);
-        setPendingClaimEmailState('');
-        try {
-          sessionStorage.removeItem('nx_pending_profile_slug');
-          sessionStorage.removeItem('nx_pending_profile_seed');
-        } catch (_) {
-          // sessionStorage puede estar bloqueado en modo privado.
-        }
+        await api.finalizeProfileClaim(pendingClaimId);
+      } catch (finalizeError) {
+        throw new Error(finalizeError?.message || 'Tu perfil se guardó, pero no pudimos terminar de vincular tu NexCard. Intenta nuevamente.');
+      }
+      setPendingClaimId(null);
+      try {
+        sessionStorage.removeItem('nx_pending_claim_id');
+        sessionStorage.removeItem('nx_pending_profile_slug');
+        sessionStorage.removeItem('nx_pending_profile_seed');
       } catch (_) {
-        // no bloquear guardado del perfil
+        // sessionStorage puede estar bloqueado en modo privado.
       }
     }
   };
 
-  const handleClaimAuthRequired = (token, buyerEmail = '') => {
+  const handleClaimAuthRequired = (token) => {
     setPendingClaimToken(token);
-    setPendingClaimEmail(buyerEmail);
     setPendingClaimTokenState(token);
-    setPendingClaimEmailState(buyerEmail || '');
     navigate('/login?mode=register&claim=1');
   };
 
-  const handleContinueSetup = useCallback(({ token, reservedSlug, claimResult }) => {
-    setPendingClaimToken(token);
-    setPendingClaimTokenState(token);
+  const handleContinueSetup = useCallback(({ reservedSlug, claimResult }) => {
+    const claimId = claimResult?.claim?.id || null;
+    if (!claimId) throw new Error('La activación no entregó un identificador de continuación');
+    setPendingClaimToken(null);
+    setPendingClaimTokenState(null);
+    setPendingClaimId(claimId);
     try {
+      sessionStorage.setItem('nx_pending_claim_id', claimId);
       if (reservedSlug) sessionStorage.setItem('nx_pending_profile_slug', reservedSlug);
       else sessionStorage.removeItem('nx_pending_profile_slug');
       if (claimResult) sessionStorage.setItem('nx_pending_profile_seed', JSON.stringify(getProfileSeedFromClaimResult(claimResult)));
@@ -219,11 +226,8 @@ function App() {
   const completePendingClaim = useCallback(async (claimToken) => {
     try {
       const result = await api.claimProfile(claimToken);
-      setPendingClaimEmail(null);
-      setPendingClaimEmailState('');
       if (result?.requires_profile_setup) {
         handleContinueSetup({
-          token: claimToken,
           reservedSlug: getReservedSlugFromClaimResult(result),
           claimResult: result,
         });
@@ -283,7 +287,6 @@ function App() {
       currentOrder={currentOrder}
       path={path}
       pendingClaimToken={pendingClaimToken}
-      pendingClaimEmail={pendingClaimEmail}
       authHashNotice={authHashNotice}
       user={user}
       data={data}

@@ -70,23 +70,6 @@ export const setPendingClaimToken = (token) => {
   }
 };
 
-export const getPendingClaimEmail = () => {
-  try {
-    return localStorage.getItem('nexcard_pending_claim_email') || '';
-  } catch {
-    return '';
-  }
-};
-
-export const setPendingClaimEmail = (email) => {
-  try {
-    if (!email) localStorage.removeItem('nexcard_pending_claim_email');
-    else localStorage.setItem('nexcard_pending_claim_email', String(email).trim().toLowerCase());
-  } catch {
-    // ignore
-  }
-};
-
 const LAST_ORDER_SNAPSHOT_KEY = 'nexcard_last_order_snapshot';
 const LAST_ORDER_PROOF_KEY = 'nexcard_last_order_proof';
 
@@ -255,12 +238,13 @@ export const api = {
     }
     setStoredAuth(null);
     setPendingClaimToken(null);
-    setPendingClaimEmail(null);
   },
 
   previewProfileClaim: async (token) => profilesApi.previewProfileClaim(token),
 
   claimProfile: async (token) => profilesApi.claimProfile(token),
+
+  finalizeProfileClaim: async (claimId) => profilesApi.finalizeProfileClaim(claimId),
 
   getLandingContent: async () => {
     if (hasSupabase) {

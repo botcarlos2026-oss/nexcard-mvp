@@ -49,7 +49,6 @@ export default function AppRouteRenderer({
   currentOrder,
   path,
   pendingClaimToken,
-  pendingClaimEmail,
   authHashNotice,
   user,
   data,
@@ -93,7 +92,7 @@ export default function AppRouteRenderer({
     return withSuspense(<OrderConfirmation order={currentOrder} />);
   }
 
-  if (path === '/login') return withSuspense(<AuthPage onAuthSuccess={handleAuthSuccess} pendingClaimToken={pendingClaimToken} pendingClaimEmail={pendingClaimEmail} authHashNotice={authHashNotice} />);
+  if (path === '/login') return withSuspense(<AuthPage onAuthSuccess={handleAuthSuccess} pendingClaimToken={pendingClaimToken} authHashNotice={authHashNotice} />);
 
   if (path === '/admin') return withSuspense(<AdminDashboard dashboard={adminData} navigate={navigate} />);
   if (path === '/admin/inventory') return withSuspense(<InventoryDashboard items={inventoryData.items} movements={inventoryData.movements} />);

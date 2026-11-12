@@ -66,16 +66,15 @@ const getCopy = (mode, hasPendingClaim = false) => {
   };
 };
 
-const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '', authHashNotice = '' }) => {
+const AuthPage = ({ onAuthSuccess, pendingClaimToken, authHashNotice = '' }) => {
   const hasPendingClaim = !!pendingClaimToken;
-  const lockedClaimEmail = hasPendingClaim ? normalizeAuthEmail(pendingClaimEmail) : '';
   const [mode, setMode] = useState(() => getInitialAuthMode(window.location.search, { hasPendingClaim }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(authHashNotice);
   const [notice, setNotice] = useState('');
   const [confirmationPending, setConfirmationPending] = useState(false);
   const [formData, setFormData] = useState({
-    email: lockedClaimEmail,
+    email: '',
     password: '',
     confirmPassword: '',
   });
@@ -175,7 +174,6 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '', au
   const needsPassword = mode !== AUTH_MODES.REQUEST_RESET;
   const needsConfirmPassword = mode === AUTH_MODES.RESET_PASSWORD || (mode === AUTH_MODES.REGISTER && hasPendingClaim);
   const isPasswordRecovery = mode === AUTH_MODES.REQUEST_RESET || mode === AUTH_MODES.RESET_PASSWORD;
-  const shouldLockEmail = !!lockedClaimEmail && mode !== AUTH_MODES.RESET_PASSWORD && hasPendingClaim;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white font-sans flex items-center justify-center p-6 relative overflow-hidden">
@@ -210,12 +208,7 @@ const AuthPage = ({ onAuthSuccess, pendingClaimToken, pendingClaimEmail = '', au
                     required
                     placeholder="ejemplo@correo.com"
                     value={formData.email}
-                    readOnly={shouldLockEmail}
-                    aria-readonly={shouldLockEmail}
-                    onChange={(e) => {
-                      if (shouldLockEmail) return;
-                      setFormData({ ...formData, email: e.target.value });
-                    }}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full bg-zinc-800/50 border-2 border-white/5 rounded-2xl pl-12 pr-6 py-4 font-bold focus:border-emerald-500 outline-none transition-all read-only:text-zinc-300 read-only:cursor-not-allowed"
                   />
                 </div>

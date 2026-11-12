@@ -114,6 +114,27 @@ describe('createProfilesApi activation claim auth', () => {
     });
   });
 
+  it('finaliza el vínculo por claim_id autenticado sin reutilizar el bearer URL', async () => {
+    const { api, supabase } = createApi({
+      session: { access_token: 'valid-jwt' },
+      invokeResult: { data: { success: true, finalized: true }, error: null },
+    });
+
+    await expect(api.finalizeProfileClaim('claim-id-1')).resolves.toEqual({
+      success: true,
+      finalized: true,
+    });
+
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('claim-profile', {
+      body: JSON.stringify({ action: 'finalize', claim_id: 'claim-id-1' }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer valid-jwt',
+      },
+    });
+    expect(supabase.functions.invoke.mock.calls[0][1].body).not.toContain('claim-token');
+  });
+
   it('lee el perfil público desde la view sin seleccionar columnas sensibles', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({ data: { slug: 'ana' }, error: null });
     const is = vi.fn(() => ({ maybeSingle }));
