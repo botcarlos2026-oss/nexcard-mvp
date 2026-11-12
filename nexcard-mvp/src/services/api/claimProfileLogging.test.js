@@ -7,8 +7,9 @@ const source = fs.readFileSync(
 );
 
 describe('claim-profile logging safety', () => {
-  it('no registra el claim token completo cuando no encuentra el claim', () => {
-    expect(source).toContain('token_prefix: token.slice(0, 8)');
+  it('no registra el claim token ni siquiera parcialmente cuando no encuentra el claim', () => {
+    expect(source).not.toContain('token_prefix');
+    expect(source).not.toContain('token.slice');
     expect(source).not.toContain('{ token, error: claimError?.message || null }');
   });
 });

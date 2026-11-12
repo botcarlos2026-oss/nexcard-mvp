@@ -199,6 +199,36 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     return data;
   };
 
+  const finalizeProfileClaim = async (claimId) => {
+    if (!hasSupabase) throw new Error('Supabase no configurado');
+    const sessionResult = await supabase.auth?.getSession?.();
+    const session = sessionResult?.data?.session || null;
+    if (!session?.access_token) {
+      const authError = new Error('Sesión inválida o expirada. Inicia sesión nuevamente para finalizar tu NexCard.');
+      authError.code = 'AUTH_REQUIRED';
+      authError.status = 401;
+      throw authError;
+    }
+
+    const { data, error } = await supabase.functions.invoke('claim-profile', {
+      body: JSON.stringify({ action: 'finalize', claim_id: claimId }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+    if (error) {
+      const status = getFunctionErrorStatus(error);
+      const functionMessage = await readFunctionErrorMessage(error);
+      const finalizeError = new Error(functionMessage || 'No fue posible terminar de vincular tu NexCard');
+      finalizeError.code = status === 401 ? 'AUTH_REQUIRED' : 'CLAIM_FINALIZE_FAILED';
+      finalizeError.status = status;
+      throw finalizeError;
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
   const getPublicProfile = async (slug) => {
     if (hasSupabase) {
       const { data, error } = await supabase
@@ -366,6 +396,7 @@ export function createProfilesApi({ supabase, hasSupabase, getClerkUserId, getCu
     previewProfileClaim,
     checkProfileSlugAvailability,
     claimProfile,
+    finalizeProfileClaim,
     getPublicProfile,
     getMyProfile,
     updateMyProfile,

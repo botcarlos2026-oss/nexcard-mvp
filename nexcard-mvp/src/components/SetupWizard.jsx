@@ -31,6 +31,8 @@ const SetupWizard = ({ onComplete }) => {
   });
   const [slugStatus, setSlugStatus] = useState(reservedSlug ? 'reserved' : 'idle');
   const [slugError, setSlugError] = useState('');
+  const [finishError, setFinishError] = useState('');
+  const [finishing, setFinishing] = useState(false);
   const [formData, setFormData] = useState({
     account_type: 'personal', // personal | business
     full_name: profileSeed.full_name || '',
@@ -112,10 +114,18 @@ const SetupWizard = ({ onComplete }) => {
   };
 
   const handleFinish = async () => {
+    setFinishError('');
     const slug = slugify(formData.slug || formData.full_name || '');
     const available = await checkSlugAvailability(slug);
     if (!available) return;
-    onComplete({ ...formData, slug });
+    setFinishing(true);
+    try {
+      await onComplete({ ...formData, slug });
+    } catch (error) {
+      setFinishError(error?.message || 'No pudimos terminar de vincular tu NexCard. Intenta nuevamente.');
+    } finally {
+      setFinishing(false);
+    }
   };
 
   return (
@@ -312,6 +322,7 @@ const SetupWizard = ({ onComplete }) => {
         )}
 
         {/* Footer Navigation */}
+        {finishError ? <p className="mt-8 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm font-bold text-rose-200">{finishError}</p> : null}
         <div className="mt-16 flex gap-4">
           {step > 0 && (
             <button 
@@ -334,9 +345,10 @@ const SetupWizard = ({ onComplete }) => {
           ) : (
             <button 
               onClick={handleFinish}
-              className="flex-1 bg-emerald-500 text-white p-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all"
+              disabled={finishing}
+              className="flex-1 bg-emerald-500 text-white p-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Finalizar NexCard
+              {finishing ? 'Vinculando NexCard…' : 'Finalizar NexCard'}
               <CheckCircle2 size={24} />
             </button>
           )}

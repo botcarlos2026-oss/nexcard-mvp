@@ -17,7 +17,7 @@ describe('activation flow hardening', () => {
     const source = read(activationPagePath);
 
     expect(source).toContain("err?.code === 'AUTH_REQUIRED'");
-    expect(source).toContain('onAuthRequired?.(token, buyerEmail)');
+    expect(source).toContain('onAuthRequired?.(token)');
     expect(source).toContain('err?.status === 401');
     expect(source).not.toContain('err?.status === 401 || err?.status === 403');
   });
@@ -32,20 +32,25 @@ describe('activation flow hardening', () => {
   it('preserva y muestra reserved_slug para setup antes de navegar', () => {
     const source = read(activationPagePath);
 
-    expect(source).toContain('const suggestedSlug = claimData?.reserved_slug || order?.card_customization?.desired_slug ||');
+    expect(source).toContain('const suggestedSlug = user ? claimData?.reserved_slug || order?.card_customization?.desired_slug ||');
     expect(source).toContain('data-cy="activation-suggested-slug"');
     expect(source).toContain('Usuario sugerido listo');
     expect(source).toContain('nexcard.cl/{suggestedSlug}');
-    expect(source).toContain("onContinueSetup?.({ token, reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '', claimResult: result })");
+    expect(source).toContain("onContinueSetup?.({ reservedSlug: result.reserved_slug || result.order?.card_customization?.desired_slug || '', claimResult: result })");
   });
 
-  it('cierra el ciclo del reserved_slug después de completar setup y claim', () => {
+  it('cierra el ciclo con claim_id autenticado sin reutilizar el bearer URL', () => {
     const source = read(appPath);
 
+    expect(source).toContain("sessionStorage.setItem('nx_pending_claim_id', claimId)");
+    expect(source).toContain('await api.finalizeProfileClaim(pendingClaimId)');
     expect(source).toContain("sessionStorage.setItem('nx_pending_profile_slug', reservedSlug)");
+    expect(source).toContain("sessionStorage.removeItem('nx_pending_claim_id')");
     expect(source).toContain("sessionStorage.removeItem('nx_pending_profile_slug')");
     expect(source).toContain("sessionStorage.removeItem('nx_pending_profile_seed')");
     expect(source).toContain('setPendingClaimToken(null)');
+    expect(read(setupWizardPath)).toContain('await onComplete({ ...formData, slug })');
+    expect(read(setupWizardPath)).toContain('No pudimos terminar de vincular tu NexCard');
   });
 
   it('no devuelve ni loguea el token de activación en el preview del claim', () => {
@@ -53,7 +58,9 @@ describe('activation flow hardening', () => {
 
     expect(source).not.toContain('token,');
     expect(source).not.toContain("{ token, error");
-    expect(source).toContain("already_claimed: claim.status === 'claimed'");
+    expect(source).not.toContain('token_prefix');
+    expect(source).not.toContain('token.slice');
+    expect(source).toContain('buildPublicClaimPreview(claim)');
   });
 
   it('prellena setup con datos de la compra para reducir fricción', () => {
@@ -81,19 +88,16 @@ describe('activation flow hardening', () => {
     expect(editorSource).toContain('group-hover:translate-x-1');
   });
 
-  it('guarda token y email comprador para el primer acceso contextual', () => {
-    const appSource = read(appPath);
+  it('guarda solo el token antes de enviar al login contextual', () => {
     const apiSource = read(apiPath);
+    const appSource = read(appPath);
     const routeSource = read(appRouteRendererPath);
 
-    expect(apiSource).toContain('nexcard_pending_claim_email');
-    expect(apiSource).toContain('export const getPendingClaimEmail');
-    expect(apiSource).toContain('export const setPendingClaimEmail');
-    expect(apiSource).toContain('setPendingClaimEmail(null)');
-    expect(appSource).toContain("const handleClaimAuthRequired = (token, buyerEmail = '')");
-    expect(appSource).toContain('setPendingClaimEmail(buyerEmail)');
+    expect(apiSource).not.toContain('nexcard_pending_claim_email');
+    expect(appSource).toContain('const handleClaimAuthRequired = (token)');
+    expect(appSource).not.toContain('setPendingClaimEmail');
     expect(appSource).toContain("navigate('/login?mode=register&claim=1')");
-    expect(routeSource).toContain('pendingClaimEmail={pendingClaimEmail}');
+    expect(routeSource).not.toContain('pendingClaimEmail');
   });
 
   it('presenta creación de acceso contextual en vez de login genérico', () => {
@@ -102,12 +106,13 @@ describe('activation flow hardening', () => {
 
     expect(activationSource).toContain('Crear acceso y activar NexCard');
     expect(activationSource).toContain('Crearás tu acceso NexCard para administrar tu perfil digital');
-    expect(activationSource).toContain("onAuthRequired?.(token, buyerEmail)");
+    expect(activationSource).toContain('onAuthRequired?.(token)');
     expect(authSource).toContain('Paso 1 de 2: crea tu acceso.');
     expect(authSource).toContain('Después de confirmar tu correo, continuaremos automáticamente al setup guiado.');
     expect(authSource).toContain('Crear acceso y seguir al setup');
     expect(authSource).toContain('Este flujo separa crear acceso de editar perfil');
-    expect(authSource).toContain('readOnly={shouldLockEmail}');
+    expect(authSource).not.toContain('lockedClaimEmail');
+    expect(authSource).not.toContain('readOnly={shouldLockEmail}');
     expect(authSource).toContain('mode === AUTH_MODES.REGISTER && hasPendingClaim');
   });
 
